@@ -1,0 +1,18 @@
+This is a small variable-width font engine for the SNES/65816 CPU. It also contains a patch to
+Final Fantasy 6 to use it for long enemy names, which allows the SNES version to use the longer
+GBA names for enemies.
+
+Note that, currently, Gau's Rage list uses the original, shorter enemy names.
+
+To build the demo, just say:
+
+    $ PATH=$PATH:/path/to/cc65/bin make
+
+To patch FF6, place an *expanded* copy of the US ROM in the directory named `ff6.smc` and run:
+
+    $ PATH=$PATH:/path/to/cc65/bin make ff6
+
+The resulting ROM will be written to `ff6vwf.smc`.
+
+You need to expand the original ROM to 32MBit first with Lunar Expand or similar. The makefile
+doesn't yet do this for you.
