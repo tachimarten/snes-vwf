@@ -44,14 +44,23 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 
 ; Globals
 
-GLOBAL_BASE = $3f6200   ; Beginning of some unused RAM. (I hope it's unused...)
-; Which lines of text need to be uploaded to VRAM. The appropriate bit is set to 1 if the line of
-; text needs to be uploaded.
-ff6vwf_text_dma_stack_ptr = GLOBAL_BASE + $00
-ff6vwf_text_dma_stack_base = GLOBAL_BASE + $01
+GLOBAL_BASE = $7ef000   ; Beginning of some unused RAM. (I hope it's unused...)
+; Stack of DMA structures. They look like:
+;
+; struct dma {
+;     void vram *dest_vram_addr;    // word address
+;     void near *src_addr;          // our address
+; };
+;
+; Number of bytes to be transferred is currently always 160.
+;
+; Stack max size is 4 (16 bytes), so the type here is dma[4].
+ff6vwf_text_dma_stack_base = GLOBAL_BASE + $0000
 ; Space for 4 lines of text, 16 tiles (256 bytes) each to be stored. These are uploaded to VRAM
 ; if the corresponding bit in `ff6vwf_pending_text_lines` are set.
-ff6vwf_text_tiles = GLOBAL_BASE + $10
+ff6vwf_text_tiles = GLOBAL_BASE + $0010
+; Current of the stack *in bytes*.
+ff6vwf_text_dma_stack_ptr = GLOBAL_BASE + $0410
 
 .import vwf_render_string: far
 
