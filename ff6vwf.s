@@ -9,9 +9,15 @@
 
 .include "snes.inc"
 
+.import vwf_render_string: far
+
 ; Original Final Fantasy 6 (US) ROM
 .segment "BASETEXT"
 .incbin "ff6.smc"
+
+; FF6 globals
+
+ff6_encounter_enemy_ids = $7e200d
 
 .segment "XBSSENCOUNTER"
 
@@ -34,8 +40,10 @@ ff6vwf_text_dma_stack_ptr: .res 1
 
 ; Patches to Final Fantasy 6 functions
 
+; Encounter setup. We patch it to initialize our DMA stack.
 .segment "PTEXTINITENCOUNTER"
     jml _ff6vwf_encounter_init
+
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
 .segment "PTEXTDRAWENEMYNAME"
@@ -62,12 +70,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
-; Globals
-
-GLOBAL_BASE = $7ef000   ; Beginning of some unused RAM. (I hope it's unused...)
-
-.import vwf_render_string: far
-
+; farproc void _ff6vwf_encounter_init()
 .proc _ff6vwf_encounter_init
     lda #0
     sta ff6vwf_text_dma_stack_ptr
@@ -89,7 +92,6 @@ begin_locals
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
 
-ff6_enemy_ids         = $7e200d
 ff6_enemy_name_offset = $7e0026
 ff6_enemy_name_table  = $cfc050
 ff6_display_list_ptr  = $7e0048
@@ -115,7 +117,7 @@ ff6_tiles_to_draw     = $7e0010
     and #$00ff
     asl
     tax
-    lda ff6_enemy_ids,x         ; fetch enemy ID
+    lda ff6_encounter_enemy_ids,x   ; fetch enemy ID
     cmp #$ffff
     a8
     bne @name_not_empty
@@ -266,18 +268,48 @@ ff6_dest_tile_attributes = $7e004e
 ; after a text box closes during an encounter. We simply set all bits to tell our custom NMI
 ; routine to start reuploading when it gets a chance.
 .proc _ff6vwf_encounter_restore_small_font
+begin_locals
+    decl_local outgoing_args, 1
+    decl_local enemy_index, 1   ; uint8
+
+ff6_dma_size_to_transfer = $10
+
     ; Do the stuff the original function did.
+    ;
+    ; Do this before the function prolog because we need the DP to be 0 when calling FF6 functions.
     ldx #$1000
-    stx $10
+    stx ff6_dma_size_to_transfer
     ldx #$7fc0      ; address of graphics in ROM
     ldy #$5800      ; VRAM address / 2
     lda #$c4        ; bank
     jsl _ff6vwf_encounter_schedule_dma_trampoline
 
-    ; Now go ahead and set all our text line bits to reupload everything.
-    ;lda #$0f
-    ;sta f:ff6vwf_pending_text_lines
+    enter __FRAME_SIZE__
 
+    ; Look at the monster names and schedule each one to be reuploaded if necessary.
+    lda #0
+    sta enemy_index
+@reupload_enemy_name:
+    sta outgoing_args+0
+    a16
+    and #$00ff
+    asl
+    tax
+    lda ff6_encounter_enemy_ids,x
+    cmp #$ffff
+    a8
+    beq :+
+    jsr _ff6vwf_encounter_schedule_text_dma
+:   inc enemy_index
+    lda enemy_index
+    cmp #4
+    blt @reupload_enemy_name
+
+    leave __FRAME_SIZE__
+    ; NB: This is necessary to avoid a crash!
+    a16
+    lda #0
+    a8
     rtl
 .endproc
 
@@ -292,7 +324,6 @@ begin_args_nearcall
 
     ; Grab the DMA stack pointer.
     ; FIXME(tachiweasel): This seems racy...
-    ; FIXME(tachiweasel): Handle overflow?
     lda #^ff6vwf_text_dma_stack_base
     sta dma_stack_ptr+2
     lda ff6vwf_text_dma_stack_ptr
@@ -301,7 +332,16 @@ begin_args_nearcall
     add #.loword(ff6vwf_text_dma_stack_base)
     sta dma_stack_ptr
 
+    ; Bump the DMA stack pointer. If it overflows, bail out to avoid crashing the game.
+    a8
+    lda ff6vwf_text_dma_stack_ptr
+    add #4
+    cmp #4 * 4
+    bge @out
+    sta ff6vwf_text_dma_stack_ptr
+
     ; Push our DMA on the stack.
+    a16
     lda text_line_index
     and #$00ff
     xba
@@ -314,13 +354,9 @@ begin_args_nearcall
     txa
     add #.loword(ff6vwf_text_tiles) ; src address
     sta [dma_stack_ptr]
-
-    ; Bump the DMA stack pointer.
     a8
-    lda ff6vwf_text_dma_stack_ptr
-    add #4
-    sta ff6vwf_text_dma_stack_ptr
 
+@out:
     leave __FRAME_SIZE__
     rts
 .endproc

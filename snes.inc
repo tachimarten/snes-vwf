@@ -64,6 +64,14 @@ MDMAEN   = $420b
 .endrepeat
 .endmacro
 
+.macro blt label
+    bcc label
+.endmacro
+
+.macro bge label
+    bcs label
+.endmacro
+
 ; Creates a C-like function prolog. DP is set to point at the first local variable (so it's
 ; basically a frame pointer).
 ;

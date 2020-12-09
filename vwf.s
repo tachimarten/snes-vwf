@@ -116,7 +116,7 @@ begin_args_farcall
 
     ; Flush tile if necessary.
     sub #8
-    bcc :+
+    blt :+
     sta tile_sub_x
     a16
     tdc
