@@ -14,6 +14,8 @@
 
 ; Patches to Final Fantasy 6 functions
 
+.segment "PTEXTINITENCOUNTER"
+    jml _ff6vwf_encounter_init
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
 .segment "PTEXTDRAWENEMYNAME"
@@ -42,14 +44,23 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 
 ; Globals
 
+GLOBAL_BASE = $3f6200   ; Beginning of some unused RAM. (I hope it's unused...)
 ; Which lines of text need to be uploaded to VRAM. The appropriate bit is set to 1 if the line of
 ; text needs to be uploaded.
-ff6vwf_pending_text_lines = $3f6200
+ff6vwf_text_dma_stack_ptr = GLOBAL_BASE + $00
+ff6vwf_text_dma_stack_base = GLOBAL_BASE + $01
 ; Space for 4 lines of text, 16 tiles (256 bytes) each to be stored. These are uploaded to VRAM
 ; if the corresponding bit in `ff6vwf_pending_text_lines` are set.
-ff6vwf_text_tiles = $3f6210
+ff6vwf_text_tiles = GLOBAL_BASE + $10
 
 .import vwf_render_string: far
+
+.proc _ff6vwf_encounter_init
+    lda #0
+    sta ff6vwf_text_dma_stack_ptr
+    jsl $c00016 ; original code
+    jml $c1102e
+.endproc
 
 ; farproc void _ff6vwf_encounter_draw_enemy_name(register Y: uint16 tilemap_offset)
 ;
@@ -63,7 +74,8 @@ dest_tilemap_offset = $0d   ; uint16, on entry to function, this is Y
 display_list_ptr = $0f      ; char *, FF6's display list pointer, $7e0048
 tiles_to_draw = $11         ; uint8
 current_tile_index = $12    ; char
-FRAME_SIZE = $13
+dma_stack_ptr = $13         ; far uint16 *
+FRAME_SIZE = $16
 
 ff6_enemy_ids         = $7e200d
 ff6_enemy_name_offset = $7e0026
@@ -153,19 +165,36 @@ ff6_tiles_to_draw     = $7e0010
     bra :-
 :
 
-    ; Set the flag to tell NMI we need to copy a name.
+    ; Grab the DMA stack pointer.
+    ; FIXME(tachiweasel): This seems racy...
+    a8
+    lda #^ff6vwf_text_dma_stack_base
+    sta dma_stack_ptr+2
+    lda ff6vwf_text_dma_stack_ptr
+    a16
+    and #$00ff
+    add #.loword(ff6vwf_text_dma_stack_base)
+    sta dma_stack_ptr
+
+    ; Push our DMA on the stack.
     lda enemy_index
     and #$00ff
-    tax
+    xba
+    tax                             ; save enemy_index * 256
+    lsr                             ; enemy_index * by 128
+    add #$b400/2                    ; VRAM address
+    sta [dma_stack_ptr]             ; write VRAM address
+    inc dma_stack_ptr
+    inc dma_stack_ptr
+    txa
+    add #.loword(ff6vwf_text_tiles) ; src address
+    sta [dma_stack_ptr]
+
+    ; Bump the DMA stack pointer.
     a8
-    lda #1
-    cpx #0
-:   beq :+
-    asl
-    dex
-    bra :-
-:   ora f:ff6vwf_pending_text_lines
-    sta f:ff6vwf_pending_text_lines
+    lda ff6vwf_text_dma_stack_ptr
+    add #4
+    sta ff6vwf_text_dma_stack_ptr
 
     lda enemy_index
     asli 4
@@ -260,8 +289,8 @@ ff6_dest_tile_attributes = $7e004e
     jsl _ff6vwf_encounter_schedule_dma_trampoline
 
     ; Now go ahead and set all our text line bits to reupload everything.
-    lda #$0f
-    sta f:ff6vwf_pending_text_lines
+    ;lda #$0f
+    ;sta f:ff6vwf_pending_text_lines
 
     rtl
 .endproc
@@ -282,41 +311,24 @@ ff6_large_dma_enabled = $8000
     jml $c11974                 ; Yield back to FF6.
 
 @no_large_dma:
-    ; Any text lines to upload?
-    lda ff6vwf_pending_text_lines
+    ; Any DMA lines to upload?
+    tdc                         ; fast clear top byte of A to 0
+    lda ff6vwf_text_dma_stack_ptr
     beq @done
 
-    ; Find the first pending text line.
-    sta ff6_dma_size_to_transfer    ; Will be overwritten, so just use it as scratch space
-    lda #1
-    ldx #0
-:   bit ff6_dma_size_to_transfer
-    bne @upload_text_line
-    asl
-    inx
-    bra :-
-
-@upload_text_line:
-    ; Now X contains the text line index and A its bitmask. First, clear the pending enemy bit.
-    eor #$ff
-    and ff6_dma_size_to_transfer
-    sta ff6vwf_pending_text_lines
-
-    ; Load source and destination into X and Y respectively.
-    a16
-    txa
-    xba
-    lsr     ; text line index * 128
-    add #$b400/2
-    tay
-    txa
-    xba     ; text line index * 256
-    add #.loword(ff6vwf_text_tiles)
+    ; Pop it off the stack.
+    sub #4
+    sta ff6vwf_text_dma_stack_ptr
     tax
+    a16
+    lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
+    tay
+    lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
+    tax
+    a8
 
     ; Call FF6's routine (by jumping into the large DMA function; we're in a different bank, so JSL
     ; would crash).
-    a8
     lda #10*2*8
     sta ff6_dma_size_to_transfer    ; Size to transfer: 10 tiles' worth
     lda #^ff6vwf_text_tiles
