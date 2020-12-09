@@ -1,0 +1,382 @@
+Guard,Guard,Guard
+Soldier,Imperial S,Imperial Soldier
+Templar,Templar,Templar
+Ninja,Ninja,Ninja
+Samurai,Samurai,Samurai
+Orog,Borghese,Borghese
+Mag Roader,Magna R.,Magna Roader
+Retainer,Yojimbo,Yojimbo
+Hazer,Cloud,Cloud
+Dahling,Misty,Misty
+Rain Man,Al Jabr,Al Jabr
+Brawler,Zaghrem,Zaghrem
+Apokryphos,Apocrypha,Apocrypha
+Dark Force,Dark Force,Dark Force
+Whisper,Angel W.,Angel Whisper
+Over-Mind,Oversoul,Oversoul
+Osteosaur,Skeletal,Skeletal Horror
+Commander,Commander,Commander
+Rhodox,Mu,Mu
+Were-Rat,Wererat,Wererat
+Ursus,Mugbear,Mugbear
+Rhinotaur,Belmodar,Belmodar
+Steroidite,Muud Suud,Muud Suud
+Leafer,Leaf Bunny,Leaf Bunny
+Stray Cat,Stray Cat,Stray Cat
+Lobo,Silver L.,Silver Lobo
+Doberman,Doberman,Doberman
+Vomammoth,Megalodoth,Megalodoth
+Fidor,Fidor,Fidor
+Baskervor,Briareus,Briareus
+Suriander,Suriander,Suriander
+Chimera,Chimera,Chimera
+Behemoth,Behemoth,Behemoth
+Mesosaur,Fafnir,Fafnir
+Pterodon,Lesser L.,Lesser Lopros
+FossilFang,Fossil D.,Fossil Dragon
+White Drgn,Holy D.,Holy Dragon
+Doom Drgn,Fiend D.,Fiend Dragon
+Brachosaur,Brachio.,Brachiosaur
+Tyranosaur,Tyranno.,Tyrannosaur
+Dark Wind,Darkwind,Darkwind
+Beakor,Aepyornis,Aepyornis
+Vulture,Vulture,Vulture
+Harpy,Vasegiatta,Vasegiatta
+HermitCrab,Zokka,Zokka
+Trapper,Trapper,Trapper
+Hornet,Hornet,Hornet
+CrassHoppr,Nettle.,Nettlehopper
+Delta Bug,Delta B.,Delta Beetle
+Gilomantis,Killer M.,Killer Mantis
+Trilium,Trillium,Trillium
+Nightshade,Rafflesia,Rafflesia
+TumbleWeed,Tumbleweed,Tumbleweed
+Bloompire,Vampire T.,Vampire Thorn
+Trilobiter,Cartagra,Cartagra
+Siegfried,Siegfried,Siegfried
+Nautiloid,Nautiloid,Nautiloid
+Exocite,Exocite,Exocite
+Anguiform,Anguiform,Anguiform
+Reach Frog,Leap Frog,Leap Frog
+Lizard,Lizard,Lizard
+ChickenLip,Litwor C.,Litwor Chicken
+Hoover,Slagworm,Slagworm
+Rider,Hell's R.,Hell's Rider
+Chupon,Typhon,Typhon
+Pipsqueak,Onion K.,Onion Knight
+M-TekArmor,Magitek A.,Magitek Armor
+Sky Armor,Sky Armor,Sky Armor
+Telstar,Satellite,Satellite
+Lethal Wpn,Armored W.,Armored Weapon
+Vaporite,Spritzer,Spritzer
+Flan,Flan,Flan
+Ing,Outcast,Outcast
+Humpty,Humpty,Humpty
+Brainpan,Brainpan,Brainpan
+Cruller,Cruller,Cruller
+Cactrot,Cactuar,Cactuar
+Repo Man,Bandit,Bandit
+Harvester,Harvester,Harvester
+Bomb,Bomb,Bomb
+Still Life,Still Life,Still Life
+Boxed Set,Lunatys,Lunatys
+SlamDancer,Veil D.,Veil Dancer
+HadesGigas,Hill Gigas,Hill Gigas
+Pug,Tonberry,Tonberry
+Magic Urn,Magic Urn,Magic Urn
+Mover,Mover,Mover
+Figaliz,Figaro L.,Figaro Lizard
+Buffalax,Devoahan,Devoahan
+Aspik,Aspiran,Aspiran
+Ghost,Ghost,Ghost
+Crawler,Crawler,Crawler
+Sand Ray,Sand Ray,Sand Ray
+Areneid,Alacran,Alacran
+Actaneon,Actaneon,Actinian
+Sand Horse,Sandhorse,Sandhorse
+Dark Side,Darkside,Darkside
+Mad Oscar,Malboro,Malboro
+Crawly,Urok,Urok
+Bleary,Foper,Foper
+Marshal,Guard L.,Guard Leader
+Trooper,Corporal,Corporal
+General,General,General
+Covert,Covert,Covert
+Ogor,Kamui,Kamui
+Warlock,Warlock,Warlock
+Madam,Cherry,Cherry
+Joker,Joker,Joker
+Iron Fist,Iron Fist,Iron Fist
+Goblin,Devoahan,Devil
+Apparite,Provoker,Provoker
+PowerDemon,Cloudwr.,Cloudwraith
+Displayer,Mahadeva,Mahadeva
+Vector Pup,Vector H.,Vector Hound
+Peepers,Peeper,Peeper
+Sewer Rat,Sewer Rat,Sewer Rat
+Slatter,Sorath,Sorath
+Rhinox,Destroyer,Destroyer
+Rhobite,Chippi.,Chippirabbit
+Wild Cat,Coeurl Cat,Coeurl Cat
+Red Fang,Bloodfang,Bloodfang
+Bounty Man,Hunting H.,Hunting Hound
+Tusker,Gorgias,Gorgias
+Ralph,Don,Don
+Chitonid,Murussu,Murussu
+Wart Puck,Wartpuck,Wartpuck
+Rhyos,Gorgimera,Gorgimera
+SrBehemoth,Behemoth K,Behemoth King
+Vectaur,Vector L.,Vector Lythos
+Wyvern,Wyvern,Wyvern
+Zombone,Zombie D.,Zombie Dragon
+Dragon,Dragon,Dragon
+Brontaur,Primeval D,Primeval Dragon
+Allosaurus,Weredragon,Weredragon
+Cirpius,Cirpius,Cirpius
+Sprinter,Sprinter,Sprinter
+Gobbler,Lenergia,Lenergia
+Harpiai,Marchosias,Marchosias
+GloomShell,Gloomwind,Gloomwind
+Drop,Dropper,Dropper
+Mind Candy,Rock Wasp,Rock Wasp
+WeedFeeder,Grasswyrm,Grasswyrm
+Luridan,Luridan,Luridan
+Toe Cutter,Twinscythe,Twinscythe
+Over Grunk,Paraladia,Paraladia
+Exoray,Exoray,Exoray
+Crusher,Crusher,Crusher
+Uroburos,Ouroboros,Ouroboros
+Primordite,Acrophies,Acrophies
+Sky Cap,Schmidt,Schmidt
+Cephaler,Devourer,Devourer
+Maliga,Cancer,Cancer
+Gigan Toad,Gigantoad,Gigantoad
+Geckorex,Basilisk,Basilisk
+Cluck,Medusa C.,Medusa Chicken
+Land Worm,Landworm,Landworm
+Test Rider,Test Rider,Test Rider
+PlutoArmor,Pluto A.,Pluto Armor
+Tomb Thumb,Onion D.,Onion Dasher
+HeavyArmor,Heavy A.,Heavy Armor
+Chaser,Chaser,Chaser
+Scullion,Gamma,Gamma
+Poplium,Poplium,Poplium
+Intangir,Intangir,Intangir
+Misfit,Misfit,Misfit
+Eland,Creature,Creature
+Enuo,Enuo,Enuo
+Deep Eye,Deepeye,Deepeye
+GreaseMonk,Unseelie,Unseelie
+NeckHunter,Neck H.,Neck Hunter
+Grenade,Grenade,Grenade
+Critic,Alluring R,Alluring Rider
+Pan Dora,Pandora,Pandora
+SoulDancer,Blade D.,Blade Dancer
+Gigantos,Gigantos,Gigantos
+Mag Roader,Magna R.,Magna Roader
+Spek Tor,Lycaon,Lycaon
+Parasite,Parasite,Parasite
+EarthGuard,Land Ray,Land Ray
+Coelecite,Antares,Antares
+Anemone,Anemone,Anemone
+Hipocampus,Moonform,Moonform
+Spectre,Spectre,Spectre
+Evil Oscar,Great M.,Great Malboro
+Slurm,Bonnacon,Bonnacon
+Latimeria,Oceanus,Oceanus
+StillGoing,Living D.,Living Dead
+Allo Ver,Death W.,Death Warden
+Phase,Face,Face
+Outsider,Outsider,Outsider
+Barb-e,Coco,Coco
+Parasoul,Zeveak,Zeveak
+Pm Stalker,Nightwalk.,Nightwalker
+Hemophyte,Demon K.,Demon Knight
+Sp Forces,Imperial E,Imperial Elite
+Nohrabbit,Desert H.,Desert Hare
+Wizard,Wizard,Wizard
+Scrapper,Devil Fist,Devil Fist
+Ceritops,Illuyankas,Illuyankas
+Commando,Sergeant,Sergeant
+Opinicus,Aspidoch.,Aspidochelon
+Poppers,Knotty,Knotty
+Lunaris,Luna Wolf,Luna Wolf
+Garm,Belzecue,Belzecue
+Vindr,Caladrius,Caladrius
+Kiwok,Tzakmaqiel,Tzakmaqiel
+Nastidon,Lukhavi,Lukhavi
+Rinn,Eukaryote,Eukaryote
+Insecare,Land G.,Land Grillon
+Vermin,Goetia,Goetia
+Mantodea,Greater M.,Greater Mantis
+Bogy,Bogy,Bogy
+Prussian,Purusa,Purusa
+Black Drgn,Black D.,Black Dragon
+Adamanchyt,Adamankary,Adamankary
+Dante,Dante,Dante
+Wirey Drgn,Platinum D,Platinum Dragon
+Dueller,Duel Armor,Duel Armor
+Psychot,Psychos,Psychos
+Muus,Mousse,Mousse
+Karkass,Shambling,Shambling Corpse
+Punisher,Punisher,Punisher
+Balloon,Balloon,Balloon
+Gabbldegak,Gobbledy.,Gobbledygook
+GtBehemoth,Great B.,Great Behemoth
+Scorpion,Scorpion,Scorpion
+Chaos Drgn,Chaos D.,Chaos Dragon
+Spit Fire,Spitfire,Spitfire
+Vectagoyle,Vector C.,Vector Chimera
+Lich,Lich,Lich
+Osprey,Rukh,Rukh
+Mag Roader,Magna R.,Magna Roader
+Bug,Bug,Bug
+Sea Flower,Seaflower,Seaflower
+Fortis,Fortis,Fortis
+Abolisher,Venobennu,Venobennu
+Aquila,Galypdes,Galypdes
+Junk,Junk,Junk
+Mandrake,Mandrake,Mandrake
+1st Class,Valeor,Valeor
+Tap Dancer,Amduscias,Amduscias
+Necromancr,Necro.,Necromancer
+Borras,Glasya L.,Glasya Labolas
+Mag Roader,Magna R.,Magna Roader
+Wild Rat,Wild Rat,Wild Rat
+Gold Bear,Gold Bear,Gold Bear
+Innoc,InnoSent,InnoSent
+Trixter,Clymenus,Clymenus
+Red Wolf,Garm,Garm
+Didalos,Daedalus,Daedalus
+Woolly,Baalzephon,Baalzephon
+Veteran,Ahriman,Ahriman
+Sky Base,Death M.,Death Machine
+IronHitman,Metal H.,Metal Hitman
+Io,Io,Io
+Pugs,Tonberries,Tonberries
+Whelk,Ymir,Ymir
+Presenter,Angler W.,Angler Whelk
+Mega Armor,Mega Armor,Mega Armor
+Vargas,Vargas,Vargas
+TunnelArmr,Tunnel A.,Tunnel Armor
+Prometheus,Prometheus,Prometheus
+GhostTrain,Phantom T.,Phantom Train
+Dadaluma,Dadaluma,Dadaluma
+Shiva,Shiva,Shiva
+Ifrit,Ifrit,Ifrit
+Number 024,Number 024,Number 024
+Number 128,Number 128,Number 128
+Inferno,Inferno,Inferno
+Crane,Crane,Crane
+Crane,Crane,Crane
+Umaro,Umaro,Umaro
+Umaro,Umaro,Umaro
+Guardian,Guardian,Guardian
+Guardian,Guardian,Guardian
+Air Force,Air Force,Air Force
+Tritoch,Valigar.,Valigarmanda
+Tritoch,Valigar.,Valigarmanda
+FlameEater,Flame E.,Flame Eater
+AtmaWeapon,Ultima W.,Ultima Weapon
+Nerapa,Nelapa,Nelapa
+SrBehemoth,Behemoth K,Behemoth King
+Kefka,Kefka,Kefka
+Tentacle,Tentacle,Tentacle
+Dullahan,Dullahan,Dullahan
+Doom Gaze,Deathgaze,Deathgaze
+Chadarnook,Chadarnook,Chadarnook
+Curley,Curlax,Curlax
+Larry,Laragorn,Laragorn
+Moe,Moebius,Moebius
+Wrexsoul,Wrexsoul,Wrexsoul
+Hidon,Hidon,Hidon
+KatanaSoul,Samurai S.,Samurai Soul
+L.30 Magic,Level 30 M,Level 30 Magic
+Hidonite,Hidonite,Hidonite
+Doom,Fiend,Fiend
+Goddess,Goddess,Goddess
+Poltrgeist,Demon,Demon
+Kefka,Kefka,Kefka
+L.40 Magic,Level 40 M,Level 40 Magic
+Ultros,Ultros,Ultros
+Ultros,Ultros,Ultros
+Ultros,Ultros,Ultros
+Chupon,Typhon,Typhon
+L.20 Magic,Level 20 M,Level 20 Magic
+Siegfried,Siegfried,Siegfried
+L.10 Magic,Level 10 M,Level 10 Magic
+L.50 Magic,Level 50 M,Level 50 Magic
+Head,Head,Head
+Whelk Head,Ymir Head,Ymir Head
+Colossus,Colossus,Colossus
+CzarDragon,Czar D.,Czar Dragon
+Master Pug,Master T.,Master Tonberry
+L.60 Magic,Level 60 M,Level 60 Magic
+Merchant,Merchant,Merchant
+B.Day Suit,Birthday S,Birthday Suit
+Tentacle,Tentacle,Tentacle
+Tentacle,Tentacle,Tentacle
+Tentacle,Tentacle,Tentacle
+RightBlade,Right B.,Right Blade
+Left Blade,Left B.,Left Blade
+Rough,Rahu,Rahu
+Striker,Ketu,Ketu
+L.70 Magic,Level 70 M,Level 70 Magic
+Tritoch,Valigar.,Valigarmanda
+Laser Gun,Laser Gun,Laser Gun
+Speck,Bit,Bit
+MissileBay,Missile B.,Missile Bay
+Chadarnook,Chadarnook,Chadarnook
+Ice Dragon,Ice D.,Ice Dragon
+Kefka,Kefka,Kefka
+Storm Drgn,Storm D.,Storm Dragon
+Dirt Drgn,Earth D.,Earth Dragon
+Ipooh,Ipooh,Ipooh
+Leader,Leader,Leader
+Grunt,Grunt,Grunt
+Gold Drgn,Gold D.,Gold Dragon
+Skull Drgn,Skull D.,Skull Dragon
+Blue Drgn,Blue D.,Blue Dragon
+Red Dragon,Red Dragon,Red Dragon
+Piranha,Opinicus F,Opinicus Fish
+Rizopas,Rhizopas,Rhizopas
+Specter,Apparition,Apparition
+Short Arm,Short Arm,Short Arm
+Long Arm,Long Arm,Long Arm
+Face,Face,Face
+Tiger,Tiger,Tiger
+Tools,Tools,Tools
+Magic,Magic,Magic
+Hit,Hit,Hit
+Girl,Girl,Girl
+Sleep,Sleep,Sleep
+Hidonite,Hidonite,Hidonite
+Hidonite,Hidonite,Hidonite
+Hidonite,Hidonite,Hidonite
+L.80 Magic,Level 80 M,Level 80 Magic
+L.90 Magic,Level 90 M,Level 90 Magic
+ProtoArmor,Proto A.,Proto Armor
+MagiMaster,Magic M.,Magic Master
+SoulSaver,Soul Saver,Soul Saver
+Ultros,Ultros,Ultros
+Naughty,Naude,Naude
+Phunbaba,Humbaba,Humbaba
+Phunbaba,Humbaba,Humbaba
+Phunbaba,Humbaba,Humbaba
+Phunbaba,Humbaba,Humbaba
+,,
+,,
+,,
+Zone Eater,Zone Eater,Zone Eater
+,,
+,,
+,,
+Officer,Officer,Officer
+Cadet,Cadet,Cadet
+,,
+,,
+Soldier,Soldier,Soldier
+,,
+,,
+,,
+Atma,Ultima,Ultima

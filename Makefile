@@ -14,6 +14,9 @@ vwf.o:	font.inc snes.inc
 font.inc:	gen-font.rb font.tga
 	./gen-font.rb font.tga > $@
 
+enemy-names.inc:	encode-enemy-names.rb ff6.tbl enemies.csv
+	./encode-enemy-names.rb enemies.csv ff6.tbl > enemy-names.inc
+
 ff6vwf.smc:	ff6vwf.o vwf.o ff6vwf.cfg ff6.smc
 	$(LD65) -C ff6vwf.cfg -o $@ -m ff6vwf.map -vm ff6vwf.o vwf.o
 

@@ -55,8 +55,9 @@ ff6vwf_text_dma_stack_ptr: .res 1
 .segment "PTEXTENCOUNTERDMA"
     jml _ff6vwf_encounter_dma    ; 4 bytes
 
-; This FF6 function restores the normal BG3 font by copying it from the ROM after a dialogue-style
-; text box in an encounter has closed. We have to patch it to restore any enemy names we created.
+; FF6 function that restores the normal BG3 font by copying it from the ROM after a dialogue-style
+; text box in an encounter has closed. We have to patch it to reupload any enemy names we created
+; to VRAM.
 .segment "PTEXTRESTORESMALLFONT"
 ff6_encounter_schedule_dma = $198d
     jsl _ff6vwf_encounter_restore_small_font
