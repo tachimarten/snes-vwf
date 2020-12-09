@@ -9,8 +9,28 @@
 
 .include "snes.inc"
 
+; Original Final Fantasy 6 (US) ROM
 .segment "BASETEXT"
 .incbin "ff6.smc"
+
+.segment "XBSSENCOUNTER"
+
+; Stack of DMA structures. They look like:
+;
+; struct dma {
+;     void vram *dest_vram_addr;    // word address
+;     void near *src_addr;          // our address
+; };
+;
+; Number of bytes to be transferred is currently always 160.
+;
+; Stack max size is 4 (16 bytes), so the type here is dma[4].
+ff6vwf_text_dma_stack_base: .res 16
+; Buffer space for 4 lines of text, 16 tiles (256 bytes) each to be stored, ready to be uploaded to
+; VRAM.
+ff6vwf_text_tiles: .res 256*4
+; Current of the stack *in bytes*.
+ff6vwf_text_dma_stack_ptr: .res 1
 
 ; Patches to Final Fantasy 6 functions
 
@@ -45,22 +65,6 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 ; Globals
 
 GLOBAL_BASE = $7ef000   ; Beginning of some unused RAM. (I hope it's unused...)
-; Stack of DMA structures. They look like:
-;
-; struct dma {
-;     void vram *dest_vram_addr;    // word address
-;     void near *src_addr;          // our address
-; };
-;
-; Number of bytes to be transferred is currently always 160.
-;
-; Stack max size is 4 (16 bytes), so the type here is dma[4].
-ff6vwf_text_dma_stack_base = GLOBAL_BASE + $0000
-; Space for 4 lines of text, 16 tiles (256 bytes) each to be stored. These are uploaded to VRAM
-; if the corresponding bit in `ff6vwf_pending_text_lines` are set.
-ff6vwf_text_tiles = GLOBAL_BASE + $0010
-; Current of the stack *in bytes*.
-ff6vwf_text_dma_stack_ptr = GLOBAL_BASE + $0410
 
 .import vwf_render_string: far
 
@@ -75,16 +79,16 @@ ff6vwf_text_dma_stack_ptr = GLOBAL_BASE + $0410
 ;
 ; Draws an enemy name during an encounter using our small variable-width font.
 .proc _ff6vwf_encounter_draw_enemy_name
-outgoing_args = $00         ; 6 bytes
-string_ptr = $06            ; far *
-enemy_index = $09           ; byte
-enemy_name_tiles = $0a      ; chardata far *
-dest_tilemap_offset = $0d   ; uint16, on entry to function, this is Y
-display_list_ptr = $0f      ; char *, FF6's display list pointer, $7e0048
-tiles_to_draw = $11         ; uint8
-current_tile_index = $12    ; char
-dma_stack_ptr = $13         ; far uint16 *
-FRAME_SIZE = $16
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local string_ptr, 3                ; char far *
+    decl_local enemy_index, 1               ; uint8
+    decl_local enemy_name_tiles, 3          ; chardata far *
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local display_list_ptr, 2          ; char near *
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; char
+    decl_local dma_stack_ptr, 3             ; uint16 far *
 
 ff6_enemy_ids         = $7e200d
 ff6_enemy_name_offset = $7e0026
@@ -92,7 +96,7 @@ ff6_enemy_name_table  = $cfc050
 ff6_display_list_ptr  = $7e0048
 ff6_tiles_to_draw     = $7e0010
 
-    enter FRAME_SIZE
+    enter __FRAME_SIZE__
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -176,6 +180,7 @@ ff6_tiles_to_draw     = $7e0010
 
     ; Grab the DMA stack pointer.
     ; FIXME(tachiweasel): This seems racy...
+    ; FIXME(tachiweasel): Handle overflow?
     a8
     lda #^ff6vwf_text_dma_stack_base
     sta dma_stack_ptr+2
@@ -235,7 +240,7 @@ ff6_tiles_to_draw     = $7e0010
     sta ff6_tiles_to_draw
 
     ldy dest_tilemap_offset
-    leave FRAME_SIZE
+    leave __FRAME_SIZE__
     ; NB: It is important that the high byte of A be 0 upon return! FF6 will glitch otherwise.
     a16
     lda #0
@@ -245,18 +250,18 @@ ff6_tiles_to_draw     = $7e0010
 
 ; uint16 _ff6vwf_encounter_draw_tile(char tile, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_tile
-dest_tilemap_main   = $00               ; tiledata near *, $00004c
-dest_tilemap_extra  = $02               ; tiledata near *, $00004a
-FRAME_SIZE          = $04
-FIRST_ARG           = FRAME_SIZE + $04
-tile_to_draw        = FIRST_ARG
-dest_tilemap_offset = FIRST_ARG + $01
+begin_locals
+    decl_local dest_tilemap_main, 2     ; tiledata near * ($7e004c)
+    decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e004a)
+begin_args_nearcall
+    decl_arg tile_to_draw, 1            ; char
+    decl_arg dest_tilemap_offset, 2     ; uint16
 
 ff6_dest_tilemap_main    = $7e004c
 ff6_dest_tilemap_extra   = $7e004a
 ff6_dest_tile_attributes = $7e004e
 
-    enter FRAME_SIZE
+    enter __FRAME_SIZE__
     a16
     lda ff6_dest_tilemap_main
     sta dest_tilemap_main
@@ -276,7 +281,7 @@ ff6_dest_tile_attributes = $7e004e
     iny
 
     tyx
-    leave FRAME_SIZE
+    leave __FRAME_SIZE__
     rts
 .endproc
 

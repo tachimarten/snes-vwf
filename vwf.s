@@ -20,18 +20,18 @@
 ; Renders a null-terminated ASCII string to the tiles at `dest_ptr`. Returns the address of the end
 ; tile (the tile one past the end of the last one we rendered to).
 .proc vwf_render_string
-outgoing_args       = $00   ; 7 bytes
-tile_sub_x          = $07   ; uint8
-current_glyph       = $08   ; uint8
-glyph_image_ptr     = $09   ; const chardata far *
-shadow_buffer       = $0c   ; uint8; stores last column to be carried over into shadow of next tile
-glyph_canvas        = $0d   ; chardata[16]
-FRAME_SIZE          = $1d
-FIRST_ARG           = FRAME_SIZE + $05
-dest_ptr            = FIRST_ARG + $00   ; chardata far *
-string_ptr          = FIRST_ARG + $03   ; const char far *
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local tile_sub_x, 1        ; uint8
+    decl_local current_glyph, 1     ; uint8
+    decl_local glyph_image_ptr, 3   ; const chardata far *
+    decl_local shadow_buffer, 1     ; uint8
+    decl_local glyph_canvas, 16     ; chardata[16]
+begin_args_farcall
+    decl_arg dest_ptr, 3            ; chardata far *
+    decl_arg string_ptr, 3          ; const char far *
 
-    enter FRAME_SIZE
+    enter __FRAME_SIZE__
 
     ; Init local variables.
     lda #^glyph_images
@@ -160,25 +160,25 @@ string_ptr          = FIRST_ARG + $03   ; const char far *
     ; Return new pointer in X.
     ldx dest_ptr
 
-    leave FRAME_SIZE
+    leave __FRAME_SIZE__
     rtl
 .endproc
 
-; near *_vwf_flush_tile_image(tiledata far *dest_ptr,
-;                             tiledata near *src_ptr,
-;                             uint8 near *shadow_buffer_ptr)
+; near *_vwf_flush_tile_image(chardata far *dest_ptr,
+;                             chardata near *src_ptr,
+;                             chardata near *shadow_buffer_ptr)
 ;
 ; Returns the new destination pointer.
 .proc _vwf_flush_tile_image
-last_row_image      = $00
-last_col_image      = $01
-FRAME_SIZE          = $02
-FIRST_ARG           = FRAME_SIZE + $04
-dest_ptr            = FIRST_ARG + $00
-src_ptr             = FIRST_ARG + $03
-shadow_buffer_ptr   = FIRST_ARG + $05
+begin_locals
+    decl_local last_row_image, 1    ; chardata
+    decl_local last_col_image, 1    ; chardata
+begin_args_nearcall
+    decl_arg dest_ptr, 3            ; chardata far *
+    decl_arg src_ptr, 2             ; chardata near *
+    decl_arg shadow_buffer_ptr, 2   ; chardata near *
 
-    enter FRAME_SIZE
+    enter __FRAME_SIZE__
 
     ; Initialize last row and column image.
     lda (shadow_buffer_ptr)
@@ -233,7 +233,7 @@ shadow_buffer_ptr   = FIRST_ARG + $05
     ; Return the new dest pointer in X.
     ldx z:dest_ptr
 
-    leave FRAME_SIZE
+    leave __FRAME_SIZE__
     rts
 
 .endproc

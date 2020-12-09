@@ -97,5 +97,38 @@ MDMAEN   = $420b
     a8
 .endmacro
 
+; A convenience macro to declare direct page locations local to a function.
+.macro begin_locals
+    __FRAME_SIZE__ .set 0
+.endmacro
+
+; Reserves `size` bytes on a function's direct page and sets `name` equal to the address. The total
+; frame size so far can be read in `__FRAME_SIZE__` and passed to `enter` and `leave` macros.
+.macro decl_local name, size
+    name = __FRAME_SIZE__
+    __FRAME_SIZE__ .set __FRAME_SIZE__ + size
+.endmacro
+
+; A convenience macro to declare direct page locations on the caller's stack frame, for a function
+; called with JSR.
+.macro begin_args_nearcall
+    __ARGS_BEGIN__ .set __FRAME_SIZE__ + $04
+    __ARGS_SIZE__ .set 0
+.endmacro
+
+; A convenience macro to declare direct page locations on the caller's stack frame, for a function
+; called with JSL.
+.macro begin_args_farcall
+    __ARGS_BEGIN__ .set __FRAME_SIZE__ + $05
+    __ARGS_SIZE__ .set 0
+.endmacro
+
+; Declares that the function has an argument with the given `name` and the given `size`. The total
+; argument size so far can be read in `__ARGS_SIZE__`.
+.macro decl_arg name, size
+    name = __ARGS_BEGIN__ + __ARGS_SIZE__
+    __ARGS_SIZE__ .set __ARGS_SIZE__ + size
+.endmacro
+
 .endif
 
