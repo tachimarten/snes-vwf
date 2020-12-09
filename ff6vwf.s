@@ -88,7 +88,6 @@ begin_locals
     decl_local display_list_ptr, 2          ; char near *
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
-    decl_local dma_stack_ptr, 3             ; uint16 far *
 
 ff6_enemy_ids         = $7e200d
 ff6_enemy_name_offset = $7e0026
@@ -178,37 +177,10 @@ ff6_tiles_to_draw     = $7e0010
     bra :-
 :
 
-    ; Grab the DMA stack pointer.
-    ; FIXME(tachiweasel): This seems racy...
-    ; FIXME(tachiweasel): Handle overflow?
     a8
-    lda #^ff6vwf_text_dma_stack_base
-    sta dma_stack_ptr+2
-    lda ff6vwf_text_dma_stack_ptr
-    a16
-    and #$00ff
-    add #.loword(ff6vwf_text_dma_stack_base)
-    sta dma_stack_ptr
-
-    ; Push our DMA on the stack.
     lda enemy_index
-    and #$00ff
-    xba
-    tax                             ; save enemy_index * 256
-    lsr                             ; enemy_index * by 128
-    add #$b400/2                    ; VRAM address
-    sta [dma_stack_ptr]             ; write VRAM address
-    inc dma_stack_ptr
-    inc dma_stack_ptr
-    txa
-    add #.loword(ff6vwf_text_tiles) ; src address
-    sta [dma_stack_ptr]
-
-    ; Bump the DMA stack pointer.
-    a8
-    lda ff6vwf_text_dma_stack_ptr
-    add #4
-    sta ff6vwf_text_dma_stack_ptr
+    sta outgoing_args+0
+    jsr _ff6vwf_encounter_schedule_text_dma
 
     lda enemy_index
     asli 4
@@ -307,6 +279,50 @@ ff6_dest_tile_attributes = $7e004e
     ;sta f:ff6vwf_pending_text_lines
 
     rtl
+.endproc
+
+; nearproc void _ff6vwf_encounter_schedule_text_dma(uint8 text_line_index)
+.proc _ff6vwf_encounter_schedule_text_dma
+begin_locals
+    decl_local dma_stack_ptr, 3     ; uint16 far *
+begin_args_nearcall
+    decl_arg text_line_index, 1     ; uint8
+
+    enter __FRAME_SIZE__
+
+    ; Grab the DMA stack pointer.
+    ; FIXME(tachiweasel): This seems racy...
+    ; FIXME(tachiweasel): Handle overflow?
+    lda #^ff6vwf_text_dma_stack_base
+    sta dma_stack_ptr+2
+    lda ff6vwf_text_dma_stack_ptr
+    a16
+    and #$00ff
+    add #.loword(ff6vwf_text_dma_stack_base)
+    sta dma_stack_ptr
+
+    ; Push our DMA on the stack.
+    lda text_line_index
+    and #$00ff
+    xba
+    tax                             ; save text_line_index * 256
+    lsr                             ; text_line_index * by 128
+    add #$b400/2                    ; VRAM address
+    sta [dma_stack_ptr]             ; write VRAM address
+    inc dma_stack_ptr
+    inc dma_stack_ptr
+    txa
+    add #.loword(ff6vwf_text_tiles) ; src address
+    sta [dma_stack_ptr]
+
+    ; Bump the DMA stack pointer.
+    a8
+    lda ff6vwf_text_dma_stack_ptr
+    add #4
+    sta ff6vwf_text_dma_stack_ptr
+
+    leave __FRAME_SIZE__
+    rts
 .endproc
 
 ; A patched version of the "large DMA" encounter routine at $C1196F that adds in any DMA we need to
