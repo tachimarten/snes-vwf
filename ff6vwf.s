@@ -11,29 +11,6 @@
 
 .import vwf_render_string: far
 
-.segment "BASETEXT"
-
-; Original Final Fantasy 6 (US) ROM
-.incbin "ff6.smc"
-
-; Expand to 32Mbit
-.repeat $100000/$8000
-.res $8000, 0
-.endrepeat
-
-.segment "PTEXTHEADER"
-
-.byte "FINAL FANTASY 3      "   ; name
-.byte $31                       ; map mode
-.byte $02                       ; ROM type
-.byte $0C                       ; ROM size
-.byte $03                       ; SRAM size
-.byte $01                       ; destination code
-.byte $33                       ; magic
-.byte $00                       ; version
-.word $A0CD                     ; checksum complement
-.word $5F32                     ; checksum
-
 ; FF6 globals
 
 ff6_encounter_enemy_ids = $7e200d
@@ -67,6 +44,10 @@ ff6vwf_text_dma_stack_ptr: .res 1
 ; fonts.
 .segment "PTEXTDRAWENEMYNAME"
     jsl _ff6vwf_encounter_draw_enemy_name
+    rts
+
+.segment "PTEXTDRAWITEMNAME"
+    jsl _ff6vwf_encounter_draw_item_name
     rts
 
 ; FF6 routine that performs large DMA during encounters, part of the NMI/VBLANK handler. We patch
@@ -112,10 +93,10 @@ begin_locals
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
 
+ff6_tiles_to_draw     = $7e0010
+ff6_display_list_ptr  = $7e0048
 ff6_enemy_name_offset = $7e0026
 ff6_enemy_name_table  = $cfc050
-ff6_display_list_ptr  = $7e0048
-ff6_tiles_to_draw     = $7e0010
 
     enter __FRAME_SIZE__
 
@@ -155,6 +136,7 @@ ff6_tiles_to_draw     = $7e0010
     jmp @return
 
 @name_not_empty:
+    ; Put source pointer in Y.
     a16
     asl
     tax
@@ -187,12 +169,11 @@ ff6_tiles_to_draw     = $7e0010
     ; tiles with blanks.
     a16
     txa
-    sec
-    sbc z:enemy_name_tiles                  ; Compute how many bytes were written.
+    sub z:enemy_name_tiles                  ; Compute how many bytes were written.
     tay
     lda #0
 :   cpy #10*8*2
-    bcs :+
+    bge :+
     sta [enemy_name_tiles],y
     iny
     iny
@@ -204,6 +185,7 @@ ff6_tiles_to_draw     = $7e0010
     sta outgoing_args+0
     jsr _ff6vwf_encounter_schedule_text_dma
 
+    ; TODO(tachiweasel): Factor into separate function
     lda enemy_index
     asli 4
     add #$40                ; Start at tile $40 + $10 * enemy_index.
@@ -239,6 +221,85 @@ ff6_tiles_to_draw     = $7e0010
     a16
     lda #0
     a8
+    rtl
+.endproc
+
+.proc _ff6vwf_encounter_draw_item_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local item_name_tiles, 3           ; tiledata far *
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; char
+    decl_local item_slot, 1                ; uint8
+
+ff6_item_name_ptr  = $004f
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    lda #13
+    sta tiles_to_draw
+    lda #0
+    sta item_slot   ; FIXME(tachiweasel)
+
+    ; Put source pointer in Y.
+    lda (ff6_item_name_ptr)
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_item_names,x
+    tay
+    a8
+
+    ; Compute dest pointer.
+    lda #^ff6vwf_text_tiles
+    sta z:item_name_tiles+2
+    lda item_slot
+    a16
+    and #$00ff
+    xba
+    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[item_slot * 256]
+    sta z:item_name_tiles
+    a8
+
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+5
+    sty outgoing_args+3     ; string_ptr
+    lda #^ff6vwf_text_tiles
+    sta outgoing_args+2
+    ldy z:item_name_tiles
+    sty outgoing_args+0     ; dest_ptr 
+    jsl vwf_render_string
+
+    lda #0
+    sta outgoing_args+0
+    jsr _ff6vwf_encounter_schedule_text_dma
+
+    ; TODO(tachiweasel): Factor into separate function
+    lda item_slot
+    asli 4
+    add #$40                ; Start at tile $40 + $10 * item_slot.
+    sta current_tile_index
+    ldy dest_tilemap_offset
+:   lda current_tile_index
+    sta ($0053),y
+    lda $0055
+    sta ($0051),y
+    iny
+    lda $0056
+    sta ($0053),y
+    sta ($0051),y
+    iny
+    dec tiles_to_draw
+    bne :-
+    sty dest_tilemap_offset
+
+    ldy dest_tilemap_offset
+
+    leave __FRAME_SIZE__
     rtl
 .endproc
 
@@ -281,6 +342,7 @@ ff6_dest_tile_attributes = $7e004e
 
 ; For debugging
 .export _ff6vwf_encounter_draw_enemy_name
+.export _ff6vwf_encounter_draw_item_name
 
 ; farproc void _ff6vwf_encounter_restore_small_font()
 ;
@@ -431,3 +493,4 @@ ff6_large_dma_enabled = $8000
 .segment "DATA"
 
 .include "enemy-names.inc"
+.include "item-names.inc"
