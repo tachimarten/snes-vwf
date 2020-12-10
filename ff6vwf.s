@@ -35,7 +35,11 @@ ff6vwf_text_tiles: .res 256*4
 ff6vwf_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
 ff6vwf_current_item_slot: .res 1
-ff6vwf_dma_safe: .res 1
+; What type of item we're drawing.
+ff6vwf_item_type_to_draw: .res 1
+
+FF6VWF_ITEM_TYPE_INVENTORY    = 0
+FF6VWF_ITEM_TYPE_ITEM_IN_HAND = 1
 
 ; Patches to Final Fantasy 6 functions
 
@@ -50,7 +54,10 @@ ff6vwf_dma_safe: .res 1
     rts
 
 .segment "PTEXTBUILDMENUITEMFORITEM"
-    jml _ff6vwf_encounter_build_menu_item_for_item  ; 4 bytes
+    jml _ff6vwf_encounter_build_menu_item_for_item          ; 4 bytes
+
+.segment "PTEXTBUILDMENUITEMFORITEMINHAND"
+    jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
 
 .segment "PTEXTDRAWITEMNAME"
     jsl _ff6vwf_encounter_draw_item_name
@@ -226,6 +233,10 @@ ff6_enemy_name_table  = $cfc050
 
 .proc _ff6vwf_encounter_build_menu_item_for_item
     sta f:ff6vwf_current_item_slot
+    pha
+    lda #FF6VWF_ITEM_TYPE_INVENTORY
+    sta f:ff6vwf_item_type_to_draw
+    pla
 
     ; Stuff the original function did
     phy
@@ -235,6 +246,25 @@ ff6_enemy_name_table  = $cfc050
     add $40
     tay
     jml $c14c76
+.endproc
+
+; original function: $c14bba
+.proc _ff6vwf_encounter_build_menu_item_for_item_in_hand
+.a8
+    lda #0 
+    sta f:ff6vwf_current_item_slot
+    lda #FF6VWF_ITEM_TYPE_ITEM_IN_HAND
+    sta f:ff6vwf_item_type_to_draw
+
+    ; Stuff the original function did
+    tdc
+    tax
+:   lda $c14bac,x
+    sta $5755,x
+    inx 
+    cpx #$13
+    bne :-
+    jml $c14bc9
 .endproc
 
 .proc _ff6vwf_encounter_draw_item_name
@@ -249,9 +279,11 @@ begin_locals
     decl_local dest_tiles_main, 2
     decl_local dest_tiles_extra, 2
 
-ff6_dest_tiles_main  = $7e0053
-ff6_dest_tiles_extra = $7e0051
-ff6_display_list_ptr = $7e004f
+ff6_dest_tiles_main    = $7e0053
+ff6_dest_tiles_extra   = $7e0051
+ff6_display_list_ptr   = $7e004f
+ff6_item_in_hand_left  = $7e575a
+ff6_item_in_hand_right = $7e5760
 
     enter __FRAME_SIZE__
 
@@ -259,18 +291,36 @@ ff6_display_list_ptr = $7e004f
     sty dest_tilemap_offset
     lda #13
     sta tiles_to_draw
-    lda ff6vwf_current_item_slot
-    and #$03
-    sta item_slot
     a16
-    lda ff6_display_list_ptr
+    lda ff6_display_list_ptr        ; 575a
     sta item_name_ptr
     lda ff6_dest_tiles_main
     sta dest_tiles_main
     lda ff6_dest_tiles_extra
     sta dest_tiles_extra
 
+    ; Figure out what text slot we're going to use.
+    a8
+    lda ff6vwf_item_type_to_draw
+    cmp #FF6VWF_ITEM_TYPE_ITEM_IN_HAND
+    beq @item_in_hand
+    ; Item in inventory:
+    lda ff6vwf_current_item_slot
+    and #$03
+    bra @write_item_slot
+@item_in_hand:
+    ; Item in hand:
+    ldx item_name_ptr
+    cpx #.loword(ff6_item_in_hand_left)
+    beq :+
+    lda #1      ; FIXME(tachiweasel): This is wrong. Use the item number that overlaps the top.
+    bra @write_item_slot
+:   lda #0
+@write_item_slot:
+    sta item_slot
+
     ; Put source pointer in Y.
+    a16
     lda (item_name_ptr)
     and #$00ff
     asl
@@ -290,6 +340,7 @@ ff6_display_list_ptr = $7e004f
     sta z:item_name_tiles
     a8
 
+    ; Render string.
     lda #^ff6vwf_long_item_names
     sta outgoing_args+5
     sty outgoing_args+3     ; string_ptr
@@ -584,10 +635,12 @@ begin_args_nearcall
 
     ; TODO(tachiweasel): Use the block move instruction.
     ldy #0
-:   sta [ptr],y
+    bra :+
+@loop:
+    sta [ptr],y
     iny
-    cpy count
-    bne :-
+:   cpy count
+    bne @loop
 
     leave __FRAME_SIZE__
     rts
@@ -595,6 +648,7 @@ begin_args_nearcall
 
 ; For debugging
 .export _ff6vwf_encounter_run_dma
+.export _ff6vwf_memset
 
 .segment "DATA"
 
