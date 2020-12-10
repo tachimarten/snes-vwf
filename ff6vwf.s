@@ -56,8 +56,10 @@ ff6vwf_dma_safe: .res 1
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
+/*
 .segment "PTEXTENCOUNTERBEGINDMA"
     jml _ff6vwf_encounter_check_dma_safety  ; 4 bytes
+    */
 
 ; FF6 routine that performs large DMA during encounters, part of the NMI/VBLANK handler. We patch
 ; it to upload our text if needed.
@@ -534,38 +536,52 @@ begin_args_nearcall
 ; DMA logic than a function.
 .proc _ff6vwf_encounter_run_dma
 ff6_dma_size_to_transfer = $10
-
     jsl $c2a88f
 
-    lda ff6vwf_dma_safe
-    beq @out
+    tdc
+    pha
+    plb
+
+    lda $213f
+    lda $2137
+    lda $213d
+    cmp #250
+    bge @out
+    cmp #239
+    blt @out
 
 @do_it:
     ; Any DMA lines to upload?
     tdc                         ; fast clear top byte of A to 0
-    lda ff6vwf_text_dma_stack_ptr
+    lda f:ff6vwf_text_dma_stack_ptr
     beq @out
 
     ; Pop it off the stack.
     sub #4
-    sta ff6vwf_text_dma_stack_ptr
+    sta f:ff6vwf_text_dma_stack_ptr
     tax
     a16
     lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
-    tay
+    sta VMADDL
     lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
-    tax
+    sta A1T7L
     a8
 
-    ; Call FF6's DMA routine by jumping into a function that just happens to begin with
-    ; `JSR $1A2B; RTS`.
-    lda #10*2*8
-    sta ff6_dma_size_to_transfer    ; Size to transfer: 10 tiles' worth
     lda #^ff6vwf_text_tiles
-    pea $0be1-1
-    jml $c149fd
+    sta A1B7
+    ldx #10*2*8
+    stx DAS7L       ; Size to transfer: 10 tiles' worth
+    lda #1
+    sta DMAP7
+    lda #$18
+    sta BBAD7
+    lda #$80
+    sta MDMAEN
 
 @out:
+    lda #$7e
+    pha
+    plb
     jml $c10be1
 
 .endproc
