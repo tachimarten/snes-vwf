@@ -95,57 +95,72 @@ MDMAEN   = $420b
 ; Using a C-like calling convention is a bit weird on the SNES, but in our case it has the
 ; advantage of giving us a private direct page. This reduces the chance of accidentally stomping on
 ; something the game was using.
-;
-; TODO(tachiweasel): Special cases for small frame sizes to avoid the overhead of SEC/SBC.
 .macro enter frame_size
-    a16
     phd
+.if __FRAME_SIZE__ < 11
+.repeat __FRAME_SIZE__ / 2
+    phy
+.endrepeat
+.if (__FRAME_SIZE__ .mod 2) = 1
+    pha
+.endif
     tsc
+.else
+    tsc
+    a16
     sub #frame_size
-    tcs
-    inc
-    tcd
     a8
+    tcs
+.endif
+    tcd
 .endmacro
 
 ; Creates a matching C-like function epilog, restoring the old DP.
 ;
-; Note that this clobbers A, just like the prolog does, so don't use that register for passing
-; return values. Use X instead.
-;
-; TODO(tachiweasel): Special cases for small frame sizes to avoid the overhead of CLC/ADC.
+; Note that this clobbers A and Y, so don't use those registers for passing return values. Use X
+; instead.
 .macro leave frame_size
-    a16
+.if __FRAME_SIZE__ < 11
+.if (__FRAME_SIZE__ .mod 2) = 1
+    pla
+.endif
+.repeat __FRAME_SIZE__ / 2
+    ply
+.endrepeat
+.else
     tsc
+    a16
     add #frame_size
-    tcs
-    pld
     a8
+    tcs
+.endif
+    pld
 .endmacro
 
 ; A convenience macro to declare direct page locations local to a function.
 .macro begin_locals
+    __FRAME_BEGIN__ .set 1
     __FRAME_SIZE__ .set 0
 .endmacro
 
 ; Reserves `size` bytes on a function's direct page and sets `name` equal to the address. The total
 ; frame size so far can be read in `__FRAME_SIZE__` and passed to `enter` and `leave` macros.
 .macro decl_local name, size
-    name = __FRAME_SIZE__
+    name = __FRAME_BEGIN__ + __FRAME_SIZE__
     __FRAME_SIZE__ .set __FRAME_SIZE__ + size
 .endmacro
 
 ; A convenience macro to declare direct page locations on the caller's stack frame, for a function
 ; called with JSR.
 .macro begin_args_nearcall
-    __ARGS_BEGIN__ .set __FRAME_SIZE__ + $04
+    __ARGS_BEGIN__ .set __FRAME_BEGIN__ + __FRAME_SIZE__ + $04
     __ARGS_SIZE__ .set 0
 .endmacro
 
 ; A convenience macro to declare direct page locations on the caller's stack frame, for a function
 ; called with JSL.
 .macro begin_args_farcall
-    __ARGS_BEGIN__ .set __FRAME_SIZE__ + $05
+    __ARGS_BEGIN__ .set __FRAME_BEGIN__ + __FRAME_SIZE__ + $05
     __ARGS_SIZE__ .set 0
 .endmacro
 
