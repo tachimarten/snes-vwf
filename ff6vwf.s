@@ -56,11 +56,6 @@ ff6vwf_dma_safe: .res 1
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
-/*
-.segment "PTEXTENCOUNTERBEGINDMA"
-    jml _ff6vwf_encounter_check_dma_safety  ; 4 bytes
-    */
-
 ; FF6 routine that performs large DMA during encounters, part of the NMI/VBLANK handler. We patch
 ; it to upload our text if needed.
 .segment "PTEXTENCOUNTERRUNDMA"
@@ -140,7 +135,7 @@ ff6_enemy_name_table  = $cfc050
 :   stx outgoing_args+1         ; dest_tilemap_offset
     lda #$ff                    ; space
     sta outgoing_args+0         ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_tile
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
     dec tiles_to_draw
     bne :-
     stx dest_tilemap_offset
@@ -178,25 +173,23 @@ ff6_enemy_name_table  = $cfc050
 
     ; X now contains the pointer to the end of the enemy name tiles we rendered. Fill in remaining
     ; tiles with blanks.
+    stx outgoing_args+0     ; ptr
+    lda enemy_name_tiles+2
+    sta outgoing_args+2     ; ptr, bank byte
     a16
     txa
-    sub z:enemy_name_tiles                  ; Compute how many bytes were written.
-    tay
-    lda #0
-:   cpy #10*8*2
-    bge :+
-    sta [enemy_name_tiles],y
-    iny
-    iny
-    bra :-
-:
-
+    sub #10*8*2
+    sub z:enemy_name_tiles
+    neg16                   ; -(X - 10*8*2 - enemy_name_tiles) == 10*8*2 - (X - enemy_name_tiles)
+    sta outgoing_args+4     ; count
     a8
+    stz outgoing_args+3     ; value
+    jsr _ff6vwf_memset
+
     lda enemy_index
     sta outgoing_args+0
     jsr _ff6vwf_encounter_schedule_text_dma
 
-    ; TODO(tachiweasel): Factor into separate function
     lda enemy_index
     asli 4
     add #$40                ; Start at tile $40 + $10 * enemy_index.
@@ -205,7 +198,7 @@ ff6_enemy_name_table  = $cfc050
 :   stx outgoing_args+1     ; dest_tilemap_offset
     lda current_tile_index
     sta outgoing_args+0     ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_tile
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
     inc current_tile_index
     dec tiles_to_draw
     bne :-
@@ -214,7 +207,7 @@ ff6_enemy_name_table  = $cfc050
     stx outgoing_args+1
     lda #$ff                ; space
     sta outgoing_args+0     ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_tile
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
     stx dest_tilemap_offset
 
 @return:
@@ -272,7 +265,7 @@ ff6_display_list_ptr = $7e004f
     sta tiles_to_draw
     lda ff6vwf_current_item_slot
     and #$03
-    sta item_slot   ; FIXME(tachiweasel)
+    sta item_slot
     a16
     lda ff6_display_list_ptr
     sta item_name_ptr
@@ -310,29 +303,38 @@ ff6_display_list_ptr = $7e004f
     sty outgoing_args+0     ; dest_ptr 
     jsl vwf_render_string
 
+    ; X now contains the pointer to the end of the item name tiles we rendered. Fill in remaining
+    ; tiles with blanks.
+    stx outgoing_args+0     ; ptr
+    lda item_name_tiles+2
+    sta outgoing_args+2     ; ptr, bank byte
+    a16
+    txa
+    sub #16*8*2
+    sub z:item_name_tiles
+    neg16                   ; -(X - 16*8*2 - item_name_tiles) == 16*8*2 - (X - item_name_tiles)
+    sta outgoing_args+4     ; count
+    a8
+    stz outgoing_args+3     ; value
+    jsr _ff6vwf_memset
+
     lda item_slot
     sta outgoing_args+0
     jsr _ff6vwf_encounter_schedule_text_dma
 
-    ; TODO(tachiweasel): Factor into separate function
     lda item_slot
     asli 4
     add #$40                ; Start at tile $40 + $10 * item_slot.
     sta current_tile_index
-    ldy dest_tilemap_offset
+    ldx dest_tilemap_offset
 :   lda current_tile_index
     inc current_tile_index
-    sta (dest_tiles_main),y
-    lda $7e0055
-    sta (dest_tiles_extra),y
-    iny
-    lda $7e0056
-    sta (dest_tiles_main),y
-    sta (dest_tiles_extra),y
-    iny
+    sta outgoing_args+0     ; tile_to_draw
+    stx outgoing_args+1     ; dest_tilemap_offset
+    jsr _ff6vwf_encounter_draw_item_name_tile
     dec tiles_to_draw
     bne :-
-    sty dest_tilemap_offset
+    stx dest_tilemap_offset
 
     ; Restore stuff
     a16
@@ -347,8 +349,8 @@ ff6_display_list_ptr = $7e004f
     rtl
 .endproc
 
-; uint16 _ff6vwf_encounter_draw_tile(char tile, uint16 dest_tilemap_offset)
-.proc _ff6vwf_encounter_draw_tile
+; uint16 _ff6vwf_encounter_draw_enemy_name_tile(char tile, uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_enemy_name_tile
 begin_locals
     decl_local dest_tilemap_main, 2     ; tiledata near * ($7e004c)
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e004a)
@@ -372,6 +374,44 @@ ff6_dest_tile_attributes = $7e004e
     lda tile_to_draw
     sta (dest_tilemap_main),y
     lda #$ff
+    sta (dest_tilemap_extra),y
+    iny
+    lda ff6_dest_tile_attributes
+    sta (dest_tilemap_main),y
+    sta (dest_tilemap_extra),y
+    iny
+
+    tyx
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; uint16 _ff6vwf_encounter_draw_item_name_tile(char tile, uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_item_name_tile
+begin_locals
+    decl_local dest_tilemap_main, 2     ; tiledata near * ($7e0053)
+    decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e0051)
+begin_args_nearcall
+    decl_arg tile_to_draw, 1            ; char
+    decl_arg dest_tilemap_offset, 2     ; uint16
+
+ff6_dest_tilemap_main    = $7e0053
+ff6_dest_tilemap_extra   = $7e0051
+ff6_extra_tile           = $7e0055
+ff6_dest_tile_attributes = $7e0056
+
+    enter __FRAME_SIZE__
+    a16
+    lda ff6_dest_tilemap_main
+    sta dest_tilemap_main
+    lda ff6_dest_tilemap_extra
+    sta dest_tilemap_extra
+    a8
+    ldy dest_tilemap_offset
+
+    lda tile_to_draw
+    sta (dest_tilemap_main),y
+    lda ff6_extra_tile
     sta (dest_tilemap_extra),y
     iny
     lda ff6_dest_tile_attributes
@@ -488,48 +528,6 @@ begin_args_nearcall
     rts
 .endproc
 
-.proc _ff6vwf_encounter_check_dma_safety
-    lda #$7e
-    pha
-    plb
-
-    ; FIXME(tachiweasel): check $64b8?
-    lda $8000
-    /*
-    ora $7bbb
-    ora $7ba9
-    ora $7b15
-    ora $7b21
-    ora $6316
-    */
-    sta ff6vwf_dma_safe
-    jml $c10bcb
-    /*
-    lda $7e7bbb     ; check battle menu (BG2) update pending
-    bne @nope       ; if so, don't DMA this frame
-    lda $7e7ba9     ; check ???? DMA
-    bne @nope
-    ; FIXME(tachiweasel): check $6285, horizontal shaking?
-    lda $7e7b15     ; check BG1 animation tile data
-    bne @nope
-    lda $7e7b21     ; check BG3 animation tile data
-    bne @nope
-    lda $7e6316     ; check damage numeral
-    bne @nope
-    */
-
-/*
-    ; OK, it's safe to do DMA...
-    lda #1
-    bra @out
-
-@nope:
-    ; Not safe to do DMA, wait until next frame.
-    lda #0
-*/
-
-.endproc
-
 ; Does any DMA we need to do.
 ;
 ; This does not use any particular calling convention, because it's really more of a patch to the
@@ -584,6 +582,28 @@ ff6_dma_size_to_transfer = $10
     plb
     jml $c10be1
 
+.endproc
+
+; nearproc void _ff6vwf_memset(far void *ptr, uint8 value, uint16 count)
+.proc _ff6vwf_memset
+begin_locals
+begin_args_nearcall
+    decl_arg ptr, 3
+    decl_arg value, 1
+    decl_arg count, 2
+
+    enter __FRAME_SIZE__
+
+    ; TODO(tachiweasel): Use the block move instruction.
+    ldy #0
+    lda value
+:   sta [ptr],y
+    iny
+    cpy count
+    bne :-
+
+    leave __FRAME_SIZE__
+    rts
 .endproc
 
 ; For debugging

@@ -52,6 +52,19 @@ MDMAEN   = $420b
     sbc operand
 .endmacro
 
+.macro not8
+    eor #$ff
+.endmacro
+
+.macro not16
+    eor #$ffff
+.endmacro
+
+.macro neg16
+    not16
+    inc
+.endmacro
+
 .macro asli count
 .repeat count
     asl
@@ -81,6 +94,8 @@ MDMAEN   = $420b
 ; Using a C-like calling convention is a bit weird on the SNES, but in our case it has the
 ; advantage of giving us a private direct page. This reduces the chance of accidentally stomping on
 ; something the game was using.
+;
+; TODO(tachiweasel): Special cases for small frame sizes to avoid the overhead of SEC/SBC.
 .macro enter frame_size
     a16
     phd
@@ -96,6 +111,8 @@ MDMAEN   = $420b
 ;
 ; Note that this clobbers A, just like the prolog does, so don't use that register for passing
 ; return values. Use X or Y instead.
+;
+; TODO(tachiweasel): Special cases for small frame sizes to avoid the overhead of CLC/ADC.
 .macro leave frame_size
     a16
     tsc
