@@ -11,6 +11,12 @@
 
 .import vwf_render_string: far
 
+; Constants
+
+VWF_TILE_BASE = $10
+VWF_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
+VWF_SLOT_COUNT = 7
+
 ; FF6 globals
 
 ff6_encounter_enemy_ids = $7e200d
@@ -25,12 +31,10 @@ ff6_encounter_enemy_ids = $7e200d
 ; };
 ;
 ; Number of bytes to be transferred is currently always 160.
-;
-; Stack max size is 4 (16 bytes), so the type here is dma[4].
-ff6vwf_text_dma_stack_base: .res 16
-; Buffer space for 4 lines of text, 16 tiles (256 bytes) each to be stored, ready to be uploaded to
-; VRAM.
-ff6vwf_text_tiles: .res 256*4
+ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
+; Buffer space for the lines of text, 16 tiles (256 bytes) each to be stored, ready to be uploaded
+; to VRAM.
+ff6vwf_text_tiles: .res 256 * VWF_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
@@ -197,7 +201,7 @@ ff6_enemy_name_table  = $cfc050
 
     lda enemy_index
     asli 4
-    add #$40                ; Start at tile $40 + $10 * enemy_index.
+    add #VWF_TILE_BASE      ; Start at tile $10 + $10 * enemy_index.
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
@@ -311,11 +315,11 @@ ff6_item_in_hand_right = $7e5760
 @item_in_hand:
     ; Item in hand:
     ldx item_name_ptr
-    cpx #.loword(ff6_item_in_hand_left)
+    cpx #.loword(ff6_item_in_hand_right)
     beq :+
-    lda #1      ; FIXME(tachiweasel): This is wrong. Use the item number that overlaps the top.
+    lda #5                  ; Use slot 5 for left-hand item.
     bra @write_item_slot
-:   lda #0
+:   lda #6                  ; Use slot 6 for right-hand item.
 @write_item_slot:
     sta item_slot
 
@@ -370,7 +374,7 @@ ff6_item_in_hand_right = $7e5760
 
     lda item_slot
     asli 4
-    add #$40                ; Start at tile $40 + $10 * item_slot.
+    add #VWF_TILE_BASE      ; Start at tile $10 + $10 * item_slot.
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
@@ -540,7 +544,7 @@ begin_locals
     a8
     lda ff6vwf_text_dma_stack_ptr
     add #4
-    cmp #4 * 4
+    cmp #VWF_SLOT_COUNT * 4
     bge @out
     sta ff6vwf_text_dma_stack_ptr
 
@@ -551,7 +555,7 @@ begin_locals
     xba
     tax                             ; save text_line_index * 256
     lsr                             ; text_line_index * by 128
-    add #$b400/2                    ; VRAM address
+    add #VWF_TILE_BASE_ADDR/2       ; VRAM address
     sta [dma_stack_ptr]             ; write VRAM address
     inc dma_stack_ptr
     inc dma_stack_ptr
