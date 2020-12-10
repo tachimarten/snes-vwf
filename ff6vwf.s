@@ -35,6 +35,7 @@ ff6vwf_text_tiles: .res 256*4
 ff6vwf_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
 ff6vwf_current_item_slot: .res 1
+ff6vwf_dma_safe: .res 1
 
 ; Patches to Final Fantasy 6 functions
 
@@ -55,10 +56,13 @@ ff6vwf_current_item_slot: .res 1
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
+.segment "PTEXTENCOUNTERBEGINDMA"
+    jml _ff6vwf_encounter_check_dma_safety  ; 4 bytes
+
 ; FF6 routine that performs large DMA during encounters, part of the NMI/VBLANK handler. We patch
 ; it to upload our text if needed.
-.segment "PTEXTENCOUNTERDMA"
-    jml _ff6vwf_encounter_dma    ; 4 bytes
+.segment "PTEXTENCOUNTERRUNDMA"
+    jml _ff6vwf_encounter_run_dma           ; 4 bytes
 
 ; FF6 function that restores the normal BG3 font by copying it from the ROM after a dialogue-style
 ; text box in an encounter has closed. We have to patch it to reupload any enemy names we created
@@ -482,26 +486,65 @@ begin_args_nearcall
     rts
 .endproc
 
-; A patched version of the "large DMA" encounter routine at $C1196F that adds in any DMA we need to
-; do.
+.proc _ff6vwf_encounter_check_dma_safety
+    lda #$7e
+    pha
+    plb
+
+    ; FIXME(tachiweasel): check $64b8?
+    lda $8000
+    /*
+    ora $7bbb
+    ora $7ba9
+    ora $7b15
+    ora $7b21
+    ora $6316
+    */
+    sta ff6vwf_dma_safe
+    jml $c10bcb
+    /*
+    lda $7e7bbb     ; check battle menu (BG2) update pending
+    bne @nope       ; if so, don't DMA this frame
+    lda $7e7ba9     ; check ???? DMA
+    bne @nope
+    ; FIXME(tachiweasel): check $6285, horizontal shaking?
+    lda $7e7b15     ; check BG1 animation tile data
+    bne @nope
+    lda $7e7b21     ; check BG3 animation tile data
+    bne @nope
+    lda $7e6316     ; check damage numeral
+    bne @nope
+    */
+
+/*
+    ; OK, it's safe to do DMA...
+    lda #1
+    bra @out
+
+@nope:
+    ; Not safe to do DMA, wait until next frame.
+    lda #0
+*/
+
+.endproc
+
+; Does any DMA we need to do.
 ;
 ; This does not use any particular calling convention, because it's really more of a patch to the
 ; DMA logic than a function.
-.proc _ff6vwf_encounter_dma
-ff6_dma_size_to_transfer = $36
-ff6_large_dma_enabled = $8000
+.proc _ff6vwf_encounter_run_dma
+ff6_dma_size_to_transfer = $10
 
-    ; Check to see if FF6 wants to do a large DMA. If it does, yield to it and try again next
-    ; frame. We don't want to risk running out of VBLANK time.
-    lda ff6_large_dma_enabled   ; Large DMA enabled?
-    beq @no_large_dma
-    jml $c11974                 ; Yield back to FF6.
+    jsl $c2a88f
 
-@no_large_dma:
+    lda ff6vwf_dma_safe
+    beq @out
+
+@do_it:
     ; Any DMA lines to upload?
     tdc                         ; fast clear top byte of A to 0
     lda ff6vwf_text_dma_stack_ptr
-    beq @done
+    beq @out
 
     ; Pop it off the stack.
     sub #4
@@ -514,20 +557,21 @@ ff6_large_dma_enabled = $8000
     tax
     a8
 
-    ; Call FF6's routine (by jumping into the large DMA function; we're in a different bank, so JSL
-    ; would crash).
+    ; Call FF6's DMA routine by jumping into a function that just happens to begin with
+    ; `JSR $1A2B; RTS`.
     lda #10*2*8
     sta ff6_dma_size_to_transfer    ; Size to transfer: 10 tiles' worth
     lda #^ff6vwf_text_tiles
-    jml $c11982
+    pea $0be1-1
+    jml $c149fd
 
-@done:
-    jml $c11988
+@out:
+    jml $c10be1
 
 .endproc
 
 ; For debugging
-.export _ff6vwf_encounter_dma
+.export _ff6vwf_encounter_run_dma
 
 .segment "DATA"
 
