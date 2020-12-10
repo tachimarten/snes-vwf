@@ -20,7 +20,16 @@ TS       = $212d
 
 ; CPU registers
 NMITIMEN = $4200
+WRMPYA   = $4202
+WRMPYB   = $4203
+WRDIVL   = $4204
+WRDIVH   = $4205
+WRDIVB   = $4206
 MDMAEN   = $420b
+RDDIVL   = $4214
+RDDIVH   = $4215
+RDMPYL   = $4216
+RDMPYH   = $4217
 .repeat 8, i
 .ident(.concat("DMAP", .string(i)))     = $4300 | i<<4
 .ident(.concat("BBAD", .string(i)))     = $4301 | i<<4

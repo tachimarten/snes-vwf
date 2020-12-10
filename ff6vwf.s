@@ -274,15 +274,17 @@ ff6_enemy_name_table  = $cfc050
 .proc _ff6vwf_encounter_draw_item_name
 begin_locals
     decl_local outgoing_args, 7
-    decl_local item_name_tiles, 3           ; tiledata far *
+    decl_local item_name_tiles, 3           ; chardata far *
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
     decl_local item_slot, 1                 ; uint8
     decl_local item_name_ptr, 2             ; char near *
-    decl_local dest_tiles_main, 2
-    decl_local dest_tiles_extra, 2
+    decl_local dest_tiles_main, 2           ; tiledata near *
+    decl_local dest_tiles_extra, 2          ; tiledata near *
+    decl_local item_id, 1                   ; uint8
 
+ff6_short_item_names   = $d2b300
 ff6_dest_tiles_main    = $7e0053
 ff6_dest_tiles_extra   = $7e0051
 ff6_display_list_ptr   = $7e004f
@@ -293,7 +295,7 @@ ff6_item_in_hand_right = $7e5760
 
     ; Initialize locals.
     sty dest_tilemap_offset
-    lda #13
+    lda #12
     sta tiles_to_draw
     a16
     lda ff6_display_list_ptr        ; 575a
@@ -308,10 +310,19 @@ ff6_item_in_hand_right = $7e5760
     lda ff6vwf_item_type_to_draw
     cmp #FF6VWF_ITEM_TYPE_ITEM_IN_HAND
     beq @item_in_hand
-    ; Item in inventory:
+
+    ; Item in inventory. Use slot `item_slot % 5`, because the item menu shows 4 items, plus an
+    ; extra that partially appears during scrolling.
     lda ff6vwf_current_item_slot
-    and #$03
+    a16
+    and #$00ff
+    a8
+    tax
+    ldy #5
+    jsr _ff6vwf_mod16_8
+    txa
     bra @write_item_slot
+
 @item_in_hand:
     ; Item in hand:
     ldx item_name_ptr
@@ -323,9 +334,23 @@ ff6_item_in_hand_right = $7e5760
 @write_item_slot:
     sta item_slot
 
-    ; Put source pointer in Y.
-    a16
+    ; Fetch item ID.
     lda (item_name_ptr)
+    sta item_id
+
+    ; Draw item icon.
+    tax
+    ldy #13
+    jsr _ff6vwf_mul8
+    lda ff6_short_item_names,x
+    tax                     ; tile_to_draw
+    ldy dest_tilemap_offset
+    jsr _ff6vwf_encounter_draw_item_name_tile
+    stx dest_tilemap_offset
+
+    ; Put item long name pointer in Y.
+    lda item_id
+    a16
     and #$00ff
     asl
     tax
@@ -647,6 +672,48 @@ begin_args_nearcall
     bne @loop
 
     leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_mul8(uint8 a, uint8 b)
+.proc _ff6vwf_mul8
+    txa
+    sta f:WRMPYA
+    tya
+    sta f:WRMPYB
+
+    ; 8 cycle delay
+    nop
+    nop
+    nop
+    a16
+
+    lda f:RDMPYL
+    tax
+    a8
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_mod16_8(uint16 a, uint8 b)
+;
+; Computes a % b.
+.proc _ff6vwf_mod16_8
+    txa
+    sta f:WRDIVL
+    xba
+    sta f:WRDIVH
+    tya
+    sta f:WRDIVB
+
+    ; 16 cycle delay
+.repeat 7
+    nop
+.endrepeat
+    a16
+
+    lda f:RDMPYL
+    tax
+    a8
     rts
 .endproc
 
