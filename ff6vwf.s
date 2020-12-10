@@ -33,6 +33,8 @@ ff6vwf_text_dma_stack_base: .res 16
 ff6vwf_text_tiles: .res 256*4
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
+; ID of the current item slot we're drawing.
+ff6vwf_current_item_slot: .res 1
 
 ; Patches to Final Fantasy 6 functions
 
@@ -45,6 +47,9 @@ ff6vwf_text_dma_stack_ptr: .res 1
 .segment "PTEXTDRAWENEMYNAME"
     jsl _ff6vwf_encounter_draw_enemy_name
     rts
+
+.segment "PTEXTBUILDMENUITEMFORITEM"
+    jml _ff6vwf_encounter_build_menu_item_for_item  ; 4 bytes
 
 .segment "PTEXTDRAWITEMNAME"
     jsl _ff6vwf_encounter_draw_item_name
@@ -224,6 +229,19 @@ ff6_enemy_name_table  = $cfc050
     rtl
 .endproc
 
+.proc _ff6vwf_encounter_build_menu_item_for_item
+    sta f:ff6vwf_current_item_slot
+
+    ; Stuff the original function did
+    phy
+    a16
+    sta $40
+    asli 2
+    add $40
+    tay
+    jml $c14c76
+.endproc
+
 .proc _ff6vwf_encounter_draw_item_name
 begin_locals
     decl_local outgoing_args, 7
@@ -231,9 +249,14 @@ begin_locals
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
-    decl_local item_slot, 1                ; uint8
+    decl_local item_slot, 1                 ; uint8
+    decl_local item_name_ptr, 2             ; char near *
+    decl_local dest_tiles_main, 2
+    decl_local dest_tiles_extra, 2
 
-ff6_item_name_ptr  = $004f
+ff6_dest_tiles_main  = $7e0053
+ff6_dest_tiles_extra = $7e0051
+ff6_display_list_ptr = $7e004f
 
     enter __FRAME_SIZE__
 
@@ -241,12 +264,19 @@ ff6_item_name_ptr  = $004f
     sty dest_tilemap_offset
     lda #13
     sta tiles_to_draw
-    lda #0
+    lda ff6vwf_current_item_slot
+    and #$03
     sta item_slot   ; FIXME(tachiweasel)
+    a16
+    lda ff6_display_list_ptr
+    sta item_name_ptr
+    lda ff6_dest_tiles_main
+    sta dest_tiles_main
+    lda ff6_dest_tiles_extra
+    sta dest_tiles_extra
 
     ; Put source pointer in Y.
-    lda (ff6_item_name_ptr)
-    a16
+    lda (item_name_ptr)
     and #$00ff
     asl
     tax
@@ -274,7 +304,7 @@ ff6_item_name_ptr  = $004f
     sty outgoing_args+0     ; dest_ptr 
     jsl vwf_render_string
 
-    lda #0
+    lda item_slot
     sta outgoing_args+0
     jsr _ff6vwf_encounter_schedule_text_dma
 
@@ -285,18 +315,26 @@ ff6_item_name_ptr  = $004f
     sta current_tile_index
     ldy dest_tilemap_offset
 :   lda current_tile_index
-    sta ($0053),y
-    lda $0055
-    sta ($0051),y
+    inc current_tile_index
+    sta (dest_tiles_main),y
+    lda $7e0055
+    sta (dest_tiles_extra),y
     iny
-    lda $0056
-    sta ($0053),y
-    sta ($0051),y
+    lda $7e0056
+    sta (dest_tiles_main),y
+    sta (dest_tiles_extra),y
     iny
     dec tiles_to_draw
     bne :-
     sty dest_tilemap_offset
 
+    ; Restore stuff
+    a16
+    lda dest_tiles_main
+    sta ff6_dest_tiles_main
+    lda dest_tiles_extra
+    sta ff6_dest_tiles_extra
+    a8
     ldy dest_tilemap_offset
 
     leave __FRAME_SIZE__
@@ -342,6 +380,7 @@ ff6_dest_tile_attributes = $7e004e
 
 ; For debugging
 .export _ff6vwf_encounter_draw_enemy_name
+.export _ff6vwf_encounter_build_menu_item_for_item
 .export _ff6vwf_encounter_draw_item_name
 
 ; farproc void _ff6vwf_encounter_restore_small_font()
