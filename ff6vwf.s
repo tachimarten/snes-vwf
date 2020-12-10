@@ -85,7 +85,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jml $c1102e
 .endproc
 
-; farproc void _ff6vwf_encounter_draw_enemy_name(register Y: uint16 tilemap_offset)
+; farproc void _ff6vwf_encounter_draw_enemy_name(uint16 unused, uint16 tilemap_offset)
 ;
 ; Draws an enemy name during an encounter using our small variable-width font.
 .proc _ff6vwf_encounter_draw_enemy_name
@@ -132,9 +132,8 @@ ff6_enemy_name_table  = $cfc050
     ; Fill with blanks.
     inc tiles_to_draw
     ldx dest_tilemap_offset
-:   stx outgoing_args+1         ; dest_tilemap_offset
-    lda #$ff                    ; space
-    sta outgoing_args+0         ; tile_to_draw
+:   txy                         ; dest_tilemap_offset
+    ldx #$ffff                  ; space
     jsr _ff6vwf_encounter_draw_enemy_name_tile
     dec tiles_to_draw
     bne :-
@@ -181,13 +180,12 @@ ff6_enemy_name_table  = $cfc050
     sub #10*8*2
     sub z:enemy_name_tiles
     neg16                   ; -(X - 10*8*2 - enemy_name_tiles) == 10*8*2 - (X - enemy_name_tiles)
-    sta outgoing_args+4     ; count
+    tay                     ; count
     a8
-    stz outgoing_args+3     ; value
+    ldx #0                  ; value
     jsr _ff6vwf_memset
 
-    lda enemy_index
-    sta outgoing_args+0
+    ldx enemy_index
     jsr _ff6vwf_encounter_schedule_text_dma
 
     lda enemy_index
@@ -195,18 +193,16 @@ ff6_enemy_name_table  = $cfc050
     add #$40                ; Start at tile $40 + $10 * enemy_index.
     sta current_tile_index
     ldx dest_tilemap_offset
-:   stx outgoing_args+1     ; dest_tilemap_offset
-    lda current_tile_index
-    sta outgoing_args+0     ; tile_to_draw
+:   txy                     ; dest_tilemap_offset
+    ldx current_tile_index  ; tile_to_draw
     jsr _ff6vwf_encounter_draw_enemy_name_tile
     inc current_tile_index
     dec tiles_to_draw
     bne :-
 
     ; Maybe the number of enemies in the J version got replaced with this?
-    stx outgoing_args+1
-    lda #$ff                ; space
-    sta outgoing_args+0     ; tile_to_draw
+    txy                     ; dest_tilemap_offset
+    ldx #$ffff              ; tile_to_draw = space
     jsr _ff6vwf_encounter_draw_enemy_name_tile
     stx dest_tilemap_offset
 
@@ -313,13 +309,12 @@ ff6_display_list_ptr = $7e004f
     sub #16*8*2
     sub z:item_name_tiles
     neg16                   ; -(X - 16*8*2 - item_name_tiles) == 16*8*2 - (X - item_name_tiles)
-    sta outgoing_args+4     ; count
+    tay                     ; count
     a8
-    stz outgoing_args+3     ; value
+    ldx #0                  ; value
     jsr _ff6vwf_memset
 
-    lda item_slot
-    sta outgoing_args+0
+    ldx item_slot
     jsr _ff6vwf_encounter_schedule_text_dma
 
     lda item_slot
@@ -327,10 +322,10 @@ ff6_display_list_ptr = $7e004f
     add #$40                ; Start at tile $40 + $10 * item_slot.
     sta current_tile_index
     ldx dest_tilemap_offset
-:   lda current_tile_index
+:   txy                     ; dest_tilemap_offset
+    lda current_tile_index
     inc current_tile_index
-    sta outgoing_args+0     ; tile_to_draw
-    stx outgoing_args+1     ; dest_tilemap_offset
+    tax                     ; tile_to_draw
     jsr _ff6vwf_encounter_draw_item_name_tile
     dec tiles_to_draw
     bne :-
@@ -354,9 +349,6 @@ ff6_display_list_ptr = $7e004f
 begin_locals
     decl_local dest_tilemap_main, 2     ; tiledata near * ($7e004c)
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e004a)
-begin_args_nearcall
-    decl_arg tile_to_draw, 1            ; char
-    decl_arg dest_tilemap_offset, 2     ; uint16
 
 ff6_dest_tilemap_main    = $7e004c
 ff6_dest_tilemap_extra   = $7e004a
@@ -370,8 +362,7 @@ ff6_dest_tile_attributes = $7e004e
     sta dest_tilemap_extra
     a8
 
-    ldy dest_tilemap_offset
-    lda tile_to_draw
+    txa                             ; tile to draw
     sta (dest_tilemap_main),y
     lda #$ff
     sta (dest_tilemap_extra),y
@@ -391,9 +382,6 @@ ff6_dest_tile_attributes = $7e004e
 begin_locals
     decl_local dest_tilemap_main, 2     ; tiledata near * ($7e0053)
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e0051)
-begin_args_nearcall
-    decl_arg tile_to_draw, 1            ; char
-    decl_arg dest_tilemap_offset, 2     ; uint16
 
 ff6_dest_tilemap_main    = $7e0053
 ff6_dest_tilemap_extra   = $7e0051
@@ -407,9 +395,8 @@ ff6_dest_tile_attributes = $7e0056
     lda ff6_dest_tilemap_extra
     sta dest_tilemap_extra
     a8
-    ldy dest_tilemap_offset
 
-    lda tile_to_draw
+    txa                             ; tile_to_draw
     sta (dest_tilemap_main),y
     lda ff6_extra_tile
     sta (dest_tilemap_extra),y
@@ -457,7 +444,7 @@ ff6_dma_size_to_transfer = $10
     lda #0
     sta enemy_index
 @reupload_enemy_name:
-    sta outgoing_args+0
+    lda enemy_index
     a16
     and #$00ff
     asl
@@ -466,6 +453,7 @@ ff6_dma_size_to_transfer = $10
     cmp #$ffff
     a8
     beq :+
+    ldx enemy_index
     jsr _ff6vwf_encounter_schedule_text_dma
 :   inc enemy_index
     lda enemy_index
@@ -484,8 +472,6 @@ ff6_dma_size_to_transfer = $10
 .proc _ff6vwf_encounter_schedule_text_dma
 begin_locals
     decl_local dma_stack_ptr, 3     ; uint16 far *
-begin_args_nearcall
-    decl_arg text_line_index, 1     ; uint8
 
     enter __FRAME_SIZE__
 
@@ -509,7 +495,7 @@ begin_args_nearcall
 
     ; Push our DMA on the stack.
     a16
-    lda text_line_index
+    txa                             ; load text line index
     and #$00ff
     xba
     tax                             ; save text_line_index * 256
@@ -584,19 +570,20 @@ ff6_dma_size_to_transfer = $10
 
 .endproc
 
-; nearproc void _ff6vwf_memset(far void *ptr, uint8 value, uint16 count)
+; nearproc void _ff6vwf_memset(uint8 value, uint16 count, far void *ptr)
 .proc _ff6vwf_memset
 begin_locals
+    decl_local count, 2
 begin_args_nearcall
     decl_arg ptr, 3
-    decl_arg value, 1
-    decl_arg count, 2
 
     enter __FRAME_SIZE__
 
+    sty count
+    txa
+
     ; TODO(tachiweasel): Use the block move instruction.
     ldy #0
-    lda value
 :   sta [ptr],y
     iny
     cpy count

@@ -88,8 +88,9 @@ MDMAEN   = $420b
 ; Creates a C-like function prolog. DP is set to point at the first local variable (so it's
 ; basically a frame pointer).
 ;
-; Note that this clobbers A, so don't use that register for passing parameters. Use the stack or
-; X/Y registers instead.
+; The calling convention is that the first two byte- or word-sized parameters go into X and Y
+; respectively, and any remaining parameters go on the stack. Far pointer-sized parameters always
+; go on the stack. Note that this prolog clobbers A, so we can't use it for passing parameters.
 ;
 ; Using a C-like calling convention is a bit weird on the SNES, but in our case it has the
 ; advantage of giving us a private direct page. This reduces the chance of accidentally stomping on
@@ -110,7 +111,7 @@ MDMAEN   = $420b
 ; Creates a matching C-like function epilog, restoring the old DP.
 ;
 ; Note that this clobbers A, just like the prolog does, so don't use that register for passing
-; return values. Use X or Y instead.
+; return values. Use X instead.
 ;
 ; TODO(tachiweasel): Special cases for small frame sizes to avoid the overhead of CLC/ADC.
 .macro leave frame_size

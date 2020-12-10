@@ -121,15 +121,15 @@ begin_args_farcall
     a16
     tdc
     add #shadow_buffer
-    sta outgoing_args+5         ; uint8_t near *shadow_buffer
+    tay                         ; uint8_t near *shadow_buffer
     tdc
     add #glyph_canvas
-    sta outgoing_args+3         ; chardata near *src
+    tax                         ; chardata near *src_ptr
     lda dest_ptr
-    sta outgoing_args+0         ; chardata far *dest
+    sta outgoing_args+0         ; chardata far *dest_ptr
     a8
     lda dest_ptr+2
-    sta outgoing_args+2
+    sta outgoing_args+2         ; dest bank
     jsr _vwf_flush_tile_image
     stx dest_ptr
 :
@@ -144,12 +144,12 @@ begin_args_farcall
     a16
     tdc
     add #shadow_buffer
-    sta outgoing_args+5         ; uint8_t near *shadow_buffer
+    tay                     ; uint8_t near *shadow_buffer
     tdc
     add #glyph_canvas
-    sta outgoing_args+3         ; chardata near *src
+    tax                     ; chardata near *src_ptr
     lda dest_ptr
-    sta outgoing_args+0         ; chardata far *dest
+    sta outgoing_args+0     ; chardata far *dest_ptr
     a8
     lda dest_ptr+2
     sta outgoing_args+2
@@ -164,21 +164,25 @@ begin_args_farcall
     rtl
 .endproc
 
-; near *_vwf_flush_tile_image(chardata far *dest_ptr,
-;                             chardata near *src_ptr,
-;                             chardata near *shadow_buffer_ptr)
+; near *_vwf_flush_tile_image(chardata near *src_ptr,
+;                             chardata near *shadow_buffer_ptr,
+;                             chardata far *dest_ptr)
 ;
 ; Returns the new destination pointer.
 .proc _vwf_flush_tile_image
 begin_locals
+    decl_local src_ptr, 2           ; chardata near *
+    decl_local shadow_buffer_ptr, 2 ; chardata near *
     decl_local last_row_image, 1    ; chardata
     decl_local last_col_image, 1    ; chardata
 begin_args_nearcall
     decl_arg dest_ptr, 3            ; chardata far *
-    decl_arg src_ptr, 2             ; chardata near *
-    decl_arg shadow_buffer_ptr, 2   ; chardata near *
 
     enter __FRAME_SIZE__
+
+    ; Initialize args.
+    stx src_ptr
+    sty shadow_buffer_ptr
 
     ; Initialize last row and column image.
     lda (shadow_buffer_ptr)
