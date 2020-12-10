@@ -17,6 +17,10 @@ VMDATAL  = $2118
 VMDATAH  = $2119
 TM       = $212c
 TS       = $212d
+OPHCT    = $213c    ; Horizontal Scanline Location
+OPVCT    = $213d    ; Vertical Scanline Location
+SLHV     = $2137    ; Software Latch for H/V Counter
+STAT78   = $213f    ; PPU Status Flag and Version
 
 ; CPU registers
 NMITIMEN = $4200

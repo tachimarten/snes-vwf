@@ -13,8 +13,11 @@
 
 ; Constants
 
+; Character index where we start the small variable width font.
 VWF_TILE_BASE = $10
+; Address in VRAM where characters begin, for BG3 during encounters.
 VWF_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
+; Number of text lines we can store in VRAM at one time.
 VWF_SLOT_COUNT = 7
 
 ; FF6 globals
@@ -57,18 +60,24 @@ FF6VWF_ITEM_TYPE_ITEM_IN_HAND = 1
     jsl _ff6vwf_encounter_draw_enemy_name
     rts
 
+; FF6 routine that builds a menu item for an item in inventory. We patch it to record what
+; inventory slot number it was so that the VWF rendering routine can figure out what text slot to
+; use in order to avoid collisons.
 .segment "PTEXTBUILDMENUITEMFORITEM"
     jml _ff6vwf_encounter_build_menu_item_for_item          ; 4 bytes
 
+; FF6 routine that builds a menu item for an equipped item in hand (during encounters). We patch it
+; to record that this is an item in hand so that the VWF rendering routine can use the appropriate
+; slot.
 .segment "PTEXTBUILDMENUITEMFORITEMINHAND"
     jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
 
+; FF6 routine to draw an item name during encounters.
 .segment "PTEXTDRAWITEMNAME"
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
-; FF6 routine that performs large DMA during encounters, part of the NMI/VBLANK handler. We patch
-; it to upload our text if needed.
+; Part of the FF6 NMI/VBLANK handler. We patch it to upload our text if needed.
 .segment "PTEXTENCOUNTERRUNDMA"
     jml _ff6vwf_encounter_run_dma           ; 4 bytes
 
@@ -252,7 +261,7 @@ ff6_enemy_name_table  = $cfc050
     jml $c14c76
 .endproc
 
-; original function: $c14bba
+; Original function: $c14bba.
 .proc _ff6vwf_encounter_build_menu_item_for_item_in_hand
 .a8
     lda #0 
@@ -298,7 +307,7 @@ ff6_item_in_hand_right = $7e5760
     lda #12
     sta tiles_to_draw
     a16
-    lda ff6_display_list_ptr        ; 575a
+    lda ff6_display_list_ptr
     sta item_name_ptr
     lda ff6_dest_tiles_main
     sta dest_tiles_main
@@ -411,7 +420,7 @@ ff6_item_in_hand_right = $7e5760
     bne :-
     stx dest_tilemap_offset
 
-    ; Restore stuff
+    ; Restore stuff to where FF6 expects it.
     a16
     lda dest_tiles_main
     sta ff6_dest_tiles_main
@@ -600,23 +609,26 @@ begin_locals
 ; DMA logic than a function.
 .proc _ff6vwf_encounter_run_dma
 ff6_dma_size_to_transfer = $10
+
     jsl $c2a88f
 
     tdc
     pha
     plb
 
-    lda $213f
-    lda $2137
-    lda $213d
-    cmp #250
+    lda STAT78
+    lda SLHV
+    lda OPVCT
+    cmp #250        ; Don't DMA after scanline 250...
     bge @out
+    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
+    ; >= 256, which isn't enough time for DMA.
     cmp #239
     blt @out
 
 @do_it:
     ; Any DMA lines to upload?
-    tdc                         ; fast clear top byte of A to 0
+    tdc                         ; Fast clear top byte of A to 0.
     lda f:ff6vwf_text_dma_stack_ptr
     beq @out
 
@@ -634,7 +646,7 @@ ff6_dma_size_to_transfer = $10
     lda #^ff6vwf_text_tiles
     sta A1B7
     ldx #10*2*8
-    stx DAS7L       ; Size to transfer: 10 tiles' worth
+    stx DAS7L       ; Size to transfer: 10 tiles' worth.
     lda #1
     sta DMAP7
     lda #$18
