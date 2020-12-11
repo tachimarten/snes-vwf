@@ -50,8 +50,6 @@ ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
 ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE * VWF_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
-
-ff6vwf_text_dma_frame_counter: .res 1
 ; ID of the current item slot we're drawing.
 ff6vwf_current_item_slot: .res 1
 ; What type of item we're drawing.
@@ -114,8 +112,19 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jml _ff6vwf_menu_init
 
 .segment "PTEXTMENULOADEQUIPMENTNAME"
+ff6_menu_trigger_nmi = $1368
+
     jsl _ff6vwf_menu_draw_equipment_name
     rts
+
+; Wraps FF6's "force NMI" function in a far call.
+_ff6vwf_menu_force_nmi_trampoline:
+    phd
+    pea $0
+    pld
+    jsr ff6_menu_trigger_nmi
+    pld
+    rtl
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -125,24 +134,14 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jsr $1463           ; Refresh OAM
     jsr $14d2           ; Refresh CGRAM
     jsr $1488           ; Do VRAM DMA A
-
-    lda f:ff6vwf_text_dma_frame_counter
-    inc
-    sta f:ff6vwf_text_dma_frame_counter
-    and #$01
-    beq @ff6_has_priority
-
+    ; We have priority over VRAM DMA B.
+    ;
+    ; For this to work, we must eagerly trigger NMI every time we render some text.
     jsl _ff6vwf_menu_run_dma
     bcs @we_did_dma
+
     jsr $14ac           ; Do VRAM DMA B
 @we_did_dma:
-    bra @return
-
-@ff6_has_priority:
-    jsr $14ac           ; Do VRAM DMA B
-    jsl _ff6vwf_menu_run_dma
-
-@return:
     rts
 
 ; Our own functions, in a separate bank
@@ -167,7 +166,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     ; Any DMA lines to upload?
     tdc                         ; Fast clear top byte of A to 0.
     lda f:ff6vwf_text_dma_stack_ptr
-    beq @out
+    beq @nope
 
     ; Pop it off the stack.
     sub #4
@@ -699,6 +698,9 @@ ff6_menu_string_buffer          = $7e9e8b
     sta outgoing_args+2
     ldy #VWF_MENU_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline 
 
     ; Calculate first tile index.
     ldx text_line_slot
