@@ -54,6 +54,8 @@ FF6VWF_ITEM_TYPE_ITEM_IN_HAND = 1
 
 ; Patches to Final Fantasy 6 functions
 
+; Final Fantasy 6 encounter patches
+
 ; Encounter setup. We patch it to initialize our DMA stack.
 .segment "PTEXTINITENCOUNTER"
     jml _ff6vwf_encounter_init
@@ -98,6 +100,12 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jsr ff6_encounter_schedule_dma
     rtl
 
+; Final Fantasy 6 menu patches
+
+.segment "PTEXTMENULOADEQUIPMENTNAME"
+    jsl _ff6vwf_menu_draw_equipment_name
+    rts
+
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
@@ -117,7 +125,6 @@ begin_locals
     decl_local outgoing_args, 6
     decl_local string_ptr, 2                ; char near *
     decl_local enemy_index, 1               ; uint8
-    decl_local enemy_name_tiles, 3          ; chardata far *
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
     decl_local display_list_ptr, 2          ; char near *
     decl_local tiles_to_draw, 1             ; uint8
@@ -173,47 +180,15 @@ ff6_enemy_name_table  = $cfc050
     sta string_ptr
     a8
 
-    ; Compute dest pointer.
-    lda #^ff6vwf_text_tiles
-    sta z:enemy_name_tiles+2
-    ldx enemy_index
-    ldy #VWF_MAX_LINE_BYTE_SIZE
-    jsr _ff6vwf_mul8
-    a16
-    txa
-    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[enemy_index * MLBS]
-    sta z:enemy_name_tiles
-    a8
-
-    ; Draw the string.
+    ; Render string.
+    ldx enemy_index                 ; text_line_slot
+    ldy string_ptr+0
+    sty outgoing_args+0             ; string_ptr+0
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+5
-    ldy string_ptr
-    sty outgoing_args+3     ; string_ptr
-    lda #^ff6vwf_text_tiles
-    sta outgoing_args+2
-    ldy z:enemy_name_tiles
-    sty outgoing_args+0     ; dest_ptr 
-    jsl vwf_render_string
+    sta outgoing_args+2             ; string_ptr+2
+    jsr _ff6vwf_render_string
 
-    ; X now contains the pointer to the end of the enemy name tiles we rendered. Fill in remaining
-    ; tiles with blanks.
-    stx outgoing_args+0     ; ptr
-    lda enemy_name_tiles+2
-    sta outgoing_args+2     ; ptr, bank byte
-    a16
-    txa
-    sub #VWF_MAX_LINE_BYTE_SIZE
-    sub z:enemy_name_tiles
-    neg16                   ; -(X - MLBS - enemy_name_tiles) == MLBS - (X - enemy_name_tiles)
-    tay                     ; count
-    a8
-    ldx #0                  ; value
-    jsr _ff6vwf_memset
-
-    ldx enemy_index
-    jsr _ff6vwf_encounter_schedule_text_dma
-
+    ; Draw tiles.
     ldx enemy_index
     ldy #VWF_MAX_LINE_LENGTH
     jsr _ff6vwf_mul8
@@ -376,46 +351,13 @@ ff6_item_in_hand_right = $7e5760
     sta string_ptr
     a8
 
-    ; Compute dest pointer.
-    lda #^ff6vwf_text_tiles
-    sta z:item_name_tiles+2
-    ldx item_slot
-    ldy #VWF_MAX_LINE_BYTE_SIZE
-    jsr _ff6vwf_mul8
-    a16
-    txa
-    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[item_slot * MLBS]
-    sta z:item_name_tiles
-    a8
-
     ; Render string.
-    lda #^ff6vwf_long_item_names
-    sta outgoing_args+5
-    ldy string_ptr
-    sty outgoing_args+3     ; string_ptr
-    lda #^ff6vwf_text_tiles
-    sta outgoing_args+2
-    ldy z:item_name_tiles
-    sty outgoing_args+0     ; dest_ptr 
-    jsl vwf_render_string
-
-    ; X now contains the pointer to the end of the item name tiles we rendered. Fill in remaining
-    ; tiles with blanks.
-    stx outgoing_args+0     ; ptr
-    lda item_name_tiles+2
-    sta outgoing_args+2     ; ptr, bank byte
-    a16
-    txa
-    sub #VWF_MAX_LINE_BYTE_SIZE
-    sub z:item_name_tiles
-    neg16                   ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
-    tay                     ; count
-    a8
-    ldx #0                  ; value
-    jsr _ff6vwf_memset
-
     ldx item_slot
-    jsr _ff6vwf_encounter_schedule_text_dma
+    ldy string_ptr
+    sty outgoing_args+0
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+2
+    jsr _ff6vwf_render_string
 
     ; Draw tile data.
     ldx item_slot
@@ -685,6 +627,92 @@ ff6_dma_size_to_transfer = $10
     jml $c10be1
 
 .endproc
+
+; Menu functions
+
+.proc _ff6vwf_menu_draw_equipment_name
+begin_locals
+
+ff6_menu_string_buffer = $7e9e8b
+
+    enter __FRAME_SIZE__
+
+    lda #$80
+    ldx #0
+:   sta $7e9e8b,x
+    inc
+    inx
+    cpx #13
+    bne :-
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+; Utility functions specific to VWF
+
+; nearproc void _ff6vwf_render_string(uint8 text_line_slot, char far *string_ptr)
+.proc _ff6vwf_render_string
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local text_line_slot, 1
+    decl_local text_line_chardata_ptr, 3
+begin_args_nearcall
+    decl_arg string_ptr, 3
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    txa
+    sta text_line_slot
+
+    ; Compute dest pointer.
+    lda #^ff6vwf_text_tiles
+    sta z:text_line_chardata_ptr+2
+    ldx text_line_slot
+    ldy #VWF_MAX_LINE_BYTE_SIZE
+    jsr _ff6vwf_mul8
+    a16
+    txa
+    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[text_line_slot * MLBS]
+    sta z:text_line_chardata_ptr
+    a8
+
+    ; Render string.
+    lda string_ptr+2
+    sta outgoing_args+5
+    ldy string_ptr+0
+    sty outgoing_args+3             ; string_ptr
+    lda z:text_line_chardata_ptr+2
+    sta outgoing_args+2
+    ldy z:text_line_chardata_ptr+0
+    sty outgoing_args+0             ; dest_ptr 
+    jsl vwf_render_string
+
+    ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
+    ; with blanks.
+    stx outgoing_args+0             ; ptr
+    lda z:text_line_chardata_ptr+2
+    sta outgoing_args+2             ; ptr, bank byte
+    a16
+    txa
+    sub #VWF_MAX_LINE_BYTE_SIZE
+    sub z:text_line_chardata_ptr+0
+    neg16                           ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
+    tay                             ; count
+    a8
+    ldx #0                          ; value
+    jsr _ff6vwf_memset
+
+    ; Schedule the upload.
+    ldx text_line_slot
+    jsr _ff6vwf_encounter_schedule_text_dma
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; General functions
 
 ; nearproc void _ff6vwf_memset(uint8 value, uint16 count, far void *ptr)
 .proc _ff6vwf_memset
