@@ -14,11 +14,11 @@
 ; Constants
 
 ; Character index where we start the small variable width font.
-;VWF_TILE_BASE = $10
-VWF_TILE_BASE = $80
+VWF_TILE_BASE = $10
 ; Address in VRAM where characters begin, for BG3 during encounters.
-;VWF_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
-VWF_TILE_BASE_ADDR = $c000 + (VWF_TILE_BASE << 4)
+VWF_ENCOUNTER_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
+; Address in VRAM where characters begin, for BG3 on the menu.
+VWF_MENU_TILE_BASE_ADDR = $c000 + (VWF_TILE_BASE << 4)
 ; Number of text lines we can store in VRAM at one time.
 VWF_SLOT_COUNT = 7
 ; The maximum length of a line of text in 8-pixel tiles.
@@ -26,7 +26,11 @@ VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
 VWF_MAX_LINE_BYTE_SIZE = VWF_MAX_LINE_LENGTH * 2 * 8
 
+FF6_SHORT_ITEM_LENGTH = 13
+
 ; FF6 globals
+
+ff6_short_item_names    = $d2b300
 
 ff6_encounter_enemy_ids = $7e200d
 
@@ -46,6 +50,8 @@ ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
 ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE * VWF_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
+
+ff6vwf_text_dma_frame_counter: .res 1
 ; ID of the current item slot we're drawing.
 ff6vwf_current_item_slot: .res 1
 ; What type of item we're drawing.
@@ -119,12 +125,80 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jsr $1463           ; Refresh OAM
     jsr $14d2           ; Refresh CGRAM
     jsr $1488           ; Do VRAM DMA A
+
+    lda f:ff6vwf_text_dma_frame_counter
+    inc
+    sta f:ff6vwf_text_dma_frame_counter
+    and #$01
+    beq @ff6_has_priority
+
+    jsl _ff6vwf_menu_run_dma
+    bcs @we_did_dma
     jsr $14ac           ; Do VRAM DMA B
-    jsl _ff6vwf_run_dma
+@we_did_dma:
+    bra @return
+
+@ff6_has_priority:
+    jsr $14ac           ; Do VRAM DMA B
+    jsl _ff6vwf_menu_run_dma
+
+@return:
     rts
 
 ; Our own functions, in a separate bank
 .segment "TEXT"
+
+; A macro that does any DMA we need to do.
+;
+; This is a macro because every cycle really counts. We continually run *VERY* close to running out
+; of VBLANK time.
+.macro _ff6vwf_run_dma dma_channel
+    lda STAT78
+    lda SLHV
+    lda OPVCT
+    cmp #250        ; Don't DMA after scanline 250...
+    bge @nope
+    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
+    ; >= 256, which isn't enough time for DMA.
+    cmp #239
+    blt @nope
+
+@do_it:
+    ; Any DMA lines to upload?
+    tdc                         ; Fast clear top byte of A to 0.
+    lda f:ff6vwf_text_dma_stack_ptr
+    beq @out
+
+    ; Pop it off the stack.
+    sub #4
+    sta f:ff6vwf_text_dma_stack_ptr
+    tax
+    a16
+    lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
+    sta VMADDL
+    lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
+    sta A1T0L + $10*dma_channel
+    a8
+
+    lda #^ff6vwf_text_tiles
+    sta A1B0 + $10*dma_channel
+    ldx #VWF_MAX_LINE_BYTE_SIZE
+    stx DAS0L + $10*dma_channel    ; Size to transfer.
+    lda #1
+    sta DMAP0 + $10*dma_channel
+    lda #$18
+    sta BBAD0 + $10*dma_channel
+    lda #(1 << dma_channel)
+    sta MDMAEN
+
+    sec
+    bra @out
+
+@nope:
+    clc
+
+@out:
+.endmacro
 
 ; farproc void _ff6vwf_encounter_init()
 .proc _ff6vwf_encounter_init
@@ -198,11 +272,12 @@ ff6_enemy_name_table  = $cfc050
     a8
 
     ; Render string.
-    ldx enemy_index                 ; text_line_slot
+    ldx enemy_index                     ; text_line_slot
     ldy string_ptr+0
-    sty outgoing_args+0             ; string_ptr+0
+    sty outgoing_args+0                 ; string_ptr+0
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+2             ; string_ptr+2
+    sta outgoing_args+2                 ; string_ptr+2
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
 
     ; Draw tiles.
@@ -294,7 +369,6 @@ begin_locals
     decl_local item_id, 1                   ; uint8
     decl_local string_ptr, 2                ; char near *
 
-ff6_short_item_names   = $d2b300
 ff6_dest_tiles_main    = $7e0053
 ff6_dest_tiles_extra   = $7e0051
 ff6_display_list_ptr   = $7e004f
@@ -350,7 +424,7 @@ ff6_item_in_hand_right = $7e5760
 
     ; Draw item icon.
     tax
-    ldy #13
+    ldy #FF6_SHORT_ITEM_LENGTH
     jsr _ff6vwf_mul8
     lda ff6_short_item_names,x
     tax                     ; tile_to_draw
@@ -374,6 +448,7 @@ ff6_item_in_hand_right = $7e5760
     sty outgoing_args+0
     lda #^ff6vwf_long_item_names
     sta outgoing_args+2
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
 
     ; Draw tile data.
@@ -527,7 +602,8 @@ ff6_dma_size_to_transfer = $10
     a8
     beq :+
     ldx enemy_index
-    jsr _ff6vwf_encounter_schedule_text_dma
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr _ff6vwf_schedule_text_dma
 :   inc enemy_index
     lda enemy_index
     cmp #4
@@ -541,62 +617,21 @@ ff6_dma_size_to_transfer = $10
     rtl
 .endproc
 
-; nearproc void _ff6vwf_encounter_schedule_text_dma(uint8 text_line_index)
-.proc _ff6vwf_encounter_schedule_text_dma
-begin_locals
-    decl_local dma_stack_ptr, 3     ; uint16 far *
-
-    enter __FRAME_SIZE__
-
-    ; Grab the DMA stack pointer.
-    ; FIXME(tachiweasel): This seems racy...
-    lda #^ff6vwf_text_dma_stack_base
-    sta dma_stack_ptr+2
-    lda f:ff6vwf_text_dma_stack_ptr
-    a16
-    and #$00ff
-    add #.loword(ff6vwf_text_dma_stack_base)
-    sta dma_stack_ptr
-
-    ; Bump the DMA stack pointer. If it overflows, bail out to avoid crashing the game.
-    a8
-    lda f:ff6vwf_text_dma_stack_ptr
-    add #4
-    cmp #VWF_SLOT_COUNT * 4
-    bge @out
-    sta f:ff6vwf_text_dma_stack_ptr
-
-    ; Push our DMA on the stack. X is the text line index.
-    ldy #VWF_MAX_LINE_BYTE_SIZE
-    jsr _ff6vwf_mul8
-    a16
-    txa
-    add #VWF_TILE_BASE_ADDR         ; VRAM address
-    lsr                             ; word address
-    sta [dma_stack_ptr]             ; write VRAM address
-    inc dma_stack_ptr
-    inc dma_stack_ptr
-    txa
-    add #.loword(ff6vwf_text_tiles) ; src address
-    sta [dma_stack_ptr]
-    a8
-
-@out:
-    leave __FRAME_SIZE__
-    rts
-.endproc
-
-.export _ff6vwf_encounter_schedule_text_dma
-
 ; Patch to the encounter DMA routine.
 .proc _ff6vwf_encounter_run_dma
     ; Code that we overwrote.
     jsl $c2a88f
 
     ; Run our generic DMA routine.
-    jsl _ff6vwf_run_dma
+    pha
+    plb
+    _ff6vwf_run_dma 7
+    tdc
+    lda #$7e
+    pha
+    plb
 
-    ; Tear down
+    ; Tear down.
     jml $c10be1
 .endproc
 
@@ -613,46 +648,81 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_equipment_name
 begin_locals
-    decl_local outgoing_args, 3
+    decl_local outgoing_args, 5
     decl_local item_id, 1
     decl_local string_ptr, 2
+    decl_local text_line_slot, 1
 
-ff6_menu_string_buffer = $7e9e8b
+ff6_menu_positioned_text_ptr    = $7e9e89
+ff6_menu_string_buffer          = $7e9e8b
 
     tax             ; Put item ID in X
 
     enter __FRAME_SIZE__
 
-    ; Initialize locals
+    ; Initialize locals.
     txa
     sta item_id
 
+    ; Draw item icon.
+    tax
+    ldy #FF6_SHORT_ITEM_LENGTH
+    jsr _ff6vwf_mul8
+    lda ff6_short_item_names,x
+    sta ff6_menu_string_buffer
+
     ; Compute string pointer.
+    lda item_id
     a16
     and #$00ff
     asl
     tax
     lda f:ff6vwf_long_item_names,x
     sta string_ptr
+
+    ; Compute text line slot.
+    ;
+    ; Positioned text pointer -- L-Hand: $7a1b, R-Hand: $7a9b, Helmet: $7b1b, Armor: $7b9b.
+    ; So extract bits 7 and 8 to get a unique text slot.
+    lda f:ff6_menu_positioned_text_ptr
+    asl
+    xba
+    and #$03
+    tax                 ; For call below.
     a8
+    sta text_line_slot
 
     ; Render string.
-    ldx #0              ; item slot, FIXME(tachiweasel)
     ldy string_ptr
     sty outgoing_args+0
     lda #^ff6vwf_long_item_names
     sta outgoing_args+2
+    ldy #VWF_MENU_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
 
-    ; Draw tiles
-    lda #VWF_TILE_BASE
-    ;lda #$80
-    ldx #0
+    ; Calculate first tile index.
+    ldx text_line_slot
+    ldy #VWF_MAX_LINE_LENGTH
+    jsr _ff6vwf_mul8
+    txa
+    add #VWF_TILE_BASE
+
+    ; Draw tiles.
+    ldx #1
 :   sta ff6_menu_string_buffer,x
     inc
     inx
-    cpx #13
+    cpx #VWF_MAX_LINE_LENGTH + 1
     bne :-
+
+    ; Draw blanks.
+    lda #$ff
+:   sta ff6_menu_string_buffer,x
+    inx
+    cpx #FF6_SHORT_ITEM_LENGTH
+    bne :-
+
+    ; Null terminate.
     lda #0
     sta ff6_menu_string_buffer,x
 
@@ -690,14 +760,24 @@ ff6_menu_string_buffer = $7e9e8b
     rtl
 .endproc
 
+.proc _ff6vwf_menu_run_dma
+    _ff6vwf_run_dma 0
+    rtl
+.endproc
+
+.export _ff6vwf_menu_run_dma
+
 ; Utility functions specific to VWF
 
-; nearproc void _ff6vwf_render_string(uint8 text_line_slot, char far *string_ptr)
+; nearproc void _ff6vwf_render_string(uint8 text_line_slot,
+;                                     uint16 tile_base_addr,
+;                                     char far *string_ptr)
 .proc _ff6vwf_render_string
 begin_locals
     decl_local outgoing_args, 7
     decl_local text_line_slot, 1
     decl_local text_line_chardata_ptr, 3
+    decl_local tile_base_addr, 2
 begin_args_nearcall
     decl_arg string_ptr, 3
 
@@ -706,6 +786,7 @@ begin_args_nearcall
     ; Initialize locals.
     txa
     sta text_line_slot
+    sty tile_base_addr
 
     ; Compute dest pointer.
     lda #^ff6vwf_text_tiles
@@ -747,93 +828,61 @@ begin_args_nearcall
 
     ; Schedule the upload.
     ldx text_line_slot
-    jsr _ff6vwf_encounter_schedule_text_dma
+    ldy tile_base_addr
+    jsr _ff6vwf_schedule_text_dma
 
     leave __FRAME_SIZE__
     rts
 .endproc
 
-; Does any DMA we need to do.
-;
-; This does not use any particular calling convention, because it's really more of a patch to the
-; DMA logic than a function.
-.proc _ff6vwf_run_dma
-    phb
+; nearproc void _ff6vwf_schedule_text_dma(uint8 text_line_index, uint16 tile_base_addr)
+.proc _ff6vwf_schedule_text_dma
+begin_locals
+    decl_local dma_stack_ptr, 3     ; uint16 far *
+    decl_local tile_base_addr, 2    ; vram *
 
-    tdc
-    pha
-    plb
+    enter __FRAME_SIZE__
 
-    /*
-    lda STAT78
-    lda SLHV
-    lda OPVCT
-    cmp #250        ; Don't DMA after scanline 250...
-    bge @out
-    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
-    ; >= 256, which isn't enough time for DMA.
-    cmp #239
-    blt @out
-    */
+    ; Save tile base address.
+    sty tile_base_addr
 
-@do_it:
-    ; Any DMA lines to upload?
-    tdc                         ; Fast clear top byte of A to 0.
+    ; Grab the DMA stack pointer.
+    ; FIXME(tachiweasel): This seems racy...
+    lda #^ff6vwf_text_dma_stack_base
+    sta dma_stack_ptr+2
     lda f:ff6vwf_text_dma_stack_ptr
-    beq @out
-
-    /*
-    ; Pop it off the stack.
-    sub #4
-    sta f:ff6vwf_text_dma_stack_ptr
-    tax
     a16
-    lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
-    sta VMADDL
-    lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
-    sta A1T7L
+    and #$00ff
+    add #.loword(ff6vwf_text_dma_stack_base)
+    sta dma_stack_ptr
+
+    ; Bump the DMA stack pointer. If it overflows, bail out to avoid crashing the game.
     a8
-
-    lda #^ff6vwf_text_tiles
-    sta A1B7
-    ldx #VWF_MAX_LINE_BYTE_SIZE
-    stx DAS7L       ; Size to transfer.
-    lda #1
-    sta DMAP7
-    lda #$18
-    sta BBAD7
-    lda #$80
-    sta MDMAEN
-    */
-
-    ; Pop it off the stack.
-    sub #4
+    lda f:ff6vwf_text_dma_stack_ptr
+    add #4
+    cmp #VWF_SLOT_COUNT * 4
+    bge @out
     sta f:ff6vwf_text_dma_stack_ptr
-    tax
-    a16
-    lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
-    sta VMADDL
-    lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
-    sta A1T0L
-    a8
 
-    lda #^ff6vwf_text_tiles
-    sta A1B0
-    ldx #VWF_MAX_LINE_BYTE_SIZE
-    stx DAS0L       ; Size to transfer.
-    lda #1
-    sta DMAP0
-    lda #$18
-    sta BBAD0
-    lda #$01
-    sta MDMAEN
+    ; Push our DMA on the stack. X is the text line index.
+    ldy #VWF_MAX_LINE_BYTE_SIZE
+    jsr _ff6vwf_mul8
+    a16
+    txa
+    add tile_base_addr              ; VRAM address
+    lsr                             ; word address
+    sta [dma_stack_ptr]             ; write VRAM address
+    inc dma_stack_ptr
+    inc dma_stack_ptr
+    txa
+    add #.loword(ff6vwf_text_tiles) ; src address
+    sta [dma_stack_ptr]
+    a8
 
 @out:
-    plb
-    rtl
+    leave __FRAME_SIZE__
+    rts
 .endproc
-
-.export _ff6vwf_run_dma
 
 ; General functions
 
