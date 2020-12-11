@@ -20,7 +20,7 @@ VWF_ENCOUNTER_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
 ; Address in VRAM where characters begin, for BG3 on the menu.
 VWF_MENU_TILE_BASE_ADDR = $c000 + (VWF_TILE_BASE << 4)
 ; Number of text lines we can store in VRAM at one time.
-VWF_SLOT_COUNT = 7
+VWF_SLOT_COUNT = 8
 ; The maximum length of a line of text in 8-pixel tiles.
 VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
@@ -55,8 +55,9 @@ ff6vwf_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_item_type_to_draw: .res 1
 
-FF6VWF_ITEM_TYPE_INVENTORY    = 0
-FF6VWF_ITEM_TYPE_ITEM_IN_HAND = 1
+FF6VWF_ITEM_TYPE_INVENTORY      = 0
+FF6VWF_ITEM_TYPE_ITEM_IN_HAND   = 1
+FF6VWF_ITEM_TYPE_TOOL           = 2
 
 ; Patches to Final Fantasy 6 functions
 
@@ -83,6 +84,9 @@ FF6VWF_ITEM_TYPE_ITEM_IN_HAND = 1
 ; slot.
 .segment "PTEXTBUILDMENUITEMFORITEMINHAND"
     jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
+
+.segment "PTEXTBUILDMENUITEMFORTOOLS"
+    jml _ff6vwf_encounter_build_menu_item_for_tools
 
 ; FF6 routine to draw an item name during encounters.
 .segment "PTEXTDRAWITEMNAME"
@@ -354,6 +358,22 @@ ff6_enemy_name_table  = $cfc050
     jml $c14bc9
 .endproc
 
+; Original function: $c14bf7.
+.proc _ff6vwf_encounter_build_menu_item_for_tools
+.a8
+    sta f:ff6vwf_current_item_slot
+    pha
+    lda #FF6VWF_ITEM_TYPE_TOOL
+    sta f:ff6vwf_item_type_to_draw
+    pla
+
+    ; Stuff the original function did
+    phy
+    a16
+    asl
+    jml $c14bfb
+.endproc
+
 .proc _ff6vwf_encounter_draw_item_name
 begin_locals
     decl_local outgoing_args, 7
@@ -368,11 +388,13 @@ begin_locals
     decl_local item_id, 1                   ; uint8
     decl_local string_ptr, 2                ; char near *
 
-ff6_dest_tiles_main    = $7e0053
-ff6_dest_tiles_extra   = $7e0051
-ff6_display_list_ptr   = $7e004f
-ff6_item_in_hand_left  = $7e575a
-ff6_item_in_hand_right = $7e5760
+ff6_dest_tiles_main         = $7e0053
+ff6_dest_tiles_extra        = $7e0051
+ff6_display_list_ptr        = $7e004f
+ff6_item_in_hand_left       = $7e575a
+ff6_item_in_hand_right      = $7e5760
+ff6_tool_display_list_left  = $7e575a
+ff6_tool_display_list_right = $7e5760
 
     enter __FRAME_SIZE__
 
@@ -381,7 +403,7 @@ ff6_item_in_hand_right = $7e5760
     lda #10
     sta tiles_to_draw
     a16
-    lda ff6_display_list_ptr
+    lda ff6_display_list_ptr        ; 5A, 60, 62, 
     sta item_id_ptr
     lda ff6_dest_tiles_main
     sta dest_tiles_main
@@ -393,6 +415,8 @@ ff6_item_in_hand_right = $7e5760
     lda ff6vwf_item_type_to_draw
     cmp #FF6VWF_ITEM_TYPE_ITEM_IN_HAND
     beq @item_in_hand
+    cmp #FF6VWF_ITEM_TYPE_TOOL
+    beq @tool
 
     ; Item in inventory. Use slot `item_slot % 5`, because the item menu shows 4 items, plus an
     ; extra that partially appears during scrolling.
@@ -414,6 +438,16 @@ ff6_item_in_hand_right = $7e5760
     lda #5                  ; Use slot 5 for left-hand item.
     bra @write_item_slot
 :   lda #6                  ; Use slot 6 for right-hand item.
+    bra @write_item_slot
+
+@tool:
+    lda ff6vwf_current_item_slot
+    asl
+    ldx item_id_ptr
+    cpx #.loword(ff6_tool_display_list_left)
+    beq @write_item_slot
+    inc                     ; item slot * 2, plus one if this is the right column
+
 @write_item_slot:
     sta item_slot
 
