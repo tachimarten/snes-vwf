@@ -16,15 +16,19 @@
 ; Character index where we start the small variable width font.
 VWF_TILE_BASE = $10
 ; Address in VRAM where characters begin, for BG3 during encounters.
-VWF_ENCOUNTER_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
+VWF_ENCOUNTER_TILE_BASE_ADDR = $b000 + VWF_TILE_BASE * 16
+; Address in VRAM where characters begin, for BG1 on the menu.
+VWF_MENU_TILE_BG1_BASE_ADDR = $a000 + VWF_TILE_BASE * 32
 ; Address in VRAM where characters begin, for BG3 on the menu.
-VWF_MENU_TILE_BASE_ADDR = $c000 + (VWF_TILE_BASE << 4)
+VWF_MENU_TILE_BG3_BASE_ADDR = $c000 + VWF_TILE_BASE * 16
 ; Number of text lines we can store in VRAM at one time.
-VWF_SLOT_COUNT = 8
+VWF_SLOT_COUNT = 10
 ; The maximum length of a line of text in 8-pixel tiles.
 VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
-VWF_MAX_LINE_BYTE_SIZE = VWF_MAX_LINE_LENGTH * 2 * 8
+VWF_MAX_LINE_BYTE_SIZE_2BPP = VWF_MAX_LINE_LENGTH * 2 * 8
+; The maximum length of a line of text in bytes (4bpp).
+VWF_MAX_LINE_BYTE_SIZE_4BPP = VWF_MAX_LINE_LENGTH * 2 * 8 * 2
 
 FF6_SHORT_ITEM_LENGTH = 13
 
@@ -33,6 +37,7 @@ FF6_SHORT_ITEM_LENGTH = 13
 ff6_short_item_names    = $d2b300
 
 ff6_encounter_enemy_ids = $7e200d
+ff6_menu_string_buffer  = $7e9e8b
 
 .segment "XBSSENCOUNTER"
 
@@ -47,7 +52,7 @@ ff6_encounter_enemy_ids = $7e200d
 ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
 ; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
 ; to VRAM.
-ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE * VWF_SLOT_COUNT
+ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
@@ -73,9 +78,9 @@ FF6VWF_ITEM_TYPE_TOOL           = 2
     jsl _ff6vwf_encounter_draw_enemy_name
     rts
 
-; FF6 routine that builds a menu item for an item in inventory. We patch it to record what
-; inventory slot number it was so that the VWF rendering routine can figure out what text slot to
-; use in order to avoid collisons.
+; FF6 routine that builds a menu item for an item in inventory during encounters. We patch it to
+; record what inventory slot number it was so that the VWF rendering routine can figure out what
+; text slot to use in order to avoid collisions.
 .segment "PTEXTBUILDMENUITEMFORITEM"
     jml _ff6vwf_encounter_build_menu_item_for_item          ; 4 bytes
 
@@ -130,6 +135,11 @@ _ff6vwf_menu_force_nmi_trampoline:
     pld
     rtl
 
+.segment "PTEXTMENUDRAWITEMNAME"
+    jsl _ff6vwf_menu_draw_item_name     ; 4 bytes
+    nop
+    nop
+
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
 .segment "PTEXTMENURUNDMA"
@@ -138,6 +148,7 @@ _ff6vwf_menu_force_nmi_trampoline:
     jsr $1463           ; Refresh OAM
     jsr $14d2           ; Refresh CGRAM
     jsr $1488           ; Do VRAM DMA A
+
     ; We have priority over VRAM DMA B.
     ;
     ; For this to work, we must eagerly trigger NMI every time we render some text.
@@ -185,7 +196,7 @@ _ff6vwf_menu_force_nmi_trampoline:
 
     lda #^ff6vwf_text_tiles
     sta A1B0 + $10*dma_channel
-    ldx #VWF_MAX_LINE_BYTE_SIZE
+    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Specify this in the DMA structure.
     stx DAS0L + $10*dma_channel    ; Size to transfer.
     lda #1
     sta DMAP0 + $10*dma_channel
@@ -600,8 +611,10 @@ ff6_dest_tile_attributes = $7e0056
 ; farproc void _ff6vwf_encounter_restore_small_font()
 ;
 ; A patched version of the "restore small font" function that reuploads the BG3 text from the ROM
-; after a text box closes during an encounter. We simply set all bits to tell our custom NMI
-; routine to start reuploading when it gets a chance.
+; after a text box closes during an encounter. We simply to tell our custom NMI to reupload all the
+; strings.
+;
+; FIXME(tachiweasel): This may need to upload more...
 .proc _ff6vwf_encounter_restore_small_font
 begin_locals
     decl_local outgoing_args, 1
@@ -639,7 +652,7 @@ ff6_dma_size_to_transfer = $10
     jsr _ff6vwf_schedule_text_dma
 :   inc enemy_index
     lda enemy_index
-    cmp #4
+    cmp #4      ; FIXME(tachiweasel): Probably should be *all* the strings...
     blt @reupload_enemy_name
 
     leave __FRAME_SIZE__
@@ -671,11 +684,14 @@ ff6_dma_size_to_transfer = $10
 ; Menu functions
 
 .proc _ff6vwf_menu_init
+    ; Stuff the original function did
     jsl $d4cdf3     ; Reset many vars
 
+    ; Initialize the stack.
     lda #0
     sta f:ff6vwf_text_dma_stack_ptr
 
+    ; Return.
     jml $c368fe
 .endproc
 
@@ -687,7 +703,6 @@ begin_locals
     decl_local text_line_slot, 1
 
 ff6_menu_positioned_text_ptr    = $7e9e89
-ff6_menu_string_buffer          = $7e9e8b
 
     tax             ; Put item ID in X
 
@@ -730,7 +745,7 @@ ff6_menu_string_buffer          = $7e9e8b
     sty outgoing_args+0
     lda #^ff6vwf_long_item_names
     sta outgoing_args+2
-    ldy #VWF_MENU_TILE_BASE_ADDR
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
     jsr _ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -766,6 +781,106 @@ ff6_menu_string_buffer          = $7e9e8b
     rtl
 .endproc
 
+; Setup function at $c37f88
+; Scroll position is at $4a, top BG1 write row is at $49, item slot at $e5
+.proc _ff6vwf_menu_draw_item_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local inventory_slot, 1
+    decl_local item_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+
+ff6_inventory_ids = $7e1869
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    lda $7e00e5
+    sta inventory_slot
+
+    ; Load item.
+    lda inventory_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_inventory_ids,x
+    sta item_id
+
+    ; Draw item icon.
+    tax
+    ldy #FF6_SHORT_ITEM_LENGTH
+    jsr _ff6vwf_mul8
+    lda ff6_short_item_names,x
+    sta ff6_menu_string_buffer
+
+    ; Compute string pointer.
+    lda item_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_item_names,x
+    sta string_ptr
+    a8
+
+    ; Compute text line slot.
+    lda f:$7e00e6
+    lsr
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #10
+    jsr _ff6vwf_mod16_8
+    txa
+    sta text_line_slot
+
+    ; Render string.
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+0
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+2
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline 
+
+    ; Calculate first tile index.
+    ldx text_line_slot
+    ldy #VWF_MAX_LINE_LENGTH
+    jsr _ff6vwf_mul8
+    txa
+    add #VWF_TILE_BASE
+
+    ; Draw tiles.
+    ldx #1
+:   sta ff6_menu_string_buffer,x
+    inc
+    inx
+    cpx #VWF_MAX_LINE_LENGTH + 1
+    bne :-
+
+    ; Draw blanks.
+    lda #$ff
+:   sta ff6_menu_string_buffer,x
+    inx
+    cpx #FF6_SHORT_ITEM_LENGTH
+    bne :-
+
+    ; Null terminate.
+    lda #0
+    sta ff6_menu_string_buffer,x
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
+; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
     stz $420c       ; Disable HDMA
     stz $420b       ; Disable DMA...
@@ -827,9 +942,9 @@ begin_args_nearcall
     ; Compute dest pointer.
     lda #^ff6vwf_text_tiles
     sta z:text_line_chardata_ptr+2
-    ldx text_line_slot
-    ldy #VWF_MAX_LINE_BYTE_SIZE
-    jsr _ff6vwf_mul8
+    ldy text_line_slot
+    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 4bpp and 2bpp.
+    jsr _ff6vwf_mul16_8
     a16
     txa
     add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[text_line_slot * MLBS]
@@ -845,6 +960,7 @@ begin_args_nearcall
     sta outgoing_args+2
     ldy z:text_line_chardata_ptr+0
     sty outgoing_args+0             ; dest_ptr 
+    ldx #16                         ; FIXME(tachiweasel): Switch between 4bpp and 2bpp.
     jsl vwf_render_string
 
     ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
@@ -854,7 +970,7 @@ begin_args_nearcall
     sta outgoing_args+2             ; ptr, bank byte
     a16
     txa
-    sub #VWF_MAX_LINE_BYTE_SIZE
+    sub #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 4bpp and 2BPP.
     sub z:text_line_chardata_ptr+0
     neg16                           ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
     tay                             ; count
@@ -871,7 +987,11 @@ begin_args_nearcall
     rts
 .endproc
 
+.export _ff6vwf_render_string
+
 ; nearproc void _ff6vwf_schedule_text_dma(uint8 text_line_index, uint16 tile_base_addr)
+;
+; FIXME(tachiweasel): Add a 4bpp flag!
 .proc _ff6vwf_schedule_text_dma
 begin_locals
     decl_local dma_stack_ptr, 3     ; uint16 far *
@@ -901,8 +1021,9 @@ begin_locals
     sta f:ff6vwf_text_dma_stack_ptr
 
     ; Push our DMA on the stack. X is the text line index.
-    ldy #VWF_MAX_LINE_BYTE_SIZE
-    jsr _ff6vwf_mul8
+    txy
+    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 2bpp and 4bpp.
+    jsr _ff6vwf_mul16_8
     a16
     txa
     add tile_base_addr              ; VRAM address
@@ -955,14 +1076,54 @@ begin_args_nearcall
     sta f:WRMPYB
 
     ; 8 cycle delay
-    nop
-    nop
-    nop
+    nopx 3
     a16
 
     lda f:RDMPYL
     tax
     a8
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_mul16_8(uint16 a, uint8 b)
+;   hi(BC)
+;   A         B
+; x           C
+; ------------------
+;   AC+hi(BC) lo(BC)
+
+; let d = b * lo8(a)
+; let e = (b*hi8(a) + hi8(d)) << 8
+; lo8(d) + e
+.proc _ff6vwf_mul16_8
+begin_locals
+    decl_local tmp_d, 2
+
+    enter __FRAME_SIZE__
+
+    tya
+    sta f:WRMPYA    ; b
+    txa
+    sta f:WRMPYB    ; multiply by lo8(a)
+    nopx 3
+    a16             ; 8 cycle delay
+    lda f:RDMPYL    ; a = d = b * lo8(a)
+    sta tmp_d
+    txa             ; A = a
+    xba             ; lo8(A) = hi8(a)
+    a8
+    sta f:WRMPYB    ; multiply by hi8(a)
+    nopx 2
+    lda tmp_d       ; lo8(d)
+    xba             ; 8 cycle delay; hi8(A) = lo8(d)
+    lda f:RDMPYL    ; b*hi8(a)
+    add tmp_d+1     ; b*hi8(a) + hi8(d)
+    xba             ; swap high and low bytes; high is now b*hi8(a) + hi8(d); low is now lo8(d)
+    a16
+    tax
+    a8
+
+    leave __FRAME_SIZE__
     rts
 .endproc
 

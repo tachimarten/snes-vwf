@@ -90,6 +90,12 @@ RDMPYH   = $4217
 .endrepeat
 .endmacro
 
+.macro nopx count
+.repeat count
+    nop
+.endrepeat
+.endmacro
+
 .macro blt label
     bcc label
 .endmacro

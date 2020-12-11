@@ -91,6 +91,7 @@ reset:
     pha
     ldx #.loword(vwf_tile_image_base)
     phx
+    ldx #0
     jsl vwf_render_string
     ply
     ply

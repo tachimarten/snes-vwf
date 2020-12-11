@@ -15,25 +15,30 @@
 
 .segment "TEXT"
 
-; farproc chardata near *vwf_render_string(chardata far *dest_ptr, const char far *string_ptr)
+; farproc chardata near *vwf_render_string(uint8 bytes_between_tiles,
+;                                          chardata far *dest_ptr,
+;                                          const char far *string_ptr)
 ;
 ; Renders a null-terminated ASCII string to the tiles at `dest_ptr`. Returns the address of the end
 ; tile (the tile one past the end of the last one we rendered to).
 .proc vwf_render_string
 begin_locals
     decl_local outgoing_args, 7
-    decl_local tile_sub_x, 1        ; uint8
-    decl_local current_glyph, 1     ; uint8
-    decl_local glyph_image_ptr, 3   ; const chardata far *
-    decl_local shadow_buffer, 1     ; uint8
-    decl_local glyph_canvas, 16     ; chardata[16]
+    decl_local tile_sub_x, 1            ; uint8
+    decl_local current_glyph, 1         ; uint8
+    decl_local glyph_image_ptr, 3       ; const chardata far *
+    decl_local shadow_buffer, 1         ; uint8
+    decl_local bytes_between_tiles, 1   ; uint8
+    decl_local glyph_canvas, 16         ; chardata[16]
 begin_args_farcall
-    decl_arg dest_ptr, 3            ; chardata far *
-    decl_arg string_ptr, 3          ; const char far *
+    decl_arg dest_ptr, 3                ; chardata far *
+    decl_arg string_ptr, 3              ; const char far *
 
     enter __FRAME_SIZE__
 
     ; Init local variables.
+    txa
+    sta bytes_between_tiles 
     lda #^glyph_images
     sta glyph_image_ptr+2  ; bank byte
     lda #0
@@ -130,6 +135,8 @@ begin_args_farcall
     a8
     lda dest_ptr+2
     sta outgoing_args+2         ; dest bank
+    lda bytes_between_tiles
+    sta outgoing_args+3
     jsr _vwf_flush_tile_image
     stx dest_ptr
 :
@@ -153,6 +160,8 @@ begin_args_farcall
     a8
     lda dest_ptr+2
     sta outgoing_args+2
+    lda bytes_between_tiles
+    sta outgoing_args+3
     jsr _vwf_flush_tile_image
     stx dest_ptr
 :
@@ -166,17 +175,19 @@ begin_args_farcall
 
 ; near *_vwf_flush_tile_image(chardata near *src_ptr,
 ;                             chardata near *shadow_buffer_ptr,
-;                             chardata far *dest_ptr)
+;                             chardata far *dest_ptr,
+;                             uint8 bytes_between_tiles)
 ;
 ; Returns the new destination pointer.
 .proc _vwf_flush_tile_image
 begin_locals
-    decl_local src_ptr, 2           ; chardata near *
-    decl_local shadow_buffer_ptr, 2 ; chardata near *
-    decl_local last_row_image, 1    ; chardata
-    decl_local last_col_image, 1    ; chardata
+    decl_local src_ptr, 2               ; chardata near *
+    decl_local shadow_buffer_ptr, 2     ; chardata near *
+    decl_local last_row_image, 1        ; chardata
+    decl_local last_col_image, 1        ; chardata
 begin_args_nearcall
-    decl_arg dest_ptr, 3            ; chardata far *
+    decl_arg dest_ptr, 3                ; chardata far *
+    decl_arg bytes_between_tiles, 1     ; uint8
 
     enter __FRAME_SIZE__
 
@@ -235,7 +246,12 @@ begin_args_nearcall
     sta (shadow_buffer_ptr)
 
     ; Return the new dest pointer in X.
-    ldx z:dest_ptr
+    lda bytes_between_tiles
+    a16
+    and #$00ff
+    add z:dest_ptr
+    tax
+    a8
 
     leave __FRAME_SIZE__
     rts
