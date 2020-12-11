@@ -19,6 +19,10 @@ VWF_TILE_BASE = $10
 VWF_TILE_BASE_ADDR = $b000 + (VWF_TILE_BASE << 4)
 ; Number of text lines we can store in VRAM at one time.
 VWF_SLOT_COUNT = 7
+; The maximum length of a line of text in 8-pixel tiles.
+VWF_MAX_LINE_LENGTH = 10
+; The maximum length of a line of text in bytes (2bpp).
+VWF_MAX_LINE_BYTE_SIZE = VWF_MAX_LINE_LENGTH * 2 * 8
 
 ; FF6 globals
 
@@ -33,11 +37,11 @@ ff6_encounter_enemy_ids = $7e200d
 ;     void near *src_addr;          // our address
 ; };
 ;
-; Number of bytes to be transferred is currently always 160.
+; Number of bytes to be transferred is currently always `VWF_MAX_LINE_BYTE_SIZE`.
 ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
-; Buffer space for the lines of text, 16 tiles (256 bytes) each to be stored, ready to be uploaded
+; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
 ; to VRAM.
-ff6vwf_text_tiles: .res 256 * VWF_SLOT_COUNT
+ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE * VWF_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
@@ -111,7 +115,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 .proc _ff6vwf_encounter_draw_enemy_name
 begin_locals
     decl_local outgoing_args, 6
-    decl_local string_ptr, 3                ; char far *
+    decl_local string_ptr, 2                ; char near *
     decl_local enemy_index, 1               ; uint8
     decl_local enemy_name_tiles, 3          ; chardata far *
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
@@ -161,28 +165,30 @@ ff6_enemy_name_table  = $cfc050
     jmp @return
 
 @name_not_empty:
-    ; Put source pointer in Y.
+    ; Compute string pointer.
     a16
     asl
     tax
     lda f:ff6vwf_long_enemy_names,x
-    tay
+    sta string_ptr
     a8
 
     ; Compute dest pointer.
     lda #^ff6vwf_text_tiles
     sta z:enemy_name_tiles+2
-    lda enemy_index
+    ldx enemy_index
+    ldy #VWF_MAX_LINE_BYTE_SIZE
+    jsr _ff6vwf_mul8
     a16
-    and #$00ff
-    xba
-    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[enemy index * 256]
+    txa
+    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[enemy_index * MLBS]
     sta z:enemy_name_tiles
     a8
 
     ; Draw the string.
     lda #^ff6vwf_long_enemy_names
     sta outgoing_args+5
+    ldy string_ptr
     sty outgoing_args+3     ; string_ptr
     lda #^ff6vwf_text_tiles
     sta outgoing_args+2
@@ -197,9 +203,9 @@ ff6_enemy_name_table  = $cfc050
     sta outgoing_args+2     ; ptr, bank byte
     a16
     txa
-    sub #10*8*2
+    sub #VWF_MAX_LINE_BYTE_SIZE
     sub z:enemy_name_tiles
-    neg16                   ; -(X - 10*8*2 - enemy_name_tiles) == 10*8*2 - (X - enemy_name_tiles)
+    neg16                   ; -(X - MLBS - enemy_name_tiles) == MLBS - (X - enemy_name_tiles)
     tay                     ; count
     a8
     ldx #0                  ; value
@@ -208,9 +214,11 @@ ff6_enemy_name_table  = $cfc050
     ldx enemy_index
     jsr _ff6vwf_encounter_schedule_text_dma
 
-    lda enemy_index
-    asli 4
-    add #VWF_TILE_BASE      ; Start at tile $10 + $10 * enemy_index.
+    ldx enemy_index
+    ldy #VWF_MAX_LINE_LENGTH
+    jsr _ff6vwf_mul8
+    txa
+    add #VWF_TILE_BASE      ; Compute start tile.
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
@@ -288,10 +296,11 @@ begin_locals
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
     decl_local item_slot, 1                 ; uint8
-    decl_local item_name_ptr, 2             ; char near *
+    decl_local item_id_ptr, 2               ; uint8 near *
     decl_local dest_tiles_main, 2           ; tiledata near *
     decl_local dest_tiles_extra, 2          ; tiledata near *
     decl_local item_id, 1                   ; uint8
+    decl_local string_ptr, 2                ; char near *
 
 ff6_short_item_names   = $d2b300
 ff6_dest_tiles_main    = $7e0053
@@ -304,11 +313,11 @@ ff6_item_in_hand_right = $7e5760
 
     ; Initialize locals.
     sty dest_tilemap_offset
-    lda #12
+    lda #10
     sta tiles_to_draw
     a16
     lda ff6_display_list_ptr
-    sta item_name_ptr
+    sta item_id_ptr
     lda ff6_dest_tiles_main
     sta dest_tiles_main
     lda ff6_dest_tiles_extra
@@ -334,7 +343,7 @@ ff6_item_in_hand_right = $7e5760
 
 @item_in_hand:
     ; Item in hand:
-    ldx item_name_ptr
+    ldx item_id_ptr
     cpx #.loword(ff6_item_in_hand_right)
     beq :+
     lda #5                  ; Use slot 5 for left-hand item.
@@ -344,7 +353,7 @@ ff6_item_in_hand_right = $7e5760
     sta item_slot
 
     ; Fetch item ID.
-    lda (item_name_ptr)
+    lda (item_id_ptr)
     sta item_id
 
     ; Draw item icon.
@@ -357,30 +366,32 @@ ff6_item_in_hand_right = $7e5760
     jsr _ff6vwf_encounter_draw_item_name_tile
     stx dest_tilemap_offset
 
-    ; Put item long name pointer in Y.
+    ; Compute string pointer.
     lda item_id
     a16
     and #$00ff
     asl
     tax
     lda f:ff6vwf_long_item_names,x
-    tay
+    sta string_ptr
     a8
 
     ; Compute dest pointer.
     lda #^ff6vwf_text_tiles
     sta z:item_name_tiles+2
-    lda item_slot
+    ldx item_slot
+    ldy #VWF_MAX_LINE_BYTE_SIZE
+    jsr _ff6vwf_mul8
     a16
-    and #$00ff
-    xba
-    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[item_slot * 256]
+    txa
+    add #.loword(ff6vwf_text_tiles) ; Dest: ff6vwf_text_tiles[item_slot * MLBS]
     sta z:item_name_tiles
     a8
 
     ; Render string.
     lda #^ff6vwf_long_item_names
     sta outgoing_args+5
+    ldy string_ptr
     sty outgoing_args+3     ; string_ptr
     lda #^ff6vwf_text_tiles
     sta outgoing_args+2
@@ -395,9 +406,9 @@ ff6_item_in_hand_right = $7e5760
     sta outgoing_args+2     ; ptr, bank byte
     a16
     txa
-    sub #16*8*2
+    sub #VWF_MAX_LINE_BYTE_SIZE
     sub z:item_name_tiles
-    neg16                   ; -(X - 16*8*2 - item_name_tiles) == 16*8*2 - (X - item_name_tiles)
+    neg16                   ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
     tay                     ; count
     a8
     ldx #0                  ; value
@@ -406,15 +417,29 @@ ff6_item_in_hand_right = $7e5760
     ldx item_slot
     jsr _ff6vwf_encounter_schedule_text_dma
 
-    lda item_slot
-    asli 4
-    add #VWF_TILE_BASE      ; Start at tile $10 + $10 * item_slot.
+    ; Draw tile data.
+    ldx item_slot
+    ldy #VWF_MAX_LINE_LENGTH
+    jsr _ff6vwf_mul8
+    txa
+    add #VWF_TILE_BASE      ; Compute start tile.
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
     lda current_tile_index
     inc current_tile_index
     tax                     ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_item_name_tile
+    dec tiles_to_draw
+    bne :-
+
+    ; Add a couple of blank tiles on the end.
+    lda #2
+    sta tiles_to_draw
+:   txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    ldx #$ff                ; tile_to_draw
     jsr _ff6vwf_encounter_draw_item_name_tile
     dec tiles_to_draw
     bne :-
@@ -582,14 +607,13 @@ begin_locals
     bge @out
     sta ff6vwf_text_dma_stack_ptr
 
-    ; Push our DMA on the stack.
+    ; Push our DMA on the stack. X is the text line index.
+    ldy #VWF_MAX_LINE_BYTE_SIZE
+    jsr _ff6vwf_mul8
     a16
-    txa                             ; load text line index
-    and #$00ff
-    xba
-    tax                             ; save text_line_index * 256
-    lsr                             ; text_line_index * by 128
-    add #VWF_TILE_BASE_ADDR/2       ; VRAM address
+    txa
+    add #VWF_TILE_BASE_ADDR         ; VRAM address
+    lsr                             ; word address
     sta [dma_stack_ptr]             ; write VRAM address
     inc dma_stack_ptr
     inc dma_stack_ptr
@@ -645,8 +669,8 @@ ff6_dma_size_to_transfer = $10
 
     lda #^ff6vwf_text_tiles
     sta A1B7
-    ldx #10*2*8
-    stx DAS7L       ; Size to transfer: 10 tiles' worth.
+    ldx #VWF_MAX_LINE_BYTE_SIZE
+    stx DAS7L       ; Size to transfer.
     lda #1
     sta DMAP7
     lda #$18
