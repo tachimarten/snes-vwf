@@ -18,7 +18,7 @@ raise "Expected grayscale TGA" unless tga_type == 3
 glyph_images = Array.new(256-32)
 glyph_widths = Array.new(256-32)
 
-chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.?!@#$%^&*()-.,"+/:;<=>_[\\]{|}~` '.split('')
+chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.?!@#$%^&*()-.,\"+/:;<=>_[\\]{|}~'` ".split('')
 chars.push(nil)
 
 next_x = 0
