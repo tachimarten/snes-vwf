@@ -225,6 +225,10 @@ _ff6vwf_menu_force_nmi_trampoline:
     jsl _ff6vwf_menu_draw_rage_name             ; 4 bytes
     nop
 
+.segment "PTEXTMENUDRAWCOLOSSEUMITEM"
+    jsl _ff6vwf_menu_draw_colosseum_item        ; 4 bytes
+    jmp $7fd9       ; Draw item name.
+
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
 .segment "PTEXTMENURUNDMA"
@@ -1213,6 +1217,99 @@ ff6_rage_list = $7e9d89
     ; Null terminate.
     lda #0
     sta ff6_menu_string_buffer,x
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_colosseum_item
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local item_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+    decl_local tilemap_position, 2
+
+    tay                     ; Save item in Y.
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    tya
+    sta item_id
+    stx tilemap_position
+
+    ; Draw item icon.
+    ldx item_id
+    ldy #FF6_SHORT_ITEM_LENGTH
+    jsr _ff6vwf_mul8
+    lda ff6_short_item_names,x
+    sta ff6_menu_string_buffer
+
+    ; Compute string pointer.
+    lda item_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_item_names,x
+    sta string_ptr
+    a8
+
+    ; Determine a text line slot.
+    lda tilemap_position+0
+    cmp #$0d            ; Is it the prize (tilemap address $790d)?
+    beq :+
+    lda #0
+    bra :++
+:   lda #1
+:   sta text_line_slot
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; flags
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+3
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline 
+
+    ; Calculate first tile index.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+
+    ; Draw tiles.
+    ldx #1
+:   sta ff6_menu_string_buffer,x
+    inc
+    inx
+    cpx #VWF_MAX_LINE_LENGTH + 1
+    bne :-
+
+    ; Draw blanks.
+    lda #$ff
+:   sta ff6_menu_string_buffer,x
+    inx
+    cpx #FF6_SHORT_ITEM_LENGTH
+    bne :-
+
+    ; Null terminate.
+    lda #0
+    sta ff6_menu_string_buffer,x
+
+    ; Save tilemap position where FF6 expects it.
+    a16
+    lda tilemap_position
+    sta f:$7e9e89
+    a8
 
     leave __FRAME_SIZE__
     rtl
