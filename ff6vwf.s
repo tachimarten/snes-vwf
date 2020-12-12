@@ -46,9 +46,15 @@ FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it
 
 ff6_short_item_names    = $d2b300
 
-ff6_menu_list_slot      = $7e00e5
-ff6_encounter_enemy_ids = $7e200d
-ff6_menu_string_buffer  = $7e9e8b
+ff6_menu_list_slot              = $7e00e5
+ff6_encounter_enemy_ids         = $7e200d
+ff6_menu_positioned_text_ptr    = $7e9e89
+ff6_menu_string_buffer          = $7e9e8b
+
+
+; FF6 functions
+
+ff6_menu_draw_name      = $7fd9
 
 .segment "BSS"
 
@@ -226,8 +232,12 @@ _ff6vwf_menu_force_nmi_trampoline:
     nop
 
 .segment "PTEXTMENUDRAWCOLOSSEUMITEM"
-    jsl _ff6vwf_menu_draw_colosseum_item        ; 4 bytes
-    jmp $7fd9       ; Draw item name.
+    jsl _ff6vwf_menu_draw_colosseum_item    ; 4 bytes
+    jmp ff6_menu_draw_name                  ; Draw item name.
+
+.segment "PTEXTMENUDRAWCOLOSSEUMENEMY"
+    jsl _ff6vwf_menu_draw_colosseum_enemy   ; 4 bytes
+    jmp ff6_menu_draw_name                  ; Draw enemy name.
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -916,8 +926,6 @@ begin_locals
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
 
-ff6_menu_positioned_text_ptr    = $7e9e89
-
     tax             ; Put item ID in X
 
     enter __FRAME_SIZE__
@@ -1308,7 +1316,70 @@ begin_locals
     ; Save tilemap position where FF6 expects it.
     a16
     lda tilemap_position
-    sta f:$7e9e89
+    sta f:ff6_menu_positioned_text_ptr
+    a8
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_colosseum_enemy
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2
+
+ff6_menu_colosseum_opponent = $7e0206
+
+TEXT_LINE_SLOT = 2
+
+    enter __FRAME_SIZE__
+
+    ; Compute string pointer.
+    lda f:ff6_menu_colosseum_opponent
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_enemy_names,x
+    sta string_ptr
+
+    ; Render string.
+    a8
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    ldx #TEXT_LINE_SLOT
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline
+
+    ; Calculate first tile index.
+    ldx #TEXT_LINE_SLOT
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+
+    ; Draw tiles.
+    ldx #0
+:   cpx #FF6_SHORT_ENEMY_NAME_LENGTH
+    beq :+
+    sta ff6_menu_string_buffer,x
+    inc
+    inx
+    bra :-
+:
+
+    ; Null terminate.
+    lda #0
+    sta ff6_menu_string_buffer,x
+
+    ; Store tilemap position.
+    a16
+    lda #$7c4f                          ; Tilemap ptr
+    sta f:ff6_menu_positioned_text_ptr  ; Set position
     a8
 
     leave __FRAME_SIZE__
