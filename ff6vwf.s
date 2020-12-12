@@ -13,16 +13,14 @@
 
 ; Constants
 
-; Character index where we start the small variable width font.
-VWF_TILE_BASE = $10
 ; Address in VRAM where characters begin, for BG3 during encounters.
-VWF_ENCOUNTER_TILE_BASE_ADDR = $b000 + VWF_TILE_BASE * 16
+VWF_ENCOUNTER_TILE_BASE_ADDR = $b000
 ; Address in VRAM where characters begin, for BG1 on the menu.
-VWF_MENU_TILE_BG1_BASE_ADDR = $a000 + VWF_TILE_BASE * 32
+VWF_MENU_TILE_BG1_BASE_ADDR = $a000
 ; Address in VRAM where characters begin, for BG3 on the menu.
-VWF_MENU_TILE_BG3_BASE_ADDR = $c000 + VWF_TILE_BASE * 16
+VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 ; Number of text lines we can store in VRAM at one time.
-VWF_SLOT_COUNT = 10
+VWF_SLOT_COUNT = 16
 ; The maximum length of a line of text in 8-pixel tiles.
 VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
@@ -30,7 +28,8 @@ VWF_MAX_LINE_BYTE_SIZE_2BPP = VWF_MAX_LINE_LENGTH * 2 * 8
 ; The maximum length of a line of text in bytes (4bpp).
 VWF_MAX_LINE_BYTE_SIZE_4BPP = VWF_MAX_LINE_LENGTH * 2 * 8 * 2
 
-FF6_SHORT_ITEM_LENGTH = 13
+FF6_SHORT_ENEMY_NAME_LENGTH = 10
+FF6_SHORT_ITEM_LENGTH       = 13
 
 FF6VWF_DMA_STRUCT_SIZE = 6
 
@@ -42,6 +41,7 @@ FF6VWF_ITEM_TYPE_TOOL           = 2
 
 ff6_short_item_names    = $d2b300
 
+ff6_menu_list_slot      = $7e00e5
 ff6_encounter_enemy_ids = $7e200d
 ff6_menu_string_buffer  = $7e9e8b
 
@@ -137,13 +137,20 @@ _ff6vwf_menu_force_nmi_trampoline:
     pld
     rtl
 
+; FF6 routine to draw an item in the Item menu.
 .segment "PTEXTMENUDRAWITEMNAME"
     jsl _ff6vwf_menu_draw_inventory_item_name   ; 4 bytes
     nopx 2
 
+; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
     jsl _ff6vwf_menu_draw_item_to_equip_name    ; 4 bytes
     nopx 3                                      ; overwrite `jsr $c39d11`
+
+; FF6 routine to draw a rage in the Skills menu.
+.segment "PTEXTMENUDRAWRAGENAME"
+    jsl _ff6vwf_menu_draw_rage_name             ; 4 bytes
+    nop
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -302,15 +309,16 @@ ff6_enemy_name_table  = $cfc050
     jsr _ff6vwf_render_string
 
     ; Draw tiles.
-    ldx enemy_index
-    ldy #VWF_MAX_LINE_LENGTH
-    jsr _ff6vwf_mul8
-    txa
-    add #VWF_TILE_BASE      ; Compute start tile.
+    lda enemy_index
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
     sta current_tile_index
     ldx dest_tilemap_offset
-:   txy                     ; dest_tilemap_offset
-    ldx current_tile_index  ; tile_to_draw
+:   txy                                 ; dest_tilemap_offset
+    ldx current_tile_index              ; tile_to_draw
     jsr _ff6vwf_encounter_draw_enemy_name_tile
     inc current_tile_index
     dec tiles_to_draw
@@ -505,11 +513,12 @@ ff6_tool_display_list_right = $7e5760
     jsr _ff6vwf_render_string
 
     ; Draw tile data.
-    ldx item_slot
-    ldy #VWF_MAX_LINE_LENGTH
-    jsr _ff6vwf_mul8
-    txa
-    add #VWF_TILE_BASE      ; Compute start tile.
+    lda item_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
@@ -765,11 +774,12 @@ ff6_menu_positioned_text_ptr    = $7e9e89
     jsl _ff6vwf_menu_force_nmi_trampoline 
 
     ; Calculate first tile index.
-    ldx text_line_slot
-    ldy #VWF_MAX_LINE_LENGTH
-    jsr _ff6vwf_mul8
-    txa
-    add #VWF_TILE_BASE
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
 
     ; Draw tiles.
     ldx #1
@@ -796,9 +806,7 @@ ff6_menu_positioned_text_ptr    = $7e9e89
 
 ; farproc void _ff6vwf_menu_draw_inventory_item_name()
 .proc _ff6vwf_menu_draw_inventory_item_name
-ff6_list_slot = $7e00e5
-
-    lda f:ff6_list_slot
+    lda f:ff6_menu_list_slot
     tax
     tay
     jsr _ff6vwf_menu_draw_item_name
@@ -807,10 +815,9 @@ ff6_list_slot = $7e00e5
 
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
 .proc _ff6vwf_menu_draw_item_to_equip_name
-ff6_list_slot = $7e00e5
 ff6_item_list = $7e9d8a
 
-    lda f:ff6_list_slot
+    lda f:ff6_menu_list_slot
     a16
     and #$00ff
     tax
@@ -898,11 +905,12 @@ ff6_inventory_ids = $7e1869
     jsl _ff6vwf_menu_force_nmi_trampoline 
 
     ; Calculate first tile index.
-    ldx text_line_slot
-    ldy #VWF_MAX_LINE_LENGTH
-    jsr _ff6vwf_mul8
-    txa
-    add #VWF_TILE_BASE
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
 
     ; Draw tiles.
     ldx #1
@@ -928,6 +936,86 @@ ff6_inventory_ids = $7e1869
 .endproc
 
 .export _ff6vwf_menu_draw_item_name ; for debugging
+
+.proc _ff6vwf_menu_draw_rage_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local enemy_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+
+ff6_rage_list = $7e9d89
+
+    enter __FRAME_SIZE__
+
+    ; Look up enemy ID.
+    lda f:ff6_menu_list_slot
+    sta text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_rage_list,x
+    sta enemy_id
+
+    ; Compute string pointer.
+    lda enemy_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_enemy_names,x
+    sta string_ptr
+
+    ; Compute text line slot.
+    ; FIXME(tachiweasel)
+    lda text_line_slot
+    a16
+    and #$000f
+    tax
+    a8
+    txa
+    sta text_line_slot
+
+    ; Render string.
+    lda #1
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx text_line_slot
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline 
+
+    ; Calculate first tile index.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+
+    ; Draw tiles.
+    ldx #0
+:   cpx #FF6_SHORT_ENEMY_NAME_LENGTH
+    beq :+
+    sta ff6_menu_string_buffer,x
+    inc
+    inx
+    bra :-
+:
+
+    ; Null terminate.
+    lda #0
+    sta ff6_menu_string_buffer,x
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
@@ -1062,8 +1150,9 @@ begin_args_nearcall
 begin_locals
     decl_local dma_stack_ptr, 3         ; uint16 far *
     decl_local tile_base_addr, 2        ; vram *
-    decl_local max_line_byte_size, 2    ; uint16
+    decl_local max_line_byte_size, 2    ; uint8
     decl_local text_line_index, 1       ; uint8
+    decl_local string_char_offset, 1    ; uint8
 begin_args_nearcall
     decl_arg use_4bpp, 1                ; bool
 
@@ -1092,17 +1181,29 @@ begin_args_nearcall
     bge @out
     sta f:ff6vwf_text_dma_stack_ptr
 
-    ; Calculate max line byte size.
+    ; Look up string char offset for the text line.
+    lda text_line_index
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x
+    sta string_char_offset
+
+    ; Calculate max line byte size and byte size of one tile.
     lda use_4bpp
     bne :+
     ldx #VWF_MAX_LINE_BYTE_SIZE_2BPP
+    lda #8*2
     bra :++
 :   ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP
+    lda #8*4
 :   stx max_line_byte_size              ; Keep in X to pass to the multiply function below.
 
-    ; Push our DMA on the stack.
-    ldy text_line_index
-    jsr _ff6vwf_mul16_8
+    ; Calculate and store VRAM address.
+    ldy string_char_offset
+    tax
+    jsr _ff6vwf_mul8
     a16
     txa
     add tile_base_addr                  ; VRAM address
@@ -1110,7 +1211,16 @@ begin_args_nearcall
     sta [dma_stack_ptr]                 ; write VRAM address
     inc dma_stack_ptr
     inc dma_stack_ptr
+    a8
+
+    ; Calculate source address.
+    ldx max_line_byte_size
+    ldy text_line_index
+    jsr _ff6vwf_mul16_8
+    a16
     txa
+
+    ; Push our DMA on the stack.
     add #.loword(ff6vwf_text_tiles)     ; src address
     sta [dma_stack_ptr]
     inc dma_stack_ptr
@@ -1238,6 +1348,24 @@ begin_locals
 .export _ff6vwf_memset
 
 .segment "DATA"
+
+ff6vwf_string_char_offsets:
+    .byte $08   ; 0
+    .byte $12   ; 1
+    .byte $1c   ; 2
+    .byte $26   ; 3
+    .byte $30   ; 4
+    .byte $3a   ; 5
+    .byte $44   ; 6
+    .byte $4e   ; 7
+    .byte $58   ; 8
+    .byte $62   ; 9
+    .byte $6c   ; 10
+    .byte $76   ; 11
+    .byte $d0   ; 12 -- note that these start to overwrite punctuation and special characters!
+    .byte $da   ; 13
+    .byte $e4   ; 14
+    .byte $ee   ; 15
 
 .include "enemy-names.inc"
 .include "item-names.inc"
