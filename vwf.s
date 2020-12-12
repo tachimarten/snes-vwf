@@ -245,11 +245,26 @@ begin_args_nearcall
     lda last_col_image
     sta (shadow_buffer_ptr)
 
+    ; Pad out with zeroes to fill `bytes_between_tiles`.
+    ldy #0
+    lda bytes_between_tiles
+    a16
+    and #$00ff
+    tax
+    a8
+:   beq :+
+    lda #0
+    sta [dest_ptr],y
+    iny
+    dex
+    bra :-
+:
+
     ; Return the new dest pointer in X.
     lda bytes_between_tiles
     a16
     and #$00ff
-    add z:dest_ptr
+    add dest_ptr
     tax
     a8
 

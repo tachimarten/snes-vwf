@@ -32,6 +32,12 @@ VWF_MAX_LINE_BYTE_SIZE_4BPP = VWF_MAX_LINE_LENGTH * 2 * 8 * 2
 
 FF6_SHORT_ITEM_LENGTH = 13
 
+FF6VWF_DMA_STRUCT_SIZE = 6
+
+FF6VWF_ITEM_TYPE_INVENTORY      = 0
+FF6VWF_ITEM_TYPE_ITEM_IN_HAND   = 1
+FF6VWF_ITEM_TYPE_TOOL           = 2
+
 ; FF6 globals
 
 ff6_short_item_names    = $d2b300
@@ -46,10 +52,10 @@ ff6_menu_string_buffer  = $7e9e8b
 ; struct dma {
 ;     void vram *dest_vram_addr;    // word address
 ;     void near *src_addr;          // our address
+;     uint16 size;                  // number of bytes to be transferred
 ; };
 ;
-; Number of bytes to be transferred is currently always `VWF_MAX_LINE_BYTE_SIZE`.
-ff6vwf_text_dma_stack_base: .res 4 * VWF_SLOT_COUNT
+ff6vwf_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_SLOT_COUNT
 ; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
 ; to VRAM.
 ff6vwf_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_SLOT_COUNT
@@ -59,10 +65,6 @@ ff6vwf_text_dma_stack_ptr: .res 1
 ff6vwf_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_item_type_to_draw: .res 1
-
-FF6VWF_ITEM_TYPE_INVENTORY      = 0
-FF6VWF_ITEM_TYPE_ITEM_IN_HAND   = 1
-FF6VWF_ITEM_TYPE_TOOL           = 2
 
 ; Patches to Final Fantasy 6 functions
 
@@ -184,23 +186,23 @@ _ff6vwf_menu_force_nmi_trampoline:
     beq @nope
 
     ; Pop it off the stack.
-    sub #4
+    sub #FF6VWF_DMA_STRUCT_SIZE
     sta f:ff6vwf_text_dma_stack_ptr
     tax
     a16
-    lda f:ff6vwf_text_dma_stack_base+0,x  ; dest VRAM address
+    lda f:ff6vwf_text_dma_stack_base+0,x    ; dest VRAM address
     sta VMADDL
-    lda f:ff6vwf_text_dma_stack_base+2,x  ; source address
+    lda f:ff6vwf_text_dma_stack_base+2,x    ; source address
     sta A1T0L + $10*dma_channel
+    lda f:ff6vwf_text_dma_stack_base+4,x    ; size
+    sta DAS0L + $10*dma_channel
     a8
 
     lda #^ff6vwf_text_tiles
     sta A1B0 + $10*dma_channel
-    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Specify this in the DMA structure.
-    stx DAS0L + $10*dma_channel    ; Size to transfer.
     lda #1
     sta DMAP0 + $10*dma_channel
-    lda #$18
+    lda #<VMDATAL
     sta BBAD0 + $10*dma_channel
     lda #(1 << dma_channel)
     sta MDMAEN
@@ -286,11 +288,13 @@ ff6_enemy_name_table  = $cfc050
     a8
 
     ; Render string.
+    lda #0
+    sta outgoing_args+0                 ; 2bpp
     ldx enemy_index                     ; text_line_slot
     ldy string_ptr+0
-    sty outgoing_args+0                 ; string_ptr+0
+    sty outgoing_args+1                 ; string_ptr+0
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+2                 ; string_ptr+2
+    sta outgoing_args+3                 ; string_ptr+2
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
 
@@ -487,11 +491,13 @@ ff6_tool_display_list_right = $7e5760
     a8
 
     ; Render string.
+    lda #0
+    sta outgoing_args+0             ; 2bpp
     ldx item_slot
     ldy string_ptr
-    sty outgoing_args+0
+    sty outgoing_args+1             ; string
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+2
+    sta outgoing_args+3             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
 
@@ -649,6 +655,8 @@ ff6_dma_size_to_transfer = $10
     beq :+
     ldx enemy_index
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    lda #0
+    sta outgoing_args+0     ; use_bpp4
     jsr _ff6vwf_schedule_text_dma
 :   inc enemy_index
     lda enemy_index
@@ -741,10 +749,12 @@ ff6_menu_positioned_text_ptr    = $7e9e89
     sta text_line_slot
 
     ; Render string.
+    lda #0
+    sta outgoing_args+0     ; 2bpp
     ldy string_ptr
-    sty outgoing_args+0
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+2
+    sta outgoing_args+3     ; string ptr bank
     ldy #VWF_MENU_TILE_BG3_BASE_ADDR
     jsr _ff6vwf_render_string
 
@@ -836,11 +846,13 @@ ff6_inventory_ids = $7e1869
     sta text_line_slot
 
     ; Render string.
+    lda #1
+    sta outgoing_args+0     ; 4bpp
     ldx text_line_slot
     ldy string_ptr
-    sty outgoing_args+0
+    sty outgoing_args+1
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+2
+    sta outgoing_args+3
     ldy #VWF_MENU_TILE_BG1_BASE_ADDR
     jsr _ff6vwf_render_string
 
@@ -922,6 +934,7 @@ ff6_inventory_ids = $7e1869
 
 ; nearproc void _ff6vwf_render_string(uint8 text_line_slot,
 ;                                     uint16 tile_base_addr,
+;                                     bool use_bpp4,
 ;                                     char far *string_ptr)
 .proc _ff6vwf_render_string
 begin_locals
@@ -929,7 +942,10 @@ begin_locals
     decl_local text_line_slot, 1
     decl_local text_line_chardata_ptr, 3
     decl_local tile_base_addr, 2
+    decl_local max_line_byte_size, 2
+    decl_local bytes_to_skip, 1
 begin_args_nearcall
+    decl_arg use_bpp4, 1
     decl_arg string_ptr, 3
 
     enter __FRAME_SIZE__
@@ -939,11 +955,21 @@ begin_args_nearcall
     sta text_line_slot
     sty tile_base_addr
 
+    ; Compute max line byte size.
+    lda use_bpp4
+    bne :+
+    lda #0
+    ldx #VWF_MAX_LINE_BYTE_SIZE_2BPP
+    bra :++
+:   lda #16
+    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP
+:   sta bytes_to_skip
+    stx max_line_byte_size              ; Keep in X to pass to the multiply function below.
+
     ; Compute dest pointer.
     lda #^ff6vwf_text_tiles
     sta z:text_line_chardata_ptr+2
     ldy text_line_slot
-    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 4bpp and 2bpp.
     jsr _ff6vwf_mul16_8
     a16
     txa
@@ -959,8 +985,8 @@ begin_args_nearcall
     lda z:text_line_chardata_ptr+2
     sta outgoing_args+2
     ldy z:text_line_chardata_ptr+0
-    sty outgoing_args+0             ; dest_ptr 
-    ldx #16                         ; FIXME(tachiweasel): Switch between 4bpp and 2bpp.
+    sty outgoing_args+0             ; dest_ptr
+    ldx bytes_to_skip
     jsl vwf_render_string
 
     ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
@@ -970,7 +996,7 @@ begin_args_nearcall
     sta outgoing_args+2             ; ptr, bank byte
     a16
     txa
-    sub #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 4bpp and 2BPP.
+    sub max_line_byte_size
     sub z:text_line_chardata_ptr+0
     neg16                           ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
     tay                             ; count
@@ -981,6 +1007,8 @@ begin_args_nearcall
     ; Schedule the upload.
     ldx text_line_slot
     ldy tile_base_addr
+    lda use_bpp4
+    sta outgoing_args+0
     jsr _ff6vwf_schedule_text_dma
 
     leave __FRAME_SIZE__
@@ -989,17 +1017,23 @@ begin_args_nearcall
 
 .export _ff6vwf_render_string
 
-; nearproc void _ff6vwf_schedule_text_dma(uint8 text_line_index, uint16 tile_base_addr)
-;
-; FIXME(tachiweasel): Add a 4bpp flag!
+; nearproc void _ff6vwf_schedule_text_dma(uint8 text_line_index,
+;                                         uint16 tile_base_addr,
+;                                         bool use_4bpp)
 .proc _ff6vwf_schedule_text_dma
 begin_locals
-    decl_local dma_stack_ptr, 3     ; uint16 far *
-    decl_local tile_base_addr, 2    ; vram *
+    decl_local dma_stack_ptr, 3         ; uint16 far *
+    decl_local tile_base_addr, 2        ; vram *
+    decl_local max_line_byte_size, 2    ; uint16
+    decl_local text_line_index, 1       ; uint8
+begin_args_nearcall
+    decl_arg use_4bpp, 1                ; bool
 
     enter __FRAME_SIZE__
 
-    ; Save tile base address.
+    ; Initialize locals.
+    txa
+    sta text_line_index
     sty tile_base_addr
 
     ; Grab the DMA stack pointer.
@@ -1015,24 +1049,35 @@ begin_locals
     ; Bump the DMA stack pointer. If it overflows, bail out to avoid crashing the game.
     a8
     lda f:ff6vwf_text_dma_stack_ptr
-    add #4
-    cmp #VWF_SLOT_COUNT * 4
+    add #FF6VWF_DMA_STRUCT_SIZE
+    cmp #VWF_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
     bge @out
     sta f:ff6vwf_text_dma_stack_ptr
 
-    ; Push our DMA on the stack. X is the text line index.
-    txy
-    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP    ; FIXME(tachiweasel): Switch between 2bpp and 4bpp.
+    ; Calculate max line byte size.
+    lda use_4bpp
+    bne :+
+    ldx #VWF_MAX_LINE_BYTE_SIZE_2BPP
+    bra :++
+:   ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP
+:   stx max_line_byte_size              ; Keep in X to pass to the multiply function below.
+
+    ; Push our DMA on the stack.
+    ldy text_line_index
     jsr _ff6vwf_mul16_8
     a16
     txa
-    add tile_base_addr              ; VRAM address
-    lsr                             ; word address
-    sta [dma_stack_ptr]             ; write VRAM address
+    add tile_base_addr                  ; VRAM address
+    lsr                                 ; word address
+    sta [dma_stack_ptr]                 ; write VRAM address
     inc dma_stack_ptr
     inc dma_stack_ptr
     txa
-    add #.loword(ff6vwf_text_tiles) ; src address
+    add #.loword(ff6vwf_text_tiles)     ; src address
+    sta [dma_stack_ptr]
+    inc dma_stack_ptr
+    inc dma_stack_ptr
+    lda max_line_byte_size
     sta [dma_stack_ptr]
     a8
 
