@@ -138,9 +138,12 @@ _ff6vwf_menu_force_nmi_trampoline:
     rtl
 
 .segment "PTEXTMENUDRAWITEMNAME"
-    jsl _ff6vwf_menu_draw_item_name     ; 4 bytes
-    nop
-    nop
+    jsl _ff6vwf_menu_draw_inventory_item_name   ; 4 bytes
+    nopx 2
+
+.segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
+    jsl _ff6vwf_menu_draw_item_to_equip_name    ; 4 bytes
+    nopx 3                                      ; overwrite `jsr $c39d11`
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -791,6 +794,39 @@ ff6_menu_positioned_text_ptr    = $7e9e89
     rtl
 .endproc
 
+; farproc void _ff6vwf_menu_draw_inventory_item_name()
+.proc _ff6vwf_menu_draw_inventory_item_name
+ff6_list_slot = $7e00e5
+
+    lda f:ff6_list_slot
+    tax
+    tay
+    jsr _ff6vwf_menu_draw_item_name
+    rtl
+.endproc
+
+; farproc void _ff6vwf_menu_draw_item_to_equip_name()
+.proc _ff6vwf_menu_draw_item_to_equip_name
+ff6_list_slot = $7e00e5
+ff6_item_list = $7e9d8a
+
+    lda f:ff6_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_item_list,x
+    txy
+    tax
+    jsr _ff6vwf_menu_draw_item_name
+    tdc
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_item_name(uint8 item_id, uint8 menu_item_index)
+;
+; This function will automatically mod the menu item index by 10 to get the text string index.
+;
 ; Setup function at $c37f88
 ; Scroll position is at $4a, top BG1 write row is at $49, item slot at $e5
 .proc _ff6vwf_menu_draw_item_name
@@ -806,7 +842,9 @@ ff6_inventory_ids = $7e1869
     enter __FRAME_SIZE__
 
     ; Initialize locals.
-    lda $7e00e5
+    tya
+    sta text_line_slot
+    txa
     sta inventory_slot
 
     ; Load item.
@@ -834,8 +872,8 @@ ff6_inventory_ids = $7e1869
     sta string_ptr
     a8
 
-    ; Compute text line slot.
-    lda inventory_slot
+    ; Compute the actual text line slot by modding the one we were given by 10.
+    lda text_line_slot
     a16
     and #$00ff
     tax
@@ -886,7 +924,7 @@ ff6_inventory_ids = $7e1869
     sta ff6_menu_string_buffer,x
 
     leave __FRAME_SIZE__
-    rtl
+    rts
 .endproc
 
 .export _ff6vwf_menu_draw_item_name ; for debugging
