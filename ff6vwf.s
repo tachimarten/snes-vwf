@@ -73,6 +73,8 @@ ff6vwf_encounter_text_dma_stack_ptr: .res 1
 ff6vwf_encounter_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_encounter_item_type_to_draw: .res 1
+; ID of the current rage slot we're drawing.
+ff6vwf_encounter_current_rage_slot: .res 1
 
 ff6vwf_encounter_bss_end:
  
@@ -129,6 +131,14 @@ ff6vwf_menu_bss_end:
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORRAGE"
+    jml _ff6vwf_encounter_build_menu_item_for_rage  ; 4 bytes
+
+; FF6 routine to draw the name of one of Gau's Rages during encounters.
+.segment "PTEXTENCOUNTERDRAWRAGENAME"
+    jsl _ff6vwf_encounter_draw_rage_name
+    rts
+
 ; Part of the FF6 encounter NMI/VBLANK handler. We patch it to upload our text if needed.
 .segment "PTEXTENCOUNTERRUNDMA"
     jml _ff6vwf_encounter_run_dma           ; 4 bytes
@@ -175,6 +185,40 @@ _ff6vwf_menu_force_nmi_trampoline:
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
     jsl _ff6vwf_menu_draw_item_to_equip_name    ; 4 bytes
     nopx 3                                      ; overwrite `jsr $c39d11`
+
+.segment "PTEXTMENUINITRAGEMENU"
+    stz $4a         ; List scroll: 0
+    jsr $091f       ; Create scrollbar
+    a16
+    lda #$00cc      ; V-Speed: 0.8 px
+    sta f:$7e354a,x ; Set scrollbar's
+    lda #$0068      ; Y: 104
+    sta f:$7e34ca,x ; Set scrollbar's
+    a8
+    jsr $4c4c       ; Load navig data
+    jsr $4c55       ; Relocate cursor
+    lda #$f0        ; Top row
+    sta $5c         ; Set scroll limit
+    lda #8          ; Onscreen rows: 8
+    sta $5a         ; Set rows per page
+    lda #1          ; Onscreen cols: 1
+    sta $5b         ; Set cols per page
+    ldy #256        ; X: 256
+    sty $39         ; Set BG2 X-Pos
+    sty $3d         ; Set BG3 X-Pos
+    jsr $5391       ; Draw rages, etc.
+    lda #$1d        ; C3/28BA
+    sta $26         ; Next: Sustain menu
+    rts
+
+.segment "PTEXTMENUDRAWRAGEROW"
+    lda #$20        ; Palette 0
+    sta $29         ; Color: User's
+    jsr $5409       ; Define source
+    ldx #5          ; X: 5
+    jsr $5418       ; Draw Rage A
+    inc $e5         ; Rage slot +1
+    rts
 
 ; FF6 routine to draw a rage in the Skills menu.
 .segment "PTEXTMENUDRAWRAGENAME"
@@ -583,6 +627,119 @@ ff6_tool_display_list_right = $7e5760
     rtl
 .endproc
 
+.proc _ff6vwf_encounter_draw_rage_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local enemy_name_tiles, 3          ; chardata far *
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; char
+    decl_local text_line_slot, 1            ; uint8
+    decl_local enemy_id_ptr, 2              ; uint8 near *
+    decl_local dest_tiles_main, 2           ; tiledata near *
+    decl_local dest_tiles_extra, 2          ; tiledata near *
+    decl_local enemy_id, 1                  ; uint8
+    decl_local string_ptr, 2                ; char near *
+
+ff6_dest_tiles_main         = $7e0053
+ff6_dest_tiles_extra        = $7e0051
+ff6_display_list_ptr        = $7e004f
+ff6_item_in_hand_left       = $7e575a
+ff6_item_in_hand_right      = $7e5760
+ff6_rage_display_list_left  = $7e575a
+ff6_rage_display_list_right = $7e5760
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    lda #10
+    sta tiles_to_draw
+    a16
+    lda f:ff6_display_list_ptr
+    inc
+    sta f:ff6_display_list_ptr
+    sta enemy_id_ptr
+    lda ff6_dest_tiles_main
+    sta dest_tiles_main
+    lda ff6_dest_tiles_extra
+    sta dest_tiles_extra
+    a8
+
+    ; Figure out what text line slot we're going to use.
+    lda f:ff6vwf_encounter_current_rage_slot
+    and #$03
+    asl
+    sta text_line_slot
+    ldx enemy_id_ptr
+    cpx #.loword(ff6_rage_display_list_left)
+    beq :+
+    inc
+:   sta text_line_slot      ; (current_rage_slot % 4) * 2, plus one if it's the right column
+
+    ; Fetch enemy ID.
+    lda (enemy_id_ptr)
+    sta enemy_id
+
+    ; Compute string pointer.
+    lda enemy_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_enemy_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #0
+    sta outgoing_args+0             ; 2bpp
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1             ; string
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3             ; string bank byte
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+    ; Draw tile data.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+    sta current_tile_index
+    ldx dest_tilemap_offset
+:   txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    tax                     ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_item_name_tile
+    dec tiles_to_draw
+    bne :-
+
+    ; Add a blank tile on the end.
+    txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    ldx #$ff                ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_item_name_tile
+    stx dest_tilemap_offset
+
+    ; Restore stuff to where FF6 expects it.
+    a16
+    lda dest_tiles_main
+    sta ff6_dest_tiles_main
+    lda dest_tiles_extra
+    sta ff6_dest_tiles_extra
+    a8
+    ldy dest_tilemap_offset
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 ; uint16 _ff6vwf_encounter_draw_enemy_name_tile(char tile, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_enemy_name_tile
 begin_locals
@@ -966,6 +1123,14 @@ ff6_inventory_ids = $7e1869
 
 .export _ff6vwf_menu_draw_item_name ; for debugging
 
+.proc _ff6vwf_encounter_build_menu_item_for_rage
+    sta f:ff6vwf_encounter_current_rage_slot    ; from $c15945
+    asl
+    tay
+    tdc
+    jmp $c14ce6
+.endproc
+
 .proc _ff6vwf_menu_draw_rage_name
 begin_locals
     decl_local outgoing_args, 5
@@ -1000,7 +1165,7 @@ ff6_rage_list = $7e9d89
     ; FIXME(tachiweasel)
     lda text_line_slot
     a16
-    and #$000f
+    and #$0007
     tax
     a8
     txa
