@@ -800,7 +800,6 @@ ff6_inventory_ids = $7e1869
     sta inventory_slot
 
     ; Load item.
-    lda inventory_slot
     a16
     and #$00ff
     tax
@@ -826,8 +825,7 @@ ff6_inventory_ids = $7e1869
     a8
 
     ; Compute text line slot.
-    lda f:$7e00e6
-    lsr
+    lda inventory_slot
     a16
     and #$00ff
     tax
@@ -878,6 +876,8 @@ ff6_inventory_ids = $7e1869
     leave __FRAME_SIZE__
     rtl
 .endproc
+
+.export _ff6vwf_menu_draw_item_name ; for debugging
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
