@@ -20,9 +20,9 @@ VWF_MENU_TILE_BG1_BASE_ADDR = $a000
 ; Address in VRAM where characters begin, for BG3 on the menu.
 VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 ; Number of text lines we can store in VRAM at one time, for encounters.
-VWF_ENCOUNTER_SLOT_COUNT = 8
+VWF_ENCOUNTER_SLOT_COUNT = 10
 ; Number of text lines we can store in VRAM at one time, for the menu.
-VWF_MENU_SLOT_COUNT = 16
+VWF_MENU_SLOT_COUNT = 10
 ; The maximum length of a line of text in 8-pixel tiles.
 VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
@@ -668,14 +668,18 @@ ff6_rage_display_list_right = $7e5760
 
     ; Figure out what text line slot we're going to use.
     lda f:ff6vwf_encounter_current_rage_slot
-    and #$03
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #5
+    jsr _ff6vwf_mod16_8
     asl
-    sta text_line_slot
     ldx enemy_id_ptr
     cpx #.loword(ff6_rage_display_list_left)
     beq :+
     inc
-:   sta text_line_slot      ; (current_rage_slot % 4) * 2, plus one if it's the right column
+:   sta text_line_slot      ; (current_rage_slot % 5) * 2, plus one if it's the right column
 
     ; Fetch enemy ID.
     lda (enemy_id_ptr)
@@ -1125,6 +1129,9 @@ ff6_inventory_ids = $7e1869
 
 .proc _ff6vwf_encounter_build_menu_item_for_rage
     sta f:ff6vwf_encounter_current_rage_slot    ; from $c15945
+
+    ; Stuff the original function did that we overwrote.
+    phy
     asl
     tay
     tdc
@@ -1162,13 +1169,13 @@ ff6_rage_list = $7e9d89
     sta string_ptr
 
     ; Compute text line slot.
-    ; FIXME(tachiweasel)
     lda text_line_slot
     a16
-    and #$0007
+    and #$00ff
     tax
     a8
-    txa
+    ldy #9                  ; Number of menu items on screen plus one.
+    jsr _ff6vwf_mod16_8
     sta text_line_slot
 
     ; Render string.
@@ -1610,11 +1617,6 @@ ff6vwf_string_char_offsets:
     .byte $58   ; 8
     .byte $62   ; 9
     .byte $6c   ; 10
-    .byte $76   ; 11
-    .byte $d0   ; 12 -- note that these start to overwrite punctuation and special characters!
-    .byte $da   ; 13
-    .byte $e4   ; 14
-    .byte $ee   ; 15
 
 .include "enemy-names.inc"
 .include "item-names.inc"
