@@ -51,7 +51,6 @@ ff6_encounter_enemy_ids         = $7e200d
 ff6_menu_positioned_text_ptr    = $7e9e89
 ff6_menu_string_buffer          = $7e9e8b
 
-
 ; FF6 functions
 
 ff6_menu_draw_name      = $7fd9
@@ -96,6 +95,7 @@ ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_MENU_SLOT_COU
 ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_ptr: .res 1
+ff6vwf_menu_drawing_item_in_force_blank: .res 1
 
 ff6vwf_menu_bss_end:
 
@@ -231,6 +231,9 @@ _ff6vwf_menu_force_nmi_trampoline:
     jsl _ff6vwf_menu_draw_rage_name             ; 4 bytes
     nop
 
+.segment "PTEXTMENUBUILDCOLOSSEUMITEMS"
+    jml _ff6vwf_menu_build_colosseum_items  ; 4 bytes
+
 .segment "PTEXTMENUDRAWCOLOSSEUMITEM"
     jsl _ff6vwf_menu_draw_colosseum_item    ; 4 bytes
     jmp ff6_menu_draw_name                  ; Draw item name.
@@ -261,26 +264,11 @@ _ff6vwf_menu_force_nmi_trampoline:
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
-; A macro that does any DMA we need to do.
-;
-; This is a macro because every cycle really counts. We continually run *VERY* close to running out
-; of VBLANK time.
-.macro _ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
-    lda STAT78
-    lda SLHV
-    lda OPVCT
-    cmp #250        ; Don't DMA after scanline 250...
-    bge @nope
-    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
-    ; >= 256, which isn't enough time for DMA.
-    cmp #239
-    blt @nope
-
-@do_it:
+.macro _ff6vwf_run_dma_now text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
     ; Any DMA lines to upload?
     tdc                         ; Fast clear top byte of A to 0.
     lda f:text_dma_stack_ptr
-    beq @nope
+    beq @__nope
 
     ; Pop it off the stack.
     sub #FF6VWF_DMA_STRUCT_SIZE
@@ -305,11 +293,33 @@ _ff6vwf_menu_force_nmi_trampoline:
     sta MDMAEN
 
     sec
+    bra @__out
+@__nope:
+    clc
+@__out:
+.endmacro
+
+; A macro that does any DMA we need to do.
+;
+; This is a macro because every cycle really counts. We continually run *VERY* close to running out
+; of VBLANK time.
+.macro _ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
+    lda STAT78
+    lda SLHV
+    lda OPVCT
+    cmp #250        ; Don't DMA after scanline 250...
+    bge @no_time
+    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
+    ; >= 256, which isn't enough time for DMA.
+    cmp #239
+    blt @no_time
+
+@do_it:
+    _ff6vwf_run_dma_now text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
     bra @out
 
-@nope:
+@no_time:
     clc
-
 @out:
 .endmacro
 
@@ -1008,6 +1018,9 @@ begin_locals
 
 ; farproc void _ff6vwf_menu_draw_inventory_item_name()
 .proc _ff6vwf_menu_draw_inventory_item_name
+    lda #0
+    sta f:ff6vwf_menu_drawing_item_in_force_blank
+
     lda f:ff6_menu_list_slot
     tax
     tay
@@ -1018,6 +1031,9 @@ begin_locals
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
 .proc _ff6vwf_menu_draw_item_to_equip_name
 ff6_item_list = $7e9d8a
+
+    lda #0
+    sta f:ff6vwf_menu_drawing_item_in_force_blank
 
     lda f:ff6_menu_list_slot
     a16
@@ -1104,7 +1120,16 @@ ff6_inventory_ids = $7e1869
     jsr _ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
-    jsl _ff6vwf_menu_force_nmi_trampoline 
+    ;jsl _ff6vwf_menu_force_nmi_trampoline
+    ;lda #$80
+    ;sta f:INIDISP
+    ; Schedule an upload for later, or just upload now if we're in force blank.
+    ;lda f:ff6vwf_menu_drawing_item_in_force_blank
+    ;bne :+
+    ;jsl _ff6vwf_menu_force_nmi_trampoline
+    ;bra :++
+:   jsl _ff6vwf_menu_run_all_dma_now
+:
 
     ; Calculate first tile index.
     lda text_line_slot
@@ -1134,6 +1159,9 @@ ff6_inventory_ids = $7e1869
     sta ff6_menu_string_buffer,x
 
     leave __FRAME_SIZE__
+    a16
+    lda #0
+    a8
     rts
 .endproc
 
@@ -1230,6 +1258,16 @@ ff6_rage_list = $7e9d89
     rtl
 .endproc
 
+.proc _ff6vwf_menu_build_colosseum_items
+    lda #1
+    sta f:ff6vwf_menu_drawing_item_in_force_blank
+
+    ; Stuff the original function did
+    lda #1
+    sta f:BG1SC
+    jml $c3ad2c
+.endproc
+
 .proc _ff6vwf_menu_draw_colosseum_item
 begin_locals
     decl_local outgoing_args, 5
@@ -1283,8 +1321,13 @@ begin_locals
     ldy #VWF_MENU_TILE_BG3_BASE_ADDR
     jsr _ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl _ff6vwf_menu_force_nmi_trampoline 
+    ; Schedule an upload for later, or just upload now if we're in force blank.
+    lda f:ff6vwf_menu_drawing_item_in_force_blank
+    bne :+
+    jsl _ff6vwf_menu_force_nmi_trampoline
+    bra :++
+:   jsl _ff6vwf_menu_run_all_dma_now
+:
 
     ; Calculate first tile index.
     lda text_line_slot
@@ -1420,6 +1463,19 @@ TEXT_LINE_SLOT = 2
 
 .proc _ff6vwf_menu_run_dma
     _ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_run_all_dma_now
+    phd
+    pea $00
+    pld
+
+@loop:
+    _ff6vwf_run_dma_now ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0
+    bcs @loop
+
+    pld
     rtl
 .endproc
 
