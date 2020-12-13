@@ -22,7 +22,7 @@ VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 ; Number of text lines we can store in VRAM at one time, for encounters.
 VWF_ENCOUNTER_SLOT_COUNT = 10
 ; Number of text lines we can store in VRAM at one time, for the menu.
-VWF_MENU_SLOT_COUNT = 10
+VWF_MENU_SLOT_COUNT = 11
 ; The maximum length of a line of text in 8-pixel tiles.
 VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
@@ -95,7 +95,6 @@ ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_MENU_SLOT_COU
 ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_ptr: .res 1
-ff6vwf_menu_drawing_item_in_force_blank: .res 1
 
 ff6vwf_menu_bss_end:
 
@@ -186,13 +185,13 @@ _ff6vwf_menu_force_nmi_trampoline:
 
 ; FF6 routine to draw an item in the Item menu.
 .segment "PTEXTMENUDRAWITEMNAME"
-    jsl _ff6vwf_menu_draw_inventory_item_name   ; 4 bytes
+    jsl _ff6vwf_menu_draw_inventory_item_name_for_item_menu   ; 4 bytes
     nopx 3
 
 ; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
-    jsl _ff6vwf_menu_draw_item_to_equip_name    ; 4 bytes
-    nopx 3                                      ; overwrite `jsr $c39d11`
+    jsl _ff6vwf_menu_draw_item_to_equip_name        ; 4 bytes
+    nopx 3                                          ; overwrite `jsr $c39d11`
 
 .segment "PTEXTMENUINITRAGEMENU"
     stz $4a         ; List scroll: 0
@@ -230,8 +229,13 @@ _ff6vwf_menu_force_nmi_trampoline:
 
 ; FF6 routine to draw a rage in the Skills menu.
 .segment "PTEXTMENUDRAWRAGENAME"
-    jsl _ff6vwf_menu_draw_rage_name             ; 4 bytes
+    jsl _ff6vwf_menu_draw_rage_name         ; 4 bytes
     nop
+
+.segment "PTEXTMENUDRAWITEMFORSALE"
+    jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
+    nopx 2
+_ff6vwf_menu_draw_item_for_sale_after:
 
 .segment "PTEXTMENUBUILDCOLOSSEUMITEMS"
     jml _ff6vwf_menu_build_colosseum_items  ; 4 bytes
@@ -986,56 +990,29 @@ begin_locals
     ; Upload it now.
     jsl _ff6vwf_menu_force_nmi_trampoline
 
-    ; Calculate first tile index.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-
     ; Draw tiles.
-    ldx #1
-:   sta ff6_menu_string_buffer,x
-    inc
-    inx
-    cpx #VWF_MAX_LINE_LENGTH + 1
-    bne :-
-
-    ; Draw blanks.
-    lda #$ff
-:   sta ff6_menu_string_buffer,x
-    inx
-    cpx #FF6_SHORT_ITEM_LENGTH
-    bne :-
-
-    ; Null terminate.
-    lda #0
-    sta ff6_menu_string_buffer,x
+    ldx text_line_slot
+    ldy #FF6_SHORT_ITEM_LENGTH
+    lda #1
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
     rtl
 .endproc
 
-; farproc void _ff6vwf_menu_draw_inventory_item_name()
-.proc _ff6vwf_menu_draw_inventory_item_name
-    lda #0
-    sta f:ff6vwf_menu_drawing_item_in_force_blank
-
+; farproc void _ff6vwf_menu_draw_inventory_item_name_for_item_menu()
+.proc _ff6vwf_menu_draw_inventory_item_name_for_item_menu
     lda f:ff6_menu_list_slot
     tax
     tay
-    jsr _ff6vwf_menu_draw_item_name
+    jsr _ff6vwf_menu_draw_inventory_item_name
     rtl
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
 .proc _ff6vwf_menu_draw_item_to_equip_name
 ff6_item_list = $7e9d8a
-
-    lda #0
-    sta f:ff6vwf_menu_drawing_item_in_force_blank
-
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -1044,26 +1021,39 @@ ff6_item_list = $7e9d8a
     lda f:ff6_item_list,x
     txy
     tax
-    jsr _ff6vwf_menu_draw_item_name
+    jsr _ff6vwf_menu_draw_inventory_item_name
     tdc
     rtl
 .endproc
 
+; nearproc void _ff6vwf_menu_draw_inventory_item_name(uint8 inventory_slot, uint8 menu_item_index)
+.proc _ff6vwf_menu_draw_inventory_item_name
+ff6_inventory_ids = $7e1869
+
+    ; Load item.
+    a16
+    txa
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_inventory_ids,x
+    tax
+
+    jmp _ff6vwf_menu_draw_item_name
+.endproc
+
 ; nearproc void _ff6vwf_menu_draw_item_name(uint8 item_id, uint8 menu_item_index)
 ;
-; This function will automatically mod the menu item index by 10 to get the text string index.
+; This function will automatically mod the menu item index by 11 to get the text string index.
 ;
 ; Setup function at $c37f88
 ; Scroll position is at $4a, top BG1 write row is at $49, item slot at $e5
 .proc _ff6vwf_menu_draw_item_name
 begin_locals
     decl_local outgoing_args, 5
-    decl_local inventory_slot, 1
     decl_local item_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
-
-ff6_inventory_ids = $7e1869
 
     enter __FRAME_SIZE__
 
@@ -1071,14 +1061,6 @@ ff6_inventory_ids = $7e1869
     tya
     sta text_line_slot
     txa
-    sta inventory_slot
-
-    ; Load item.
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6_inventory_ids,x
     sta item_id
 
     ; Draw item icon.
@@ -1098,13 +1080,13 @@ ff6_inventory_ids = $7e1869
     sta string_ptr
     a8
 
-    ; Compute the actual text line slot by modding the one we were given by 10.
+    ; Compute the actual text line slot by modding the one we were given by 11.
     lda text_line_slot
     a16
     and #$00ff
     tax
     a8
-    ldy #10
+    ldy #11
     jsr _ff6vwf_mod16_8
     txa
     sta text_line_slot
@@ -1123,32 +1105,12 @@ ff6_inventory_ids = $7e1869
     ; Upload it now. (We won't get a chance later...)
     jsr _ff6vwf_menu_force_nmi
 
-    ; Calculate first tile index.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-
     ; Draw tiles.
-    ldx #1
-:   sta ff6_menu_string_buffer,x
-    inc
-    inx
-    cpx #VWF_MAX_LINE_LENGTH + 1
-    bne :-
-
-    ; Draw blanks.
-    lda #$ff
-:   sta ff6_menu_string_buffer,x
-    inx
-    cpx #FF6_SHORT_ITEM_LENGTH
-    bne :-
-
-    ; Null terminate.
-    lda #0
-    sta ff6_menu_string_buffer,x
+    ldx text_line_slot
+    ldy #FF6_SHORT_ITEM_LENGTH
+    lda #1
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
     a16
@@ -1157,25 +1119,91 @@ ff6_inventory_ids = $7e1869
     rts
 .endproc
 
-.export _ff6vwf_menu_draw_item_name ; for debugging
+.export _ff6vwf_menu_draw_inventory_item_name ; for debugging
 
+; nearproc void _ff6vwf_menu_draw_vwf_tiles(uint8 text_line_slot,
+;                                           uint8 tile_count,
+;                                           uint8 offset)
+.proc _ff6vwf_menu_draw_vwf_tiles
+begin_locals
+    decl_local tile_count, 2
+begin_args_nearcall
+    decl_arg offset, 1
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    tya
+    a16
+    and #$00ff
+    sta tile_count
+    a8
+
+    ; Put offset in Y.
+    lda offset
+    a16
+    and #$00ff
+    tay
+    a8
+
+    ; Calculate first tile index.
+    txa
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+
+    ; Draw tiles.
+    tyx                             ; Put offset in X.
+    ldy #VWF_MAX_LINE_LENGTH
+:   sta ff6_menu_string_buffer,x
+    inc
+    inx
+    dey
+    bne :-
+
+    ; Draw blanks.
+    lda #$ff
+:   cpx tile_count
+    bge :+
+    sta ff6_menu_string_buffer,x
+    inx
+    bne :-
+:
+
+    ; Null terminate.
+    lda #0
+    sta ff6_menu_string_buffer,x
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc void _ff6vwf_menu_force_nmi()
+;
+; Just like FF6's "force NMI" routine at $c31368, but without messing with the force blank
+; (INIDISP) settings. This allows us to wait for NMIs without turning the screen on, which might
+; confuse FF6 and cause it to try to perform DMA with the screen on.
 .proc _ff6vwf_menu_force_nmi
-C31368:  LDA #$81        ; Stop IRQ timers
-         STA f:$004200       ; On: NMI, joypads
-         STA f:$7e0024         ; Mark NMI request
-         CLI             ; Unmask IRQs
-C31370:  LDA f:$7e0024         ; Back from NMI?
-         BNE C31370      ; Loop if not
-         SEI             ; Mask IRQs
-         ;LDA $44         ; Brightness
-         ;STA $2100       ; Apply it now
-         LDA f:$7e0043         ; Queued HDMA
-         STA f:$00420C       ; Update channels
-         LDA f:$7e00B5         ; Mosaic settings
-         STA f:$002106       ; Apply to screen
-         lda #0
-         sta f:$7e00AE         ; Allow SFX repeat
-         RTS
+ff6_menu_nmi_requested    = $7e0024
+ff6_menu_queued_hdma      = $7e0043
+ff6_menu_mosaic           = $7e00b5
+ff6_menu_allow_sfx_repeat = $7e00ae
+
+    lda #$81                        ; Stop IRQ timers
+    sta f:NMITIMEN                  ; On: NMI, joypads
+    sta f:ff6_menu_nmi_requested    ; Mark NMI request
+    cli                             ; Unmask IRQs
+:   lda f:ff6_menu_nmi_requested    ; Back from NMI?
+    bne :-                          ; Loop if not
+    sei                             ; Mask IRQs
+    lda f:ff6_menu_queued_hdma      ; Queued HDMA
+    sta f:HDMAEN                    ; Update channels
+    lda f:ff6_menu_mosaic           ; Mosaic settings
+    sta f:MOSAIC                    ; Apply to screen
+    lda #0
+    sta f:ff6_menu_allow_sfx_repeat ; Allow SFX repeat
+    rts
 .endproc
 
 .export _ff6vwf_menu_force_nmi
@@ -1245,36 +1273,96 @@ ff6_rage_list = $7e9d89
     ; Upload it now. (We won't get a chance later...)
     jsl _ff6vwf_menu_force_nmi_trampoline
 
-    ; Calculate first tile index.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-
     ; Draw tiles.
-    ldx #0
-:   cpx #FF6_SHORT_ENEMY_NAME_LENGTH
-    beq :+
-    sta ff6_menu_string_buffer,x
-    inc
-    inx
-    bra :-
-:
-
-    ; Null terminate.
-    lda #0
-    sta ff6_menu_string_buffer,x
+    ldx text_line_slot
+    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
     rtl
 .endproc
 
-.proc _ff6vwf_menu_build_colosseum_items
-    lda #1
-    sta f:ff6vwf_menu_drawing_item_in_force_blank
+; Draws an item for sale, in the "buy" menu in shops.
+;
+; This doesn't really follow a calling convention, since it's more of a patch than a function.
+.proc _ff6vwf_menu_draw_item_for_sale
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local item_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
 
+ff6_menu_item_for_sale = $7e00f1
+
+    tax     ; Save item ID.
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    txa
+    sta item_id
+    lda f:ff6_menu_item_for_sale
+    sta text_line_slot
+
+    ; Draw item icon.
+    tax
+    ldy #FF6_SHORT_ITEM_LENGTH
+    jsr _ff6vwf_mul8
+    lda ff6_short_item_names,x
+    sta ff6_menu_string_buffer
+
+    ; Compute string pointer.
+    lda item_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_item_names,x
+    sta string_ptr
+    a8
+
+    ; Compute the actual text line slot by modding the one we were given by 9.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #9                  ; 8 slots, plus one.
+    jsr _ff6vwf_mod16_8
+    txa
+    sta text_line_slot
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; flags
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+3
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx text_line_slot
+    ldy #FF6_SHORT_ITEM_LENGTH
+    lda #1
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+
+    ; Call the "upload text" function and have it return back into the "draw item for sale"
+    ; function.
+    pea .loword(_ff6vwf_menu_draw_item_for_sale_after)-1
+    jml $c37fd9
+.endproc
+
+.proc _ff6vwf_menu_build_colosseum_items
     ; Stuff the original function did
     lda #1
     sta f:BG1SC
@@ -1337,32 +1425,12 @@ begin_locals
     ; Schedule an upload for later, or just upload now if we're in force blank.
     jsl _ff6vwf_menu_force_nmi_trampoline
 
-    ; Calculate first tile index.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-
     ; Draw tiles.
-    ldx #1
-:   sta ff6_menu_string_buffer,x
-    inc
-    inx
-    cpx #VWF_MAX_LINE_LENGTH + 1
-    bne :-
-
-    ; Draw blanks.
-    lda #$ff
-:   sta ff6_menu_string_buffer,x
-    inx
-    cpx #FF6_SHORT_ITEM_LENGTH
-    bne :-
-
-    ; Null terminate.
-    lda #0
-    sta ff6_menu_string_buffer,x
+    ldx text_line_slot
+    ldy #FF6_SHORT_ITEM_LENGTH
+    lda #1
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     ; Save tilemap position where FF6 expects it.
     a16
@@ -1409,23 +1477,11 @@ TEXT_LINE_SLOT = 2
     ; Upload it now. (We won't get a chance later...)
     jsl _ff6vwf_menu_force_nmi_trampoline
 
-    ; Calculate first tile index.
-    ldx #TEXT_LINE_SLOT
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-
     ; Draw tiles.
-    ldx #0
-:   cpx #FF6_SHORT_ENEMY_NAME_LENGTH
-    beq :+
-    sta ff6_menu_string_buffer,x
-    inc
-    inx
-    bra :-
-:
-
-    ; Null terminate.
-    lda #0
-    sta ff6_menu_string_buffer,x
+    ldx #TEXT_LINE_SLOT
+    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     ; Store tilemap position.
     a16
@@ -1440,32 +1496,39 @@ TEXT_LINE_SLOT = 2
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
-    stz $420c       ; Disable HDMA
-    stz $420b       ; Disable DMA...
-    lda $35         ; BG1 X-Pos LB
-    sta $210d       ; Apply it now
-    lda $36         ; BG1 X-Pos HB
-    sta $210d       ; Apply it now
-    lda $37         ; BG1 Y-Pos LB
-    sta $210e       ; Apply it now
-    lda $38         ; BG1 Y-Pos HB
-    sta $210e       ; Apply it now
-    lda $39         ; BG2 X-Pos LB
-    sta $210f       ; Apply it now
-    lda $3a         ; BG2 X-Pos HB
-    sta $210f       ; Apply it now
-    lda $3b         ; BG2 Y-Pos LB
-    sta $2110       ; Apply it now
-    lda $3c         ; BG2 Y-Pos HB
-    sta $2110       ; Apply it now
-    lda $3d         ; BG3 X-Pos LB
-    sta $2111       ; Apply it now
-    lda $3e         ; BG3 X-Pos HB
-    sta $2111       ; Apply it now
-    lda $3f         ; BG3 Y-Pos LB
-    sta $2112       ; Apply it now
-    lda $40         ; BG3 Y-Pos HB
-    sta $2112       ; Apply it now
+ff6_menu_bg1_xpos = $35
+ff6_menu_bg1_ypos = $37
+ff6_menu_bg2_xpos = $39
+ff6_menu_bg2_ypos = $3b
+ff6_menu_bg3_xpos = $3d
+ff6_menu_bg3_ypos = $3f
+
+    stz HDMAEN      ; Disable HDMA.
+    stz MDMAEN      ; Disable DMA.
+    lda ff6_menu_bg1_xpos+0
+    sta BG1HOFS
+    lda ff6_menu_bg1_xpos+1
+    sta BG1HOFS
+    lda ff6_menu_bg1_ypos+0
+    sta BG1VOFS
+    lda ff6_menu_bg1_ypos+1
+    sta BG1VOFS
+    lda ff6_menu_bg2_xpos+0
+    sta BG2HOFS
+    lda ff6_menu_bg2_xpos+1
+    sta BG2HOFS
+    lda ff6_menu_bg2_ypos+0
+    sta BG2VOFS
+    lda ff6_menu_bg2_ypos+1
+    sta BG2VOFS
+    lda ff6_menu_bg3_xpos+0
+    sta BG3HOFS
+    lda ff6_menu_bg3_xpos+1
+    sta BG3HOFS
+    lda ff6_menu_bg3_ypos+0
+    sta BG3VOFS
+    lda ff6_menu_bg3_ypos+1
+    sta BG3VOFS
     rtl
 .endproc
 

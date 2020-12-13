@@ -4,10 +4,17 @@
 .define SNES_INC 1
 
 ; PPU registers
-INIDISP  = $2100
 BGMODE   = $2015
+INIDISP  = $2100
+MOSAIC   = $2106
 BG1SC    = $2107
 BG12NBA  = $210b
+BG1HOFS  = $210d
+BG1VOFS  = $210e
+BG2HOFS  = $210f
+BG2VOFS  = $2110
+BG3HOFS  = $2111
+BG3VOFS  = $2112
 CGADD    = $2121
 CGDATA   = $2122
 VMAIN    = $2115
@@ -30,6 +37,7 @@ WRDIVL   = $4204
 WRDIVH   = $4205
 WRDIVB   = $4206
 MDMAEN   = $420b
+HDMAEN   = $420c
 RDDIVL   = $4214
 RDDIVH   = $4215
 RDMPYL   = $4216
@@ -108,12 +116,15 @@ RDMPYH   = $4217
 ; basically a frame pointer).
 ;
 ; The calling convention is that the first two byte- or word-sized parameters go into X and Y
-; respectively, and any remaining parameters go on the stack. Far pointer-sized parameters always
-; go on the stack. Note that this prolog clobbers A, so we can't use it for passing parameters.
+; respectively, and any remaining parameters go on the stack. For byte-sized parameters, the top
+; byte of the register is irrelevant, so you don't need to set it to zero. Far pointer-sized
+; parameters always go on the stack. The accumulator is 8 bits and index registers are 16 bits on
+; entry to and exit from the function. Note that this prolog clobbers A, so we can't use it for
+; passing parameters.
 ;
 ; Using a C-like calling convention is a bit weird on the SNES, but in our case it has the
-; advantage of giving us a private direct page. This reduces the chance of accidentally stomping on
-; something the game was using.
+; advantage of giving every function a private direct page. This reduces the chance of accidentally
+; stomping on something the game was using.
 .macro enter frame_size
     phd
 .if __FRAME_SIZE__ < 11
