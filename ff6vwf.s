@@ -311,10 +311,9 @@ _ff6vwf_menu_force_nmi_trampoline:
     lda OPVCT
     cmp #250        ; Don't DMA after scanline 250...
     bge @no_time
-    ; 239 is where VBLANK begins, so anything before that in the low byte means we're at a scanline
-    ; >= 256, which isn't enough time for DMA.
-    cmp #239
-    blt @no_time
+    lda OPVCT
+    and #$01
+    bne @no_time
 
 @do_it:
     _ff6vwf_run_dma_now text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
@@ -1178,6 +1177,8 @@ C31370:  LDA f:$7e0024         ; Back from NMI?
          sta f:$7e00AE         ; Allow SFX repeat
          RTS
 .endproc
+
+.export _ff6vwf_menu_force_nmi
 
 .proc _ff6vwf_encounter_build_menu_item_for_rage
     sta f:ff6vwf_encounter_current_rage_slot    ; from $c15945
