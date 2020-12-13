@@ -185,7 +185,7 @@ _ff6vwf_menu_force_nmi_trampoline:
 
 ; FF6 routine to draw an item in the Item menu.
 .segment "PTEXTMENUDRAWITEMNAME"
-    jsl _ff6vwf_menu_draw_inventory_item_name_for_item_menu   ; 4 bytes
+    jml _ff6vwf_menu_draw_inventory_item_name_for_item_menu   ; 4 bytes
     nopx 3
 
 ; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
@@ -1003,11 +1003,15 @@ begin_locals
 
 ; farproc void _ff6vwf_menu_draw_inventory_item_name_for_item_menu()
 .proc _ff6vwf_menu_draw_inventory_item_name_for_item_menu
+ff6_menu_draw_string = $c37fd9
+
     lda f:ff6_menu_list_slot
     tax
     tay
     jsr _ff6vwf_menu_draw_inventory_item_name
-    rtl
+
+    pea $7fd6-1                 ; Return to $c37fd6.
+    jml ff6_menu_draw_string
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
@@ -1055,6 +1059,8 @@ begin_locals
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
 
+FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
+
     enter __FRAME_SIZE__
 
     ; Initialize locals.
@@ -1063,8 +1069,22 @@ begin_locals
     txa
     sta item_id
 
+    ; If empty, blank item name and quantity.
+    cmp #$ff
+    bne :+
+    ldx #.loword(ff6_menu_string_buffer)
+    stx outgoing_args+0             ; dest
+    lda #^ff6_menu_string_buffer
+    sta outgoing_args+2             ; dest bank
+    ldx #$ff
+    ldy #16
+    jsr _ff6vwf_memset
+    lda #0
+    sta ff6_menu_string_buffer+16
+    bra @out
+
     ; Draw item icon.
-    tax
+:   tax
     ldy #FF6_SHORT_ITEM_LENGTH
     jsr _ff6vwf_mul8
     lda ff6_short_item_names,x
@@ -1107,11 +1127,12 @@ begin_locals
 
     ; Draw tiles.
     ldx text_line_slot
-    ldy #FF6_SHORT_ITEM_LENGTH
+    ldy #FF6_MENU_INVENTORY_ITEM_LENGTH
     lda #1
     sta outgoing_args+0
     jsr _ff6vwf_menu_draw_vwf_tiles
 
+@out:
     leave __FRAME_SIZE__
     a16
     lda #0
