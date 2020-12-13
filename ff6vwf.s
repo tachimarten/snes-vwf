@@ -86,7 +86,7 @@ ff6vwf_encounter_bss_end:
 .export ff6vwf_encounter_bss_end
 
 ; Menu BSS
-.org $7ea000
+.org $7eb800
 
 ; Stack of DMA structures, just like the encounter ones.
 ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_MENU_SLOT_COUNT
@@ -182,10 +182,12 @@ _ff6vwf_menu_force_nmi_trampoline:
     pld
     rtl
 
+.export _ff6vwf_menu_force_nmi_trampoline
+
 ; FF6 routine to draw an item in the Item menu.
 .segment "PTEXTMENUDRAWITEMNAME"
     jsl _ff6vwf_menu_draw_inventory_item_name   ; 4 bytes
-    nopx 2
+    nopx 3
 
 ; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
@@ -982,8 +984,8 @@ begin_locals
     ldy #VWF_MENU_TILE_BG3_BASE_ADDR
     jsr _ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl _ff6vwf_menu_force_nmi_trampoline 
+    ; Upload it now.
+    jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Calculate first tile index.
     lda text_line_slot
@@ -1120,16 +1122,7 @@ ff6_inventory_ids = $7e1869
     jsr _ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
-    ;jsl _ff6vwf_menu_force_nmi_trampoline
-    ;lda #$80
-    ;sta f:INIDISP
-    ; Schedule an upload for later, or just upload now if we're in force blank.
-    ;lda f:ff6vwf_menu_drawing_item_in_force_blank
-    ;bne :+
-    ;jsl _ff6vwf_menu_force_nmi_trampoline
-    ;bra :++
-:   jsl _ff6vwf_menu_run_all_dma_now
-:
+    jsr _ff6vwf_menu_force_nmi
 
     ; Calculate first tile index.
     lda text_line_slot
@@ -1166,6 +1159,25 @@ ff6_inventory_ids = $7e1869
 .endproc
 
 .export _ff6vwf_menu_draw_item_name ; for debugging
+
+.proc _ff6vwf_menu_force_nmi
+C31368:  LDA #$81        ; Stop IRQ timers
+         STA f:$004200       ; On: NMI, joypads
+         STA f:$7e0024         ; Mark NMI request
+         CLI             ; Unmask IRQs
+C31370:  LDA f:$7e0024         ; Back from NMI?
+         BNE C31370      ; Loop if not
+         SEI             ; Mask IRQs
+         ;LDA $44         ; Brightness
+         ;STA $2100       ; Apply it now
+         LDA f:$7e0043         ; Queued HDMA
+         STA f:$00420C       ; Update channels
+         LDA f:$7e00B5         ; Mosaic settings
+         STA f:$002106       ; Apply to screen
+         lda #0
+         sta f:$7e00AE         ; Allow SFX repeat
+         RTS
+.endproc
 
 .proc _ff6vwf_encounter_build_menu_item_for_rage
     sta f:ff6vwf_encounter_current_rage_slot    ; from $c15945
@@ -1230,7 +1242,7 @@ ff6_rage_list = $7e9d89
     jsr _ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
-    jsl _ff6vwf_menu_force_nmi_trampoline 
+    jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Calculate first tile index.
     lda text_line_slot
@@ -1322,12 +1334,7 @@ begin_locals
     jsr _ff6vwf_render_string
 
     ; Schedule an upload for later, or just upload now if we're in force blank.
-    lda f:ff6vwf_menu_drawing_item_in_force_blank
-    bne :+
     jsl _ff6vwf_menu_force_nmi_trampoline
-    bra :++
-:   jsl _ff6vwf_menu_run_all_dma_now
-:
 
     ; Calculate first tile index.
     lda text_line_slot
