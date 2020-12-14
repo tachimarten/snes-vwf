@@ -123,32 +123,32 @@ ff6vwf_menu_bss_end:
 ; Final Fantasy 6 encounter patches
 
 ; Encounter setup. We patch it to initialize our DMA stack.
-.segment "PTEXTINITENCOUNTER"
+.segment "PTEXTENCOUNTERINIT"
     jml _ff6vwf_encounter_init
 
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
-.segment "PTEXTDRAWENEMYNAME"
+.segment "PTEXTENCOUNTERDRAWENEMYNAME"
     jsl _ff6vwf_encounter_draw_enemy_name
     rts
 
 ; FF6 routine that builds a menu item for an item in inventory during encounters. We patch it to
 ; record what inventory slot number it was so that the VWF rendering routine can figure out what
 ; text slot to use in order to avoid collisions.
-.segment "PTEXTBUILDMENUITEMFORITEM"
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORITEM"
     jml _ff6vwf_encounter_build_menu_item_for_item          ; 4 bytes
 
 ; FF6 routine that builds a menu item for an equipped item in hand (during encounters). We patch it
 ; to record that this is an item in hand so that the VWF rendering routine can use the appropriate
 ; slot.
-.segment "PTEXTBUILDMENUITEMFORITEMINHAND"
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORITEMINHAND"
     jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
 
-.segment "PTEXTBUILDMENUITEMFORTOOLS"
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORTOOLS"
     jml _ff6vwf_encounter_build_menu_item_for_tools
 
 ; FF6 routine to draw an item name during encounters.
-.segment "PTEXTDRAWITEMNAME"
+.segment "PTEXTENCOUNTERDRAWITEMNAME"
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
@@ -167,7 +167,7 @@ ff6vwf_menu_bss_end:
 ; FF6 function that restores the normal BG3 font by copying it from the ROM after a dialogue-style
 ; text box in an encounter has closed. We have to patch it to reupload any enemy names we created
 ; to VRAM.
-.segment "PTEXTRESTORESMALLFONT"
+.segment "PTEXTENCOUNTERRESTORESMALLFONT"
 ff6_encounter_schedule_dma = $198d
     jsl _ff6vwf_encounter_restore_small_font
     rts
