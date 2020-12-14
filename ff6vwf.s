@@ -51,6 +51,7 @@ ff6_menu_list_slot              = $7e00e5
 ff6_menu_bg1_write_row          = $7e00e6
 ff6_menu_src_ptr                = $7e00e7
 ff6_encounter_enemy_ids         = $7e200d
+ff6_menu_list                   = $7e9d89
 ff6_menu_positioned_text_ptr    = $7e9e89
 ff6_menu_string_buffer          = $7e9e8b
 
@@ -247,6 +248,10 @@ _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
 _ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 _ff6vwf_menu_draw_blitz_inputs_trampoline:  def_trampoline $5683
 _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
+
+.segment "PTEXTMENUDRAWDANCE"
+    jsl _ff6vwf_menu_draw_dance
+    rts
 
 .segment "PTEXTMENUDRAWITEMFORSALE"
     jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
@@ -1386,10 +1391,9 @@ ff6_rage_list = $7e9d89
 ; farproc void _ff6vwf_menu_draw_blitz(uint8 tile_x_offset)
 .proc _ff6vwf_menu_draw_blitz
 begin_locals
+    decl_local outgoing_args, 3
     decl_local blitz_id, 1      ; uint8
     decl_local tile_x_offset, 1 ; uint8
-
-ff6_menu_list           = $7e9d89
 
     enter __FRAME_SIZE__
 
@@ -1409,9 +1413,13 @@ ff6_menu_list           = $7e9d89
     beq @no_blitz
 
     ; Draw Blitz name.
-    tax
+    ldx #.loword(ff6vwf_long_blitz_names)
+    stx outgoing_args+0
+    tax                     ; X = Blitz ID
     ldy tile_x_offset
-    jsr _ff6vwf_menu_draw_blitz_name
+    lda #^ff6vwf_long_blitz_names
+    sta outgoing_args+2
+    jsr _ff6vwf_menu_draw_blitz_or_dance_name
 
     ; Go to the next row, and draw Blitz input.
     lda f:ff6_menu_bg1_write_row
@@ -1436,12 +1444,52 @@ ff6_menu_list           = $7e9d89
 
 .export _ff6vwf_menu_draw_blitz     ; For debugging.
 
-; nearproc void _ff6vwf_menu_draw_blitz_name(uint8 blitz_id, uint8 tile_x_offset)
-.proc _ff6vwf_menu_draw_blitz_name
+; farproc void _ff6vwf_menu_draw_dance(uint8 tile_x_offset)
+.proc _ff6vwf_menu_draw_dance
+begin_locals
+    decl_local outgoing_args, 3
+
+ff6_menu_list           = $7e9d89
+
+    enter __FRAME_SIZE__
+
+    ; Save tile X offset.
+    txy
+
+    ; Check for dance in slot.
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_list,x
+    cmp #$ff
+    beq @no_dance
+
+    ; Draw dance name.
+    ldx #.loword(ff6vwf_long_dance_names)
+    stx outgoing_args+0
+    tax                             ; X = blitz_id
+    lda #^ff6vwf_long_blitz_names
+    sta outgoing_args+2
+    jsr _ff6vwf_menu_draw_blitz_or_dance_name
+
+@no_dance:
+    ; FIXME(tachiweasel): Fill with blanks if no dance here.
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_blitz_or_dance_name(uint8 blitz_id,
+;                                                     uint8 tile_x_offset,
+;                                                     const char far *string_table)
+.proc _ff6vwf_menu_draw_blitz_or_dance_name
 begin_locals
     decl_local outgoing_args, 5
-    decl_local string_ptr, 2    ; char near *
+    decl_local string_ptr, 2        ; char near *
     decl_local tile_x_offset, 1
+begin_args_nearcall
+    decl_arg string_table, 3
 
     enter __FRAME_SIZE__
 
@@ -1454,8 +1502,8 @@ begin_locals
     a16
     and #$00ff
     asl
-    tax
-    lda f:ff6vwf_long_blitz_names,x
+    tay
+    lda [string_table],y
     sta string_ptr
     a8
 
