@@ -96,6 +96,8 @@ ff6vwf_encounter_current_item_slot: .res 1
 ff6vwf_encounter_item_type_to_draw: .res 1
 ; ID of the current rage slot we're drawing.
 ff6vwf_encounter_current_rage_slot: .res 1
+; ID of the current dance slot we're drawing.
+ff6vwf_encounter_current_dance_slot: .res 1
 
 ff6vwf_encounter_bss_end:
  
@@ -153,11 +155,18 @@ ff6vwf_menu_bss_end:
     rts
 
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORRAGE"
-    jml _ff6vwf_encounter_build_menu_item_for_rage  ; 4 bytes
+    jml _ff6vwf_encounter_build_menu_item_for_rage      ; 4 bytes
+
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORDANCE"
+    jml _ff6vwf_encounter_build_menu_item_for_dance     ; 4 bytes
 
 ; FF6 routine to draw the name of one of Gau's Rages during encounters.
 .segment "PTEXTENCOUNTERDRAWRAGENAME"
     jsl _ff6vwf_encounter_draw_rage_name
+    rts
+
+.segment "PTEXTENCOUNTERDRAWDANCENAME"
+    jsl _ff6vwf_encounter_draw_dance_name
     rts
 
 ; Part of the FF6 encounter NMI/VBLANK handler. We patch it to upload our text if needed.
@@ -334,11 +343,10 @@ _ff6vwf_menu_draw_item_for_sale_after:
     lda STAT78
     lda SLHV
     lda OPVCT
+    cmp #225        ; Don't DMA while the screen is rendering...
+    blt @no_time
     cmp #245        ; Don't DMA after scanline 250...
     bge @no_time
-    lda OPVCT
-    and #$01
-    bne @no_time
 
 @do_it:
     _ff6vwf_run_dma_now text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
@@ -645,8 +653,6 @@ begin_locals
     decl_local string_ptr, 2                ; char near *
 
 ff6_display_list_ptr        = $7e004f
-ff6_item_in_hand_left       = $7e575a
-ff6_item_in_hand_right      = $7e5760
 ff6_rage_display_list_left  = $7e575a
 ff6_rage_display_list_right = $7e5760
 
@@ -697,6 +703,76 @@ ff6_rage_display_list_right = $7e5760
     ldy string_ptr
     sty outgoing_args+1             ; string
     lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3             ; string bank byte
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+    ; Draw tile data.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy text_line_slot          ; text_line_slot
+    lda #1
+    sta outgoing_args+0         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data
+
+    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_encounter_draw_dance_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local text_line_slot, 1            ; uint8
+    decl_local dance_id_ptr, 2              ; uint8 near *
+    decl_local dance_id, 1                  ; uint8
+    decl_local string_ptr, 2                ; char near *
+
+ff6_display_list_ptr        = $7e004f
+ff6_dance_display_list_left  = $7e575a
+ff6_dance_display_list_right = $7e5760
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    a16
+    lda f:ff6_display_list_ptr
+    inc
+    sta f:ff6_display_list_ptr
+    sta dance_id_ptr
+    a8
+
+    ; Figure out what text line slot we're going to use.
+    lda f:ff6vwf_encounter_current_dance_slot
+    asl
+    ldx dance_id_ptr
+    cpx #.loword(ff6_dance_display_list_right)
+    bne :+
+    inc
+:   sta text_line_slot                      ; dance_slot * 2, plus one if right column
+
+    ; Fetch enemy ID.
+    lda (dance_id_ptr)
+    sta dance_id
+
+    ; Compute string pointer.
+    lda dance_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_dance_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #0
+    sta outgoing_args+0             ; 2bpp
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1             ; string
+    lda #^ff6vwf_long_dance_names
     sta outgoing_args+3             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr _ff6vwf_render_string
@@ -1299,6 +1375,17 @@ ff6_menu_allow_sfx_repeat = $7e00ae
     tay
     tdc
     jmp $c14ce6
+.endproc
+
+.proc _ff6vwf_encounter_build_menu_item_for_dance
+    sta f:ff6vwf_encounter_current_dance_slot
+
+    ; Stuff the original function did that we overwrote.
+    phy
+    asl
+    tay
+    tdc
+    jmp $c14d0c
 .endproc
 
 .proc _ff6vwf_menu_draw_rage_name
