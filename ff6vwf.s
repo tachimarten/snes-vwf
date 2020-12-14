@@ -1163,6 +1163,7 @@ ff6_menu_draw_string = $c37fd9
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
 .proc _ff6vwf_menu_draw_item_to_equip_name
 ff6_item_list = $7e9d8a
+
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
