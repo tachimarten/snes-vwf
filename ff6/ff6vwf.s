@@ -7,7 +7,7 @@
 .a8
 .feature c_comments
 
-.include "snes.inc"
+.include "../snes.inc"
 
 .import std_memset: near
 .import std_mod16_8: near
@@ -277,6 +277,10 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 .segment "PTEXTMENUDRAWDANCE"
     jsl _ff6vwf_menu_draw_dance
     rts
+
+.segment "PTEXTMENUDRAWITEMTOBEUSED"
+    jsl _ff6vwf_menu_draw_item_to_be_used
+    nopx 7
 
 .segment "PTEXTMENUDRAWITEMFORSALE"
     jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
@@ -627,14 +631,9 @@ ff6_tool_display_list_right = $7e5760
     stx dest_tilemap_offset
 
     ; Compute string pointer.
-    lda item_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_item_names,x
-    sta string_ptr
-    a8
+    ldx item_id
+    jsr _ff6vwf_get_long_item_name
+    stx string_ptr
 
     ; Render string.
     lda #0
@@ -1092,7 +1091,7 @@ begin_locals
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
 
-    tax             ; Put item ID in X
+    tax             ; Put item ID in X.
 
     enter __FRAME_SIZE__
 
@@ -1102,24 +1101,18 @@ begin_locals
 
     ; Draw item icon.
     tax
-    ldy #FF6_SHORT_ITEM_LENGTH
-    jsr std_mul8
-    lda ff6_short_item_names,x
-    sta ff6_menu_string_buffer
+    jsr _ff6vwf_menu_draw_item_icon
 
     ; Compute string pointer.
-    lda item_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_item_names,x
-    sta string_ptr
+    ldx item_id
+    jsr _ff6vwf_get_long_item_name
+    stx string_ptr
 
     ; Compute text line slot.
     ;
     ; Positioned text pointer -- L-Hand: $7a1b, R-Hand: $7a9b, Helmet: $7b1b, Armor: $7b9b.
     ; So extract bits 7 and 8 to get a unique text slot.
+    a16
     lda f:ff6_menu_positioned_text_ptr
     asl
     xba
@@ -1184,9 +1177,13 @@ ff6_item_list = $7e9d8a
 
 ; nearproc void _ff6vwf_menu_draw_inventory_item_name(uint8 inventory_slot, uint8 menu_item_index)
 .proc _ff6vwf_menu_draw_inventory_item_name
+    jsr _ff6vwf_menu_get_inventory_item_id
+    jmp _ff6vwf_menu_draw_item_name_bg1
+.endproc
+
+.proc _ff6vwf_menu_get_inventory_item_id
 ff6_inventory_ids = $7e1869
 
-    ; Load item.
     a16
     txa
     and #$00ff
@@ -1194,8 +1191,7 @@ ff6_inventory_ids = $7e1869
     a8
     lda f:ff6_inventory_ids,x
     tax
-
-    jmp _ff6vwf_menu_draw_item_name
+    rts
 .endproc
 
 .proc _ff6vwf_menu_draw_gear_info_text
@@ -1210,13 +1206,13 @@ ff6_inventory_ids = $7e1869
     jml $c385ad
 .endproc
 
-; nearproc void _ff6vwf_menu_draw_item_name(uint8 item_id, uint8 menu_item_index)
+; nearproc void _ff6vwf_menu_draw_item_name_bg1(uint8 item_id, uint8 menu_item_index)
 ;
 ; This function will automatically mod the menu item index by 11 to get the text string index.
 ;
 ; Setup function at $c37f88
 ; Scroll position is at $4a, top BG1 write row is at $49, item slot at $e5
-.proc _ff6vwf_menu_draw_item_name
+.proc _ff6vwf_menu_draw_item_name_bg1
 begin_locals
     decl_local outgoing_args, 5
     decl_local item_id, 1
@@ -1249,20 +1245,12 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 
     ; Draw item icon.
 :   tax
-    ldy #FF6_SHORT_ITEM_LENGTH
-    jsr std_mul8
-    lda ff6_short_item_names,x
-    sta ff6_menu_string_buffer
+    jsr _ff6vwf_menu_draw_item_icon
 
     ; Compute string pointer.
-    lda item_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_item_names,x
-    sta string_ptr
-    a8
+    ldx item_id
+    jsr _ff6vwf_get_long_item_name
+    stx string_ptr
 
     ; Compute the actual text line slot by modding the one we were given by 11.
     lda text_line_slot
@@ -1756,55 +1744,84 @@ begin_locals
     rts
 .endproc
 
+; farproc void _ff6vwf_menu_draw_item_to_be_used()
+;
+; FIXME(tachiweasel): Cursor sprite disappears sometimes after calling this...
+.proc _ff6vwf_menu_draw_item_to_be_used
+TEXT_LINE_SLOT = 0
+
+ff6_menu_cursor_selected_inventory_slot = $7e004b
+
+    lda f:ff6_menu_cursor_selected_inventory_slot
+    tax
+    jsr _ff6vwf_menu_get_inventory_item_id
+
+    ldy #TEXT_LINE_SLOT
+    jsr _ff6vwf_menu_draw_item_name_bg3
+    rtl
+.endproc
+
 ; Draws an item for sale, in the "buy" menu in shops.
 ;
 ; This doesn't really follow a calling convention, since it's more of a patch than a function.
 .proc _ff6vwf_menu_draw_item_for_sale
 begin_locals
-    decl_local outgoing_args, 5
     decl_local item_id, 1
-    decl_local string_ptr, 2
-    decl_local text_line_slot, 1
 
 ff6_menu_item_for_sale = $7e00f1
 
-    tax     ; Save item ID.
-
+    tax     ; Save item ID in X.
     enter __FRAME_SIZE__
 
-    ; Initialize locals.
+    ; Save item ID.
     txa
     sta item_id
-    lda f:ff6_menu_item_for_sale
-    sta text_line_slot
-
-    ; Draw item icon.
-    tax
-    ldy #FF6_SHORT_ITEM_LENGTH
-    jsr std_mul8
-    lda ff6_short_item_names,x
-    sta ff6_menu_string_buffer
-
-    ; Compute string pointer.
-    lda item_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_item_names,x
-    sta string_ptr
-    a8
 
     ; Compute the actual text line slot by modding the one we were given by 9.
-    lda text_line_slot
+    lda f:ff6_menu_item_for_sale
     a16
     and #$00ff
     tax
     a8
     ldy #9                  ; 8 slots, plus one.
     jsr std_mod16_8
+
+    ; Draw item.
+    ldx item_id
+    txy                 ; text_line_slot
+    jsr _ff6vwf_menu_draw_item_name_bg3
+
+    ; Call the "upload text" function and have it return back into the "draw item for sale"
+    ; function.
+    leave __FRAME_SIZE__
+    pea .loword(_ff6vwf_menu_draw_item_for_sale_after)-1
+    jml $c37fd9
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_item_name_bg3(uint8 item_id, uint8 text_line_slot)
+.proc _ff6vwf_menu_draw_item_name_bg3
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local item_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
     txa
+    sta item_id
+    tya
     sta text_line_slot
+
+    ; Draw item icon.
+    ldx item_id
+    jsr _ff6vwf_menu_draw_item_icon
+
+    ; Compute string pointer.
+    ldx item_id
+    jsr _ff6vwf_get_long_item_name
+    stx string_ptr
 
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -1828,11 +1845,7 @@ ff6_menu_item_for_sale = $7e00f1
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
-
-    ; Call the "upload text" function and have it return back into the "draw item for sale"
-    ; function.
-    pea .loword(_ff6vwf_menu_draw_item_for_sale_after)-1
-    jml $c37fd9
+    rts
 .endproc
 
 .proc _ff6vwf_menu_build_colosseum_items
@@ -1860,20 +1873,12 @@ begin_locals
 
     ; Draw item icon.
     ldx item_id
-    ldy #FF6_SHORT_ITEM_LENGTH
-    jsr std_mul8
-    lda ff6_short_item_names,x
-    sta ff6_menu_string_buffer
+    jsr _ff6vwf_menu_draw_item_icon
 
     ; Compute string pointer.
-    lda item_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_item_names,x
-    sta string_ptr
-    a8
+    ldx item_id
+    jsr _ff6vwf_get_long_item_name
+    stx string_ptr
 
     ; Determine a text line slot.
     lda tilemap_position+0
@@ -1913,6 +1918,15 @@ begin_locals
 
     leave __FRAME_SIZE__
     rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_item_icon(uint8 item_id)
+.proc _ff6vwf_menu_draw_item_icon
+    ldy #FF6_SHORT_ITEM_LENGTH
+    jsr std_mul8
+    lda ff6_short_item_names,x
+    sta ff6_menu_string_buffer
+    rts
 .endproc
 
 .proc _ff6vwf_menu_draw_colosseum_enemy
@@ -2026,6 +2040,19 @@ ff6_menu_bg3_ypos = $3f
 .export _ff6vwf_menu_run_dma
 
 ; Utility functions specific to VWF
+
+; nearproc const char near *_ff6vwf_get_long_item_name(uint8 item_id)
+.proc _ff6vwf_get_long_item_name
+    a16
+    txa
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_item_names,x
+    tax
+    a8
+    rts
+.endproc
 
 ; nearproc void _ff6vwf_render_string(uint8 text_line_slot,
 ;                                     uint16 tile_base_addr,
