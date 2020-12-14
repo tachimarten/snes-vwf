@@ -334,7 +334,7 @@ _ff6vwf_menu_draw_item_for_sale_after:
     lda STAT78
     lda SLHV
     lda OPVCT
-    cmp #250        ; Don't DMA after scanline 250...
+    cmp #245        ; Don't DMA after scanline 250...
     bge @no_time
     lda OPVCT
     and #$01
@@ -528,17 +528,11 @@ begin_locals
     decl_local outgoing_args, 7
     decl_local item_name_tiles, 3           ; chardata far *
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
-    decl_local tiles_to_draw, 1             ; uint8
-    decl_local current_tile_index, 1        ; char
     decl_local item_slot, 1                 ; uint8
     decl_local item_id_ptr, 2               ; uint8 near *
-    decl_local dest_tiles_main, 2           ; tiledata near *
-    decl_local dest_tiles_extra, 2          ; tiledata near *
     decl_local item_id, 1                   ; uint8
     decl_local string_ptr, 2                ; char near *
 
-ff6_dest_tiles_main         = $7e0053
-ff6_dest_tiles_extra        = $7e0051
 ff6_display_list_ptr        = $7e004f
 ff6_item_in_hand_left       = $7e575a
 ff6_item_in_hand_right      = $7e5760
@@ -549,15 +543,9 @@ ff6_tool_display_list_right = $7e5760
 
     ; Initialize locals.
     sty dest_tilemap_offset
-    lda #10
-    sta tiles_to_draw
     a16
     lda ff6_display_list_ptr        ; 5A, 60, 62, 
     sta item_id_ptr
-    lda ff6_dest_tiles_main
-    sta dest_tiles_main
-    lda ff6_dest_tiles_extra
-    sta dest_tiles_extra
 
     ; Figure out what text slot we're going to use.
     a8
@@ -609,9 +597,9 @@ ff6_tool_display_list_right = $7e5760
     ldy #FF6_SHORT_ITEM_LENGTH
     jsr _ff6vwf_mul8
     lda ff6_short_item_names,x
-    tax                     ; tile_to_draw
+    tax                             ; tile_to_draw
     ldy dest_tilemap_offset
-    jsr _ff6vwf_encounter_draw_item_name_tile
+    jsr _ff6vwf_encounter_draw_tile
     stx dest_tilemap_offset
 
     ; Compute string pointer.
@@ -636,43 +624,13 @@ ff6_tool_display_list_right = $7e5760
     jsr _ff6vwf_render_string
 
     ; Draw tile data.
-    lda item_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-    sta current_tile_index
-    ldx dest_tilemap_offset
-:   txy                     ; dest_tilemap_offset
-    lda current_tile_index
-    inc current_tile_index
-    tax                     ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_item_name_tile
-    dec tiles_to_draw
-    bne :-
-
-    ; Add a couple of blank tiles on the end.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy item_slot               ; text_line_slot
     lda #2
-    sta tiles_to_draw
-:   txy                     ; dest_tilemap_offset
-    lda current_tile_index
-    inc current_tile_index
-    ldx #$ff                ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_item_name_tile
-    dec tiles_to_draw
-    bne :-
-    stx dest_tilemap_offset
+    sta outgoing_args+0         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data
 
-    ; Restore stuff to where FF6 expects it.
-    a16
-    lda dest_tiles_main
-    sta ff6_dest_tiles_main
-    lda dest_tiles_extra
-    sta ff6_dest_tiles_extra
-    a8
-    ldy dest_tilemap_offset
-
+    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
     leave __FRAME_SIZE__
     rtl
 .endproc
@@ -680,19 +638,12 @@ ff6_tool_display_list_right = $7e5760
 .proc _ff6vwf_encounter_draw_rage_name
 begin_locals
     decl_local outgoing_args, 7
-    decl_local enemy_name_tiles, 3          ; chardata far *
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
-    decl_local tiles_to_draw, 1             ; uint8
-    decl_local current_tile_index, 1        ; char
     decl_local text_line_slot, 1            ; uint8
     decl_local enemy_id_ptr, 2              ; uint8 near *
-    decl_local dest_tiles_main, 2           ; tiledata near *
-    decl_local dest_tiles_extra, 2          ; tiledata near *
     decl_local enemy_id, 1                  ; uint8
     decl_local string_ptr, 2                ; char near *
 
-ff6_dest_tiles_main         = $7e0053
-ff6_dest_tiles_extra        = $7e0051
 ff6_display_list_ptr        = $7e004f
 ff6_item_in_hand_left       = $7e575a
 ff6_item_in_hand_right      = $7e5760
@@ -703,17 +654,11 @@ ff6_rage_display_list_right = $7e5760
 
     ; Initialize locals.
     sty dest_tilemap_offset
-    lda #10
-    sta tiles_to_draw
     a16
     lda f:ff6_display_list_ptr
     inc
     sta f:ff6_display_list_ptr
     sta enemy_id_ptr
-    lda ff6_dest_tiles_main
-    sta dest_tiles_main
-    lda ff6_dest_tiles_extra
-    sta dest_tiles_extra
     a8
 
     ; Figure out what text line slot we're going to use.
@@ -757,39 +702,13 @@ ff6_rage_display_list_right = $7e5760
     jsr _ff6vwf_render_string
 
     ; Draw tile data.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
-    sta current_tile_index
-    ldx dest_tilemap_offset
-:   txy                     ; dest_tilemap_offset
-    lda current_tile_index
-    inc current_tile_index
-    tax                     ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_item_name_tile
-    dec tiles_to_draw
-    bne :-
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy text_line_slot          ; text_line_slot
+    lda #1
+    sta outgoing_args+0         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data
 
-    ; Add a blank tile on the end.
-    txy                     ; dest_tilemap_offset
-    lda current_tile_index
-    inc current_tile_index
-    ldx #$ff                ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_item_name_tile
-    stx dest_tilemap_offset
-
-    ; Restore stuff to where FF6 expects it.
-    a16
-    lda dest_tiles_main
-    sta ff6_dest_tiles_main
-    lda dest_tiles_extra
-    sta ff6_dest_tiles_extra
-    a8
-    ldy dest_tilemap_offset
-
+    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
     leave __FRAME_SIZE__
     rtl
 .endproc
@@ -827,8 +746,8 @@ ff6_dest_tile_attributes = $7e004e
     rts
 .endproc
 
-; uint16 _ff6vwf_encounter_draw_item_name_tile(char tile, uint16 dest_tilemap_offset)
-.proc _ff6vwf_encounter_draw_item_name_tile
+; uint16 _ff6vwf_encounter_draw_tile(char tile, uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_tile
 begin_locals
     decl_local dest_tilemap_main, 2     ; tiledata near * ($7e0053)
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e0051)
@@ -921,6 +840,64 @@ ff6_dma_size_to_transfer = $10
     lda #0
     a8
     rtl
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_tile_data(uint16 dest_tilemap_offset,
+;                                                  uint8 text_line_slot,
+;                                                  uint8 blank_tiles_at_end)
+.proc _ff6vwf_encounter_draw_tile_data
+begin_locals
+    decl_local dest_tilemap_offset, 2       ; uint16
+    decl_local text_line_slot, 1            ; uint8
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; char
+begin_args_nearcall
+    decl_arg blank_tiles_at_end, 1          ; uint8
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    stx dest_tilemap_offset
+    tya
+    sta text_line_slot
+    lda #VWF_MAX_LINE_LENGTH
+    sta tiles_to_draw
+
+    ; Draw tile data.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+    sta current_tile_index
+    ldx dest_tilemap_offset
+:   txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    tax                     ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_tile
+    dec tiles_to_draw
+    bne :-
+
+    ; Add blank tiles on the end, if necessary.
+    lda blank_tiles_at_end
+:   beq :+
+    txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    ldx #$ff                ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_tile
+    dec blank_tiles_at_end
+    stx dest_tilemap_offset
+    bra :-
+:
+
+    ; Return dest tilemap offset.
+    ldx dest_tilemap_offset
+
+    leave __FRAME_SIZE__
+    rts
 .endproc
 
 ; Patch to the encounter DMA routine.
