@@ -32,6 +32,7 @@ VWF_MAX_LINE_BYTE_SIZE_4BPP = VWF_MAX_LINE_LENGTH * 2 * 8 * 2
 
 FF6_SHORT_ENEMY_NAME_LENGTH = 10
 FF6_SHORT_ITEM_LENGTH       = 13
+FF6_SHORT_BLITZ_NAME_LENGTH = 10
 
 FF6VWF_DMA_STRUCT_SIZE = 6
 
@@ -47,6 +48,8 @@ FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it
 ff6_short_item_names    = $d2b300
 
 ff6_menu_list_slot              = $7e00e5
+ff6_menu_bg1_write_row          = $7e00e6
+ff6_menu_src_ptr                = $7e00e7
 ff6_encounter_enemy_ids         = $7e200d
 ff6_menu_positioned_text_ptr    = $7e9e89
 ff6_menu_string_buffer          = $7e9e8b
@@ -54,6 +57,18 @@ ff6_menu_string_buffer          = $7e9e8b
 ; FF6 functions
 
 ff6_menu_draw_name      = $7fd9
+
+; FF6-specific macros
+
+; Declares a trampoline that allows our VWF code to call back to FF6.
+.macro def_trampoline target
+    phd
+    pea $0
+    pld
+    jsr target
+    pld
+    rtl
+.endmacro
 
 .segment "BSS"
 
@@ -173,13 +188,7 @@ ff6_menu_trigger_nmi = $1368
     rts
 
 ; Wraps FF6's "force NMI" function in a far call.
-_ff6vwf_menu_force_nmi_trampoline:
-    phd
-    pea $0
-    pld
-    jsr ff6_menu_trigger_nmi
-    pld
-    rtl
+_ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
 
 .export _ff6vwf_menu_force_nmi_trampoline
 
@@ -231,6 +240,13 @@ _ff6vwf_menu_force_nmi_trampoline:
 .segment "PTEXTMENUDRAWRAGENAME"
     jsl _ff6vwf_menu_draw_rage_name         ; 4 bytes
     nop
+
+.segment "PTEXTMENUDRAWBLITZ"
+    jsl _ff6vwf_menu_draw_blitz
+    rts
+_ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
+_ff6vwf_menu_draw_blitz_inputs_trampoline:  def_trampoline $5683
+_ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 
 .segment "PTEXTMENUDRAWITEMFORSALE"
     jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
@@ -1189,12 +1205,75 @@ begin_args_nearcall
     bge :+
     sta ff6_menu_string_buffer,x
     inx
-    bne :-
+    bra :-
 :
 
     ; Null terminate.
     lda #0
     sta ff6_menu_string_buffer,x
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_attributed_vwf_tiles(uint8 text_line_slot,
+;                                                      uint8 tile_count,
+;                                                      uint8 attributes)
+.proc _ff6vwf_menu_draw_attributed_vwf_tiles
+begin_locals
+    decl_local byte_count, 2
+    decl_local current_tile, 1
+begin_args_nearcall
+    decl_arg attributes, 1
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    tya
+    a16
+    and #$00ff
+    asl
+    sta byte_count
+    a8
+
+    ; Calculate first tile index.
+    txa
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_string_char_offsets,x
+    sta current_tile
+
+    ; Draw tiles.
+    ldx #0
+    ldy #VWF_MAX_LINE_LENGTH
+:   lda current_tile
+    sta f:ff6_menu_string_buffer,x
+    inc current_tile
+    inx
+    lda attributes
+    sta f:ff6_menu_string_buffer,x
+    inx
+    dey
+    bne :-
+
+    ; Draw blanks.
+    lda attributes
+    xba
+    lda #$ff
+    a16
+:   cpx byte_count
+    bge :+
+    sta f:ff6_menu_string_buffer,x
+    inx
+    inx
+    bra :-
+:   a8
+
+    ; Null terminate.
+    lda #0
+    sta f:ff6_menu_string_buffer,x
+    sta f:ff6_menu_string_buffer+1,x
 
     leave __FRAME_SIZE__
     rts
@@ -1302,6 +1381,177 @@ ff6_rage_list = $7e9d89
 
     leave __FRAME_SIZE__
     rtl
+.endproc
+
+; farproc void _ff6vwf_menu_draw_blitz(uint8 tile_x_offset)
+.proc _ff6vwf_menu_draw_blitz
+begin_locals
+    decl_local blitz_id, 1      ; uint8
+    decl_local tile_x_offset, 1 ; uint8
+
+ff6_menu_list           = $7e9d89
+
+    enter __FRAME_SIZE__
+
+    ; Save tile X offset.
+    txa
+    sta tile_x_offset
+
+    ; Check for Blitz in slot.
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_list,x
+    sta blitz_id
+    cmp #$ff
+    beq @no_blitz
+
+    ; Draw Blitz name.
+    tax
+    ldy tile_x_offset
+    jsr _ff6vwf_menu_draw_blitz_name
+
+    ; Go to the next row, and draw Blitz input.
+    lda f:ff6_menu_bg1_write_row
+    inc
+    inc
+    sta f:ff6_menu_bg1_write_row
+    ldx blitz_id
+    ldy tile_x_offset
+    jsr _ff6vwf_menu_draw_blitz_input
+
+    ; Back up a row, because FF6 expects us to.
+    lda f:ff6_menu_bg1_write_row
+    dec
+    dec
+    sta f:ff6_menu_bg1_write_row
+
+@no_blitz:
+    ; FIXME(tachiweasel): Fill with blanks if no Blitz here.
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.export _ff6vwf_menu_draw_blitz     ; For debugging.
+
+; nearproc void _ff6vwf_menu_draw_blitz_name(uint8 blitz_id, uint8 tile_x_offset)
+.proc _ff6vwf_menu_draw_blitz_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2    ; char near *
+    decl_local tile_x_offset, 1
+
+    enter __FRAME_SIZE__
+
+    ; Save tile X offset, and put Blitz ID in A.
+    tya
+    sta tile_x_offset
+    txa
+
+    ; Compute string pointer.
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_blitz_names,x
+    sta string_ptr
+    a8
+
+    ; Compute map pointer.
+    lda tile_x_offset
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_bg1_write_row
+    jsl _ff6vwf_menu_compute_map_ptr_trampoline
+    a16
+    txa
+    sta f:ff6_menu_positioned_text_ptr
+    a8
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_blitz_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    lda f:ff6_menu_list_slot
+    tax
+    jsr _ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline
+
+    ; Draw tiles.
+    lda f:ff6_menu_list_slot
+    tax
+    ldy #FF6_SHORT_BLITZ_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_attributed_vwf_tiles
+
+    ; Move tilemap.
+    a16
+    lda #.loword(ff6_menu_positioned_text_ptr)
+    sta f:ff6_menu_src_ptr+0
+    a8
+    lda #^ff6_menu_positioned_text_ptr
+    sta f:ff6_menu_src_ptr+2
+    jsl _ff6vwf_menu_move_blitz_tilemap_trampoline
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_blitz_input(uint8 blitz_id, uint8 tile_x_offset)
+.proc _ff6vwf_menu_draw_blitz_input
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2    ; char near *
+    decl_local blitz_id, 1      ; uint8
+
+    enter __FRAME_SIZE__
+
+    ; Save Blitz ID.
+    txa
+    sta blitz_id
+
+    ; Compute map pointer.
+    tya
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_bg1_write_row
+    jsl _ff6vwf_menu_compute_map_ptr_trampoline
+    a16
+    txa
+    sta f:ff6_menu_positioned_text_ptr
+    a8
+
+    ; Draw Blitz inputs.
+    lda blitz_id
+    a16
+    and #$00ff
+    tax
+    a8
+    jsl _ff6vwf_menu_draw_blitz_inputs_trampoline
+
+    ; Move tilemap.
+    a16
+    lda #.loword(ff6_menu_positioned_text_ptr)
+    sta f:ff6_menu_src_ptr+0
+    a8
+    lda #^ff6_menu_positioned_text_ptr
+    sta f:ff6_menu_src_ptr+2
+    jsl _ff6vwf_menu_move_blitz_tilemap_trampoline
+
+    leave __FRAME_SIZE__
+    rts
 .endproc
 
 ; Draws an item for sale, in the "buy" menu in shops.
@@ -1933,6 +2183,44 @@ ff6vwf_string_char_offsets:
     .byte $58   ; 8
     .byte $62   ; 9
     .byte $6c   ; 10
+
+ff6vwf_long_blitz_names:
+    .word .loword(ff6vwf_long_blitz_name_0)
+    .word .loword(ff6vwf_long_blitz_name_1)
+    .word .loword(ff6vwf_long_blitz_name_2)
+    .word .loword(ff6vwf_long_blitz_name_3)
+    .word .loword(ff6vwf_long_blitz_name_4)
+    .word .loword(ff6vwf_long_blitz_name_5)
+    .word .loword(ff6vwf_long_blitz_name_6)
+    .word .loword(ff6vwf_long_blitz_name_7)
+
+ff6vwf_long_blitz_name_0: .asciiz "Raging Fist"
+ff6vwf_long_blitz_name_1: .asciiz "Aura Cannon"
+ff6vwf_long_blitz_name_2: .asciiz "Meteor Suplex"
+ff6vwf_long_blitz_name_3: .asciiz "Rising Phoenix"
+ff6vwf_long_blitz_name_4: .asciiz "Chakra"
+ff6vwf_long_blitz_name_5: .asciiz "Razor Gale"
+ff6vwf_long_blitz_name_6: .asciiz "Soul Spiral"
+ff6vwf_long_blitz_name_7: .asciiz "Phantom Rush"
+
+ff6vwf_long_dance_names:
+    .word .loword(ff6vwf_long_dance_name_0)
+    .word .loword(ff6vwf_long_dance_name_1)
+    .word .loword(ff6vwf_long_dance_name_2)
+    .word .loword(ff6vwf_long_dance_name_3)
+    .word .loword(ff6vwf_long_dance_name_4)
+    .word .loword(ff6vwf_long_dance_name_5)
+    .word .loword(ff6vwf_long_dance_name_6)
+    .word .loword(ff6vwf_long_dance_name_7)
+
+ff6vwf_long_dance_name_0: .asciiz "Wind Rhapsody"
+ff6vwf_long_dance_name_1: .asciiz "Forest Nocturne"
+ff6vwf_long_dance_name_2: .asciiz "Desert Lullaby"
+ff6vwf_long_dance_name_3: .asciiz "Love Serenade"
+ff6vwf_long_dance_name_4: .asciiz "Earth Blues"
+ff6vwf_long_dance_name_5: .asciiz "Water Harmony"
+ff6vwf_long_dance_name_6: .asciiz "Twilight Requiem"
+ff6vwf_long_dance_name_7: .asciiz "Snowman Rondo"
 
 .include "enemy-names.inc"
 .include "item-names.inc"
