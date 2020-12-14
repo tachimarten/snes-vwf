@@ -212,6 +212,12 @@ _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
     jsl _ff6vwf_menu_draw_item_to_equip_name        ; 4 bytes
     nopx 3                                          ; overwrite `jsr $c39d11`
 
+; Part of the FF6 routine to draw "<item name> can be used by:". We currently display "Equipment"
+; in a fixed-width font instead of the item name because we don't have enough space to display that
+; string in memory yet.
+.segment "PTEXTMENUDRAWGEARINFOTEXT"
+    jml _ff6vwf_menu_draw_gear_info_text
+
 .segment "PTEXTMENUINITRAGEMENU"
     stz $4a         ; List scroll: 0
     jsr $091f       ; Create scrollbar
@@ -1118,6 +1124,18 @@ ff6_inventory_ids = $7e1869
     tax
 
     jmp _ff6vwf_menu_draw_item_name
+.endproc
+
+.proc _ff6vwf_menu_draw_gear_info_text
+    ldx #0
+:   lda f:ff6vwf_string_equipment,x
+    sta f:ff6_menu_string_buffer,x
+    inx
+    cpx #ff6vwf_string_equipment_end-ff6vwf_string_equipment
+    bne :-
+
+    pea $856a+6-1
+    jml $c385ad
 .endproc
 
 ; nearproc void _ff6vwf_menu_draw_item_name(uint8 item_id, uint8 menu_item_index)
@@ -2282,6 +2300,20 @@ begin_locals
 .export _ff6vwf_memset
 
 .segment "DATA"
+
+ff6vwf_string_equipment:
+    .byte 'E'-'A'+$80
+    .byte 'q'-'a'+$80+26
+    .byte 'u'-'a'+$80+26
+    .byte 'i'-'a'+$80+26
+    .byte 'p'-'a'+$80+26
+    .byte 'm'-'a'+$80+26
+    .byte 'e'-'a'+$80+26
+    .byte 'n'-'a'+$80+26
+    .byte 't'-'a'+$80+26
+    .byte $ff
+    .byte 0
+ff6vwf_string_equipment_end:
 
 ff6vwf_string_char_offsets:
     .byte $08   ; 0
