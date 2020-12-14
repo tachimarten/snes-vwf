@@ -174,12 +174,17 @@ ff6vwf_menu_bss_end:
     jml _ff6vwf_encounter_run_dma           ; 4 bytes
 
 ; FF6 function that restores the normal BG3 font by copying it from the ROM after a dialogue-style
-; text box in an encounter has closed. We have to patch it to reupload any enemy names we created
-; to VRAM.
+; text box in an encounter has closed. We have to patch it to reupload any text we created to VRAM.
 .segment "PTEXTENCOUNTERRESTORESMALLFONT"
 ff6_encounter_schedule_dma = $198d
     jsl _ff6vwf_encounter_restore_small_font
     rts
+
+; FF6 function that runs whenever the main action window closes during an encounter. We patch it to
+; reupload any enemy names, in case their text slots got overwritten by items, Rages, or Dances,
+; for example.
+.segment "PTEXTENCOUNTERCLOSEMAINMENU"
+    jml _ff6vwf_encounter_close_main_menu
 
 ; Wraps FF6's "schedule DMA" function in a far call.
 _ff6vwf_encounter_schedule_dma_trampoline:
@@ -426,7 +431,7 @@ ff6_enemy_name_table  = $cfc050
     jmp @return
 
 @name_not_empty:
-    ; Compute string pointer.
+    ; Fetch string pointer.
     a16
     asl
     tax
@@ -922,6 +927,67 @@ ff6_dma_size_to_transfer = $10
     lda #0
     a8
     rtl
+.endproc
+
+.proc _ff6vwf_encounter_close_main_menu
+    jsr _ff6vwf_encounter_reupload_all_enemy_names
+
+    ; Stuff the original function did
+    inc $10
+    tdc
+    pea $4671-1
+    jml $c150fb
+.endproc
+
+.proc _ff6vwf_encounter_reupload_all_enemy_names
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local enemy_slot, 1
+    decl_local string_ptr, 2        ; char near *
+
+    enter __FRAME_SIZE__
+
+    lda #0
+    sta enemy_slot
+
+@render_next_enemy:
+    lda enemy_slot
+    a16
+    and #$00ff
+    asl
+    tax
+    lda ff6_encounter_enemy_ids,x   ; Fetch enemy ID.
+    cmp #$ffff
+    a8
+    beq @no_enemy
+
+    ; Fetch string pointer.
+    a16
+    asl
+    tax
+    lda f:ff6vwf_long_enemy_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #0
+    sta outgoing_args+0                 ; 2bpp
+    ldx enemy_slot                      ; text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1                 ; string_ptr+0
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3                 ; string_ptr+2
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr _ff6vwf_render_string
+
+@no_enemy:
+    inc enemy_slot
+    lda enemy_slot
+    cmp #4
+    bne @render_next_enemy
+
+    leave __FRAME_SIZE__
+    rts
 .endproc
 
 ; nearproc uint16 _ff6vwf_encounter_draw_tile_data(uint16 dest_tilemap_offset,
