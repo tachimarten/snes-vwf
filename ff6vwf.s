@@ -350,13 +350,13 @@ _ff6vwf_menu_draw_item_for_sale_after:
 ;
 ; This is a macro because every cycle really counts. We continually run *VERY* close to running out
 ; of VBLANK time.
-.macro _ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel
+.macro _ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel, dma_timeout
     lda STAT78
     lda SLHV
     lda OPVCT
-    cmp #225        ; Don't DMA while the screen is rendering...
+    cmp #225            ; Don't DMA while the screen is rendering...
     blt @no_time
-    cmp #245        ; Don't DMA after scanline 250...
+    cmp #dma_timeout    ; Don't DMA after the timeout...
     bge @no_time
 
 @do_it:
@@ -1056,7 +1056,7 @@ begin_args_nearcall
     ; Run our generic DMA routine.
     pha
     plb
-    _ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7
+    _ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 245
     tdc
     lda #$7e
     pha
@@ -2001,7 +2001,7 @@ ff6_menu_bg3_ypos = $3f
 .endproc
 
 .proc _ff6vwf_menu_run_dma
-    _ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0
+    _ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0, 250
     rtl
 .endproc
 
