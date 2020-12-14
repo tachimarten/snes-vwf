@@ -1,4 +1,4 @@
-; snes-vwf/ff6.s
+; snes-vwf/ff6/ff6.s
 ;
 ; Final Fantasy 6 base ROM
 
