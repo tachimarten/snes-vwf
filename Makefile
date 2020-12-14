@@ -10,6 +10,8 @@ demo.smc:	demo.o vwf.o demo.cfg
 %.o:	%.s
 	$(AS65) $(ASFLAGS) -o $@ $<
 
+stdsnes.o:	snes.inc
+
 vwf.o:	font.inc snes.inc
 
 ff6.o:	ff6.s ff6.smc
@@ -25,11 +27,13 @@ enemy-names.inc:	encode-enemy-names.rb ff6.tbl enemies.csv
 item-names.inc:	encode-item-names.rb items.csv
 	./encode-item-names.rb items.csv > item-names.inc
 
-ff6vwf.smc:	ff6.o ff6vwf.o vwf.o ff6vwf.cfg
-	$(LD65) -C ff6vwf.cfg -o $@ -m ff6vwf.map -vm ff6vwf.o vwf.o $<
+FF6VWF_OBJS=ff6vwf.o vwf.o stdsnes.o
 
-ff6twuevwf.smc:	ff6twue.o ff6vwf.o vwf.o ff6vwf.cfg
-	$(LD65) -C ff6vwf.cfg -o $@ -m ff6vwf.map -vm ff6vwf.o vwf.o $<
+ff6vwf.smc:	ff6.o $(FF6VWF_OBJS) ff6vwf.cfg
+	$(LD65) -C ff6vwf.cfg -o $@ -m ff6vwf.map -vm $(FF6VWF_OBJS) $<
+
+ff6twuevwf.smc:	ff6twue.o $(FF6VWF_OBJS) ff6vwf.cfg
+	$(LD65) -C ff6vwf.cfg -o $@ -m ff6vwf.map -vm $(FF6VWF_OBJS) $<
 
 ff6vwf.o:	font.inc snes.inc enemy-names.inc item-names.inc
 

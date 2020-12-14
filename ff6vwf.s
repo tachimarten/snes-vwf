@@ -9,6 +9,11 @@
 
 .include "snes.inc"
 
+.import std_memset: near
+.import std_mod16_8: near
+.import std_mul16_8: near
+.import std_mul8: near
+
 .import vwf_render_string: far
 
 ; Constants
@@ -582,7 +587,7 @@ ff6_tool_display_list_right = $7e5760
     a8
     tax
     ldy #5
-    jsr _ff6vwf_mod16_8
+    jsr std_mod16_8
     txa
     bra @write_item_slot
 
@@ -614,7 +619,7 @@ ff6_tool_display_list_right = $7e5760
     ; Draw item icon.
     tax
     ldy #FF6_SHORT_ITEM_LENGTH
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     lda ff6_short_item_names,x
     tax                             ; tile_to_draw
     ldy dest_tilemap_offset
@@ -685,7 +690,7 @@ ff6_rage_display_list_right = $7e5760
     tax
     a8
     ldy #5
-    jsr _ff6vwf_mod16_8
+    jsr std_mod16_8
     asl
     ldx enemy_id_ptr
     cpx #.loword(ff6_rage_display_list_left)
@@ -1098,7 +1103,7 @@ begin_locals
     ; Draw item icon.
     tax
     ldy #FF6_SHORT_ITEM_LENGTH
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     lda ff6_short_item_names,x
     sta ff6_menu_string_buffer
 
@@ -1237,7 +1242,7 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     sta outgoing_args+2             ; dest bank
     ldx #$ff
     ldy #16
-    jsr _ff6vwf_memset
+    jsr std_memset
     lda #0
     sta ff6_menu_string_buffer+16
     bra @out
@@ -1245,7 +1250,7 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     ; Draw item icon.
 :   tax
     ldy #FF6_SHORT_ITEM_LENGTH
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     lda ff6_short_item_names,x
     sta ff6_menu_string_buffer
 
@@ -1266,7 +1271,7 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     tax
     a8
     ldy #11
-    jsr _ff6vwf_mod16_8
+    jsr std_mod16_8
     txa
     sta text_line_slot
 
@@ -1510,7 +1515,7 @@ ff6_rage_list = $7e9d89
     tax
     a8
     ldy #9                  ; Number of menu items on screen plus one.
-    jsr _ff6vwf_mod16_8
+    jsr std_mod16_8
     sta text_line_slot
 
     ; Render string.
@@ -1776,7 +1781,7 @@ ff6_menu_item_for_sale = $7e00f1
     ; Draw item icon.
     tax
     ldy #FF6_SHORT_ITEM_LENGTH
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     lda ff6_short_item_names,x
     sta ff6_menu_string_buffer
 
@@ -1797,7 +1802,7 @@ ff6_menu_item_for_sale = $7e00f1
     tax
     a8
     ldy #9                  ; 8 slots, plus one.
-    jsr _ff6vwf_mod16_8
+    jsr std_mod16_8
     txa
     sta text_line_slot
 
@@ -1856,7 +1861,7 @@ begin_locals
     ; Draw item icon.
     ldx item_id
     ldy #FF6_SHORT_ITEM_LENGTH
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     lda ff6_short_item_names,x
     sta ff6_menu_string_buffer
 
@@ -2068,7 +2073,7 @@ begin_args_nearcall
     lda #^ff6vwf_encounter_text_tiles
     sta z:text_line_chardata_ptr+2
     ldy text_line_slot
-    jsr _ff6vwf_mul16_8
+    jsr std_mul16_8
     a16
     txa
     add #.loword(ff6vwf_encounter_text_tiles) ; ff6vwf_encounter_text_tiles[text_line_slot * MLBS]
@@ -2081,7 +2086,7 @@ begin_args_nearcall
     lda #^ff6vwf_menu_text_tiles
     sta z:text_line_chardata_ptr+2
     ldy text_line_slot
-    jsr _ff6vwf_mul16_8
+    jsr std_mul16_8
     a16
     txa
     add #.loword(ff6vwf_menu_text_tiles) ; ff6vwf_menu_text_tiles[text_line_slot * MLBS]
@@ -2114,7 +2119,7 @@ begin_args_nearcall
     tay                             ; count
     a8
     ldx #0                          ; value
-    jsr _ff6vwf_memset
+    jsr std_memset
 
     ; Schedule the upload.
     ldx text_line_slot
@@ -2215,7 +2220,7 @@ begin_args_nearcall
     ; Calculate and store VRAM address.
     ldy string_char_offset
     tax
-    jsr _ff6vwf_mul8
+    jsr std_mul8
     a16
     txa
     add tile_base_addr                  ; VRAM address
@@ -2228,7 +2233,7 @@ begin_args_nearcall
     ; Calculate source address.
     ldx max_line_byte_size
     ldy text_line_index
-    jsr _ff6vwf_mul16_8
+    jsr std_mul16_8
     lda flags
     and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     a16
@@ -2253,118 +2258,8 @@ begin_args_nearcall
     rts
 .endproc
 
-; General functions
-
-; nearproc void _ff6vwf_memset(uint8 value, uint16 count, far void *ptr)
-.proc _ff6vwf_memset
-begin_locals
-    decl_local count, 2
-begin_args_nearcall
-    decl_arg ptr, 3
-
-    enter __FRAME_SIZE__
-
-    sty count
-    txa
-
-    ; TODO(tachiweasel): Use the block move instruction.
-    ldy #0
-    bra :+
-@loop:
-    sta [ptr],y
-    iny
-:   cpy count
-    bne @loop
-
-    leave __FRAME_SIZE__
-    rts
-.endproc
-
-; nearproc uint16 _ff6vwf_mul8(uint8 a, uint8 b)
-.proc _ff6vwf_mul8
-    txa
-    sta f:WRMPYA
-    tya
-    sta f:WRMPYB
-
-    ; 8 cycle delay
-    nopx 3
-    a16
-
-    lda f:RDMPYL
-    tax
-    a8
-    rts
-.endproc
-
-; nearproc uint16 _ff6vwf_mul16_8(uint16 a, uint8 b)
-;   hi(BC)
-;   A         B
-; x           C
-; ------------------
-;   AC+hi(BC) lo(BC)
-
-; let d = b * lo8(a)
-; let e = (b*hi8(a) + hi8(d)) << 8
-; lo8(d) + e
-.proc _ff6vwf_mul16_8
-begin_locals
-    decl_local tmp_d, 2
-
-    enter __FRAME_SIZE__
-
-    tya
-    sta f:WRMPYA    ; b
-    txa
-    sta f:WRMPYB    ; multiply by lo8(a)
-    nopx 3
-    a16             ; 8 cycle delay
-    lda f:RDMPYL    ; a = d = b * lo8(a)
-    sta tmp_d
-    txa             ; A = a
-    xba             ; lo8(A) = hi8(a)
-    a8
-    sta f:WRMPYB    ; multiply by hi8(a)
-    nopx 2
-    lda tmp_d       ; lo8(d)
-    xba             ; 8 cycle delay; hi8(A) = lo8(d)
-    lda f:RDMPYL    ; b*hi8(a)
-    add tmp_d+1     ; b*hi8(a) + hi8(d)
-    xba             ; swap high and low bytes; high is now b*hi8(a) + hi8(d); low is now lo8(d)
-    a16
-    tax
-    a8
-
-    leave __FRAME_SIZE__
-    rts
-.endproc
-
-; nearproc uint16 _ff6vwf_mod16_8(uint16 a, uint8 b)
-;
-; Computes a % b.
-.proc _ff6vwf_mod16_8
-    txa
-    sta f:WRDIVL
-    xba
-    sta f:WRDIVH
-    tya
-    sta f:WRDIVB
-
-    ; 16 cycle delay
-.repeat 7
-    nop
-.endrepeat
-    a16
-
-    lda f:RDMPYL
-    tax
-    a8
-    rts
-.endproc
-
 ; For debugging
 .export _ff6vwf_encounter_run_dma
-.export _ff6vwf_memset
 
 .segment "DATA"
 
