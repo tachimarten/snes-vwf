@@ -517,12 +517,19 @@ ff6_rage_display_list_right = $7e5760
 begin_locals
     decl_local outgoing_args, 3
 
+; This is an immediate byte for a LDA instruction in the middle of a function. Yuck! But that's the
+; only way I can think of to safely determine the length of a Dance name, whether we're running in
+; vanilla or TWUE.
+ff6_dance_name_length = $c16611
+
     enter __FRAME_SIZE__
     tyx
     ldy #.loword(ff6vwf_long_dance_names)
     sty outgoing_args+0
     lda #^ff6vwf_long_dance_names
     sta outgoing_args+2
+    lda f:ff6_dance_name_length
+    tay                             ; name_length
     jsr _ff6vwf_encounter_draw_dance_or_magitek_name
 
     leave __FRAME_SIZE__
@@ -536,12 +543,20 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
+; This is an immediate byte for a LDA instruction in the middle of a function. Yuck! But that's the
+; only way I can think of to safely determine the length of a Magitek attack name, whether we're
+; running in vanilla or TWUE.
+ff6_magitek_name_length = $c16500
+
     enter __FRAME_SIZE__
+
     tyx
     ldy #.loword(ff6vwf_long_magitek_names)
     sty outgoing_args+0
     lda #^ff6vwf_long_magitek_names
     sta outgoing_args+2
+    lda f:ff6_magitek_name_length
+    tay                             ; name_length
     jsr _ff6vwf_encounter_draw_dance_or_magitek_name
 
     leave __FRAME_SIZE__
@@ -550,6 +565,7 @@ begin_locals
 .endproc
 
 ; nearproc uint16 _ff6vwf_encounter_draw_dance_or_magitek_name(uint16 dest_tilemap_offset,
+;                                                              uint8 name_length,
 ;                                                              const char far *name_list)
 .proc _ff6vwf_encounter_draw_dance_or_magitek_name
 begin_locals
@@ -559,6 +575,7 @@ begin_locals
     decl_local dance_id_ptr, 2              ; uint8 near *
     decl_local dance_id, 1                  ; uint8
     decl_local string_ptr, 2                ; const char near *
+    decl_local name_length, 1               ; uint8
 begin_args_nearcall
     decl_arg name_list, 3                   ; const char far *
 
@@ -568,6 +585,8 @@ ff6_display_list_ptr    = $7e004f
 
     ; Initialize locals.
     stx dest_tilemap_offset
+    tya
+    sta name_length
     a16
     lda f:ff6_display_list_ptr
     inc
@@ -577,12 +596,14 @@ ff6_display_list_ptr    = $7e004f
 
     ; Figure out what text line slot we're going to use.
     ldx dance_id_ptr
-    jsr _ff6vwf_encounter_get_text_line_slot_2_col_4_row
+    jsr _ff6vwf_encounter_get_text_line_slot_for_dance_or_magitek
     txa
     sta text_line_slot
 
-    ; Fetch enemy ID.
+    ; Fetch dance or Magitek ID.
     lda (dance_id_ptr)
+    cmp #8
+    bge @no_dance
     sta dance_id
 
     ; Compute string pointer.
@@ -609,10 +630,18 @@ ff6_display_list_ptr    = $7e004f
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
-    lda #1
+    lda name_length
+    sub #VWF_MAX_LINE_LENGTH - 1
     sta outgoing_args+0         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
+    bra @out
 
+@no_dance:
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy name_length
+    jsr _ff6vwf_encounter_draw_blank_tile_data
+
+@out:
     leave __FRAME_SIZE__
     rts
 .endproc
@@ -845,21 +874,33 @@ begin_args_nearcall
     dec tiles_to_draw
     bne :-
 
+    ; Add blank tiles on the end, if necessary. (X should still contain dest tilemap offset.)
+    ldy blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_blank_tile_data
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_blank_tile_data(uint16 dest_tilemap_offset, uint8 count)
+.proc _ff6vwf_encounter_draw_blank_tile_data
+begin_locals
+    decl_local count, 1     ; uint8
+
+    enter __FRAME_SIZE__
+
+    tya
+    sta count
+
     ; Add blank tiles on the end, if necessary.
-    lda blank_tiles_at_end
+    cmp #0
 :   beq :+
     txy                     ; dest_tilemap_offset
-    lda current_tile_index
-    inc current_tile_index
     ldx #$ff                ; tile_to_draw
     jsr _ff6vwf_encounter_draw_tile
-    dec blank_tiles_at_end
-    stx dest_tilemap_offset
+    dec count
     bra :-
 :
-
-    ; Return dest tilemap offset.
-    ldx dest_tilemap_offset
 
     leave __FRAME_SIZE__
     rts
@@ -873,7 +914,7 @@ begin_args_nearcall
     ; Run our generic DMA routine.
     pha
     plb
-    _ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 245
+    _ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 250
     tdc
     lda #$7e
     pha
@@ -916,10 +957,10 @@ begin_args_nearcall
     jmp $c14d32
 .endproc
 
-; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_2_col_4_row(near *skill_id_ptr)
+; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_for_dance_or_magitek(near *skill_id_ptr)
 ;
 ; Determines the text line slot to use for Dance or Magitek.
-.proc _ff6vwf_encounter_get_text_line_slot_2_col_4_row
+.proc _ff6vwf_encounter_get_text_line_slot_for_dance_or_magitek
 ff6_encounter_display_list_left  = $7e575a
 ff6_encounter_display_list_right = $7e5760
 
