@@ -731,7 +731,6 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
 
     ; Compute slot.
     lda f:ff6_menu_list_slot
-    lsr
     sta text_line_slot
 
     ; Compute string pointer.
