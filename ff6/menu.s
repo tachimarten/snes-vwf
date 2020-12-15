@@ -168,12 +168,163 @@ ff6_menu_rage_cursor_data:
     .word $BC18        ; Rage 7
     .word $C818        ; Rage 8
 
+; At $c355e4
+.segment "PTEXTMENUBUILDBLITZMENUTWUE"
+    jmp $4D8F
+
+lbl_55e4:
+    dec A
+    lsr A
+    eor $49
+    lsr A
+    rts 
+
+.proc ff6twue_build_blitz_menu
+ff6_menu_build_blitz_list = $561b
+ff6_menu_init_menu_pos = $83f7
+ff6_menu_draw_blitz_inputs = $5643
+
+@lbl_55ea:
+    jsr ff6_menu_build_blitz_list
+    jsr ff6_menu_init_menu_pos
+    stz <ff6_menu_list_slot
+    inc <ff6_menu_bg1_write_row
+    ldy #16
+@loop:
+    phy
+    tya
+    lsr
+    lda #4
+    bcc :+
+    adc #13
+:   tax
+    jsr a:ff6_menu_draw_blitz_inputs
+    inc <ff6_menu_list_slot
+    lda #$e0
+    trb <ff6_menu_bg1_write_row
+    inc <ff6_menu_bg1_write_row
+    ply
+    jsr ff6twue_menu_blitz_next_row
+    dey
+    bne @loop
+    rts
+.endproc
+
+; At $c35614 in Ted Woolsey Uncensored Edition.
+lbl_5614:
+ff6_menu_compute_bg1_tilemap_a_pos = $c3809f
+    dec
+    ora #1                                          ; Make Y position odd.
+    jmp .loword(ff6_menu_compute_bg1_tilemap_a_pos) ; Compute map pointer.
+
+.segment "PTEXTMENUBLITZNEXTROWTWUE"
+ff6twue_menu_blitz_next_row:
+    tya
+    lsr
+    bcc :+
+    lsr
+    bcc :+
+    dec .loword(ff6_menu_list_slot)
+    dec .loword(ff6_menu_list_slot)
+:   tdc 
+    rts 
+
+.segment "PTEXTMENUBLITZBUILDTILEMAPTWUE"
+.proc ff6twue_menu_blitz_build_tilemap
+    asl A
+    sta $E0
+    lda $E6
+    jsr lbl_55e4
+    ldy #$9E8B
+    sty $2181
+    ldy #$000A
+    lda $E0
+    bcs lbl_56df
+    asl A
+    asl A
+    adc $E0
+    tax 
+@lbl_569d:
+    lda $E6F831,X
+    sta $2180
+    lda #$24
+    sta $2180
+    inx 
+    dey 
+    bne @lbl_569d
+    bra lbl_5704
+    tya 
+    lsr A
+    bcc @lbl_56ba
+    lsr A
+    bcc @lbl_56ba
+    dec $E5
+    dec $E5
+@lbl_56ba:
+    tdc 
+    rts 
+
+    ldy $00
+    rep #$20
+    lda [$E7]
+    sta $EB
+    inc $E7
+    inc $E7
+    sep #$20
+    lda #$7E
+    sta $ED
+@lbl_56ce:
+    rep #$20
+    lda [$E7],Y
+    beq lbl_56dc
+    sta [$EB],Y
+    sep #$20
+    iny 
+    iny 
+    bra @lbl_56ce
+lbl_56dc:
+    sep #$20
+    rts 
+lbl_56df:
+    asl A
+    sta $E0
+    asl A
+    adc $E0
+    ldx #$C35C
+    stx $E8
+    tax 
+@lbl_56eb:
+    lda $C47A40,X       ; load Blitz input
+    asl A
+    adc #$1C            ; tile attributes for Blitz inputs
+    sta $E7
+    lda [$E7]
+    sta $2180
+    inc $E7
+    lda [$E7]
+    sta $2180
+    inx 
+    dey 
+    bne @lbl_56eb
+lbl_5704:
+    stz $2180
+    stz $2180
+    rts 
+
+.endproc
 .segment "PTEXTMENUDRAWBLITZ"
+    lda $E6
+    jsr lbl_5614
+/*
     jsl _ff6vwf_menu_draw_blitz
     rts
 _ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 _ff6vwf_menu_draw_blitz_inputs_trampoline:  def_trampoline $5683
 _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
+*/
+_ff6vwf_menu_compute_map_ptr_trampoline = $0
+_ff6vwf_menu_draw_blitz_inputs_trampoline = $0
+_ff6vwf_menu_move_blitz_tilemap_trampoline = $0
 
 .segment "PTEXTMENUDRAWDANCE"
     jsl _ff6vwf_menu_draw_dance
