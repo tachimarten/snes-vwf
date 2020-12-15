@@ -115,7 +115,7 @@ _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
     stz $4a         ; List scroll: 0
     jsr $091f       ; Create scrollbar
     a16
-    lda #$00cc      ; V-Speed: 0.8 px
+    lda #$0066      ; V-Speed: 0.4 px
     sta f:$7e354a,x ; Set scrollbar's
     lda #$0068      ; Y: 104
     sta f:$7e34ca,x ; Set scrollbar's
@@ -150,6 +150,24 @@ _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
     jsl _ff6vwf_menu_draw_rage_name         ; 4 bytes
     nop
 
+; FF6 Rage menu navigation data, patched to be 1 column
+.segment "PTEXTMENURAGENAVDATA"
+ff6_menu_rage_nav_data:
+    .byte $01       ; Wraps horizontally
+    .byte $00       ; Initial column
+    .byte $00       ; Initial row
+    .byte $01       ; 1 column
+    .byte $08       ; 8 rows
+ff6_menu_rage_cursor_data:
+    .word $7418        ; Rage 1
+    .word $8018        ; Rage 2
+    .word $8C18        ; Rage 3
+    .word $9818        ; Rage 4
+    .word $A418        ; Rage 5
+    .word $B018        ; Rage 6
+    .word $BC18        ; Rage 7
+    .word $C818        ; Rage 8
+
 .segment "PTEXTMENUDRAWBLITZ"
     jsl _ff6vwf_menu_draw_blitz
     rts
@@ -161,6 +179,7 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
     jsl _ff6vwf_menu_draw_dance
     rts
 
+; Part of the FF6 function at $c38a0e.
 .segment "PTEXTMENUDRAWITEMTOBEUSED"
     jsl _ff6vwf_menu_draw_item_to_be_used
     nopx 7
@@ -450,7 +469,6 @@ begin_args_nearcall
     a16
     and #$00ff
     tay
-    a8
 
     ; Calculate first tile index.
     txa
@@ -484,6 +502,8 @@ begin_args_nearcall
     leave __FRAME_SIZE__
     rts
 .endproc
+
+.export _ff6vwf_menu_draw_vwf_tiles
 
 ; nearproc void _ff6vwf_menu_draw_attributed_vwf_tiles(uint8 text_line_slot,
 ;                                                      uint8 tile_count,
@@ -869,6 +889,14 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
 
     ldy #TEXT_LINE_SLOT
     jsr _ff6vwf_menu_draw_item_name_bg3
+
+    ; For some reason we have to do this to prevent the cursor from disappearing...
+    a16
+    lda #0
+    a8
+    ldx #0
+    ldy #0
+
     rtl
 .endproc
 
