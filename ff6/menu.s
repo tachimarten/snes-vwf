@@ -179,24 +179,10 @@ ff6_menu_rage_cursor_data:
 .segment "PTEXTMENUBUILDBLITZMENUTWUE"
 ff6_menu_vertical_page_offset = $49
 
-    ; This is a hack from TWUE to piggyback off the identical tail of another function in order to
-    ; make room for some code below.
-    jmp $4d8f
-
-.proc _ff6twue_menu_blitz_55e4
-    dec
-    lsr
-    eor z:ff6_menu_vertical_page_offset
-    lsr
-    rts 
-.endproc
-
 .proc ff6twue_build_blitz_menu
 ff6_menu_build_blitz_list = $c3561b
 ff6_menu_init_menu_pos = $c383f7
-ff6_menu_draw_blitz_inputs = $c35643
 
-@lbl_55ea:
     jsr a:.loword(ff6_menu_build_blitz_list)
     jsr a:.loword(ff6_menu_init_menu_pos)
     stz <ff6_menu_list_slot
@@ -210,14 +196,13 @@ ff6_menu_draw_blitz_inputs = $c35643
     bcc :+
     adc #13
 :   tax
-    jsr a:.loword(ff6_menu_draw_blitz_inputs)
+    jsr a:.loword(ff6vwf_menu_draw_blitz)
     inc <ff6_menu_list_slot
     lda #$e0
     trb <ff6_menu_bg1_write_row
     inc <ff6_menu_bg1_write_row
     ply
-    jsr ff6twue_menu_blitz_next_row
-    dey
+    jsl _ff6twue_menu_blitz_next_row        ; Implicitly decrements Y.
     bne @loop
     rts
 .endproc
@@ -230,112 +215,15 @@ ff6_menu_compute_bg1_tilemap_a_pos = $c3809f
     jmp .loword(ff6_menu_compute_bg1_tilemap_a_pos) ; Compute map pointer.
 .endproc
 
-.segment "PTEXTMENUBLITZNEXTROWTWUE"
-.proc ff6twue_menu_blitz_next_row
-    tya
-    lsr
-    bcc :+
-    lsr
-    bcc :+
-    dec .loword(ff6_menu_list_slot)
-    dec .loword(ff6_menu_list_slot)
-:   tdc 
-    rts 
-.endproc
-
 ; nearproc void ff6twue_build_tilemap(uint8 inreg(A) blitz_id)
 .segment "PTEXTMENUBLITZBUILDTILEMAPTWUE"
 .proc ff6twue_menu_blitz_build_tilemap
-blitz_id = $e0
-src_ptr = $e7
-ff6_blitz_inputs = $c35c1c
-ff6_blitz_input_tiles = $c47a40
-ff6_short_blitz_names = $e6f831
-
-    asl
-    sta z:blitz_id      ; blitz_id *= 2
-    lda <ff6_menu_bg1_write_row+0
-    jsr _ff6twue_menu_blitz_55e4
-    ldy #.loword(ff6_menu_string_buffer)
-    sty WMADDL
-    ldy #10
-    lda z:blitz_id
-    bcs draw_input
-
-; $c35698:
-@draw_blitz_name:
-    lsr
-    tax
-    jsl _ff6vwf_menu_draw_blitz
-    bra out
-
-@draw_blitz_name_end_code:
-.repeat $17 - (@draw_blitz_name_end_code - @draw_blitz_name)
-    .byte $00
-.endrepeat
-
-@unknown_code_0:
-    tya 
-    lsr
-    bcc :+
-    lsr
-    bcc :+
-    dec $E5
-    dec $E5
-:   tdc 
-    rts 
-
-ff6twue_menu_move_blitz_tilemap:
-    ldy <ff6_menu_null+0
-    a16
-    lda [<ff6_menu_src_ptr]
-    sta <ff6_menu_dest_ptr
-    inc <ff6_menu_src_ptr
-    inc <ff6_menu_src_ptr
-    a8
-    lda #$7E
-    sta <(ff6_menu_dest_ptr + 2)
-@move_blitz_tilemap_loop:
-    a16
-    lda [<ff6_menu_src_ptr],Y
-    beq move_blitz_tilemap_out
-    sta [<ff6_menu_dest_ptr],Y
-    a8
-    iny 
-    iny 
-    bra @move_blitz_tilemap_loop
-move_blitz_tilemap_out:
-    a8
-    rts 
-
-draw_input:
-    asl             
-    sta z:blitz_id      ; blitz_id * 4
-    asl
-    adc z:blitz_id      ; blitz_id * 12
-    ldx #(ff6_blitz_inputs >> 8)
-    stx src_ptr+1
-    tax 
-@copy_blitz_input_char:
-    lda f:ff6_blitz_input_tiles,x    ; load Blitz input
-    asl
-    adc #<ff6_blitz_inputs      ; tile attributes for Blitz inputs
-    sta src_ptr
-    lda [src_ptr]
-    sta WMDATA
-    inc src_ptr
-    lda [src_ptr]
-    sta WMDATA
-    inx 
-    dey 
-    bne @copy_blitz_input_char
-    stz WMDATA
-    stz WMDATA
-out:
-    rts 
+    jsl _ff6twue_menu_blitz_build_tilemap
+    rts
 .endproc
 
 .segment "PTEXTMENUDRAWBLITZ"
+ff6vwf_menu_draw_blitz:
     lda z:<ff6_menu_bg1_write_row
     jsr _ff6twue_menu_blitz_compute_map_ptr
 
@@ -1297,6 +1185,101 @@ ff6_menu_bg3_ypos = $3f
 .endproc
 
 .export _ff6vwf_menu_run_dma
+
+.proc _ff6twue_menu_blitz_next_row
+    tya
+    lsr
+    bcc :+
+    lsr
+    bcc :+
+    dec .loword(ff6_menu_list_slot)
+    dec .loword(ff6_menu_list_slot)
+:   tdc 
+    dey
+    rtl
+.endproc
+
+.proc _ff6twue_menu_blitz_build_tilemap
+blitz_id = $e0
+src_ptr = $e7
+ff6_blitz_inputs = $c35c1c
+ff6_blitz_input_tiles = $c47a40
+ff6_short_blitz_names = $e6f831
+
+    asl
+    sta z:blitz_id      ; blitz_id *= 2
+    lda <ff6_menu_bg1_write_row+0
+    jsr _ff6twue_menu_blitz_55e4
+    ldy #.loword(ff6_menu_string_buffer)
+    sty WMADDL
+    ldy #10
+    lda z:blitz_id
+    bcs draw_input
+
+; $c35698:
+@draw_blitz_name:
+    lsr
+    tax
+    jsl _ff6vwf_menu_draw_blitz
+    bra out
+
+ff6twue_menu_move_blitz_tilemap:
+    ldy <ff6_menu_null+0
+    a16
+    lda [<ff6_menu_src_ptr]
+    sta <ff6_menu_dest_ptr
+    inc <ff6_menu_src_ptr
+    inc <ff6_menu_src_ptr
+    a8
+    lda #$7E
+    sta <(ff6_menu_dest_ptr + 2)
+@move_blitz_tilemap_loop:
+    a16
+    lda [<ff6_menu_src_ptr],Y
+    beq move_blitz_tilemap_out
+    sta [<ff6_menu_dest_ptr],Y
+    a8
+    iny 
+    iny 
+    bra @move_blitz_tilemap_loop
+move_blitz_tilemap_out:
+    a8
+    rts 
+
+draw_input:
+    asl             
+    sta z:blitz_id      ; blitz_id * 4
+    asl
+    adc z:blitz_id      ; blitz_id * 12
+    ldx #(ff6_blitz_inputs >> 8)        ; this stomped on some important code!
+    stx src_ptr+1
+    tax 
+@copy_blitz_input_char:
+    lda f:ff6_blitz_input_tiles,x    ; load Blitz input
+    asl
+    adc #<ff6_blitz_inputs      ; tile attributes for Blitz inputs
+    sta src_ptr
+    lda [src_ptr]
+    sta WMDATA
+    inc src_ptr
+    lda [src_ptr]
+    sta WMDATA
+    inx 
+    dey 
+    bne @copy_blitz_input_char
+    stz WMDATA
+    stz WMDATA
+out:
+    rtl
+.endproc
+
+.proc _ff6twue_menu_blitz_55e4
+    dec
+    lsr
+    eor z:ff6_menu_vertical_page_offset
+    lsr
+    rts 
+.endproc
 
 ; Constant data
 
