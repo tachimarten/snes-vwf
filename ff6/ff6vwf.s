@@ -297,15 +297,13 @@ ff6vwf_string_char_offsets:
 
 .export ff6vwf_string_char_offsets: far
 
-ff6vwf_long_blitz_names:
-    .word .loword(ff6vwf_long_blitz_name_0)
-    .word .loword(ff6vwf_long_blitz_name_1)
-    .word .loword(ff6vwf_long_blitz_name_2)
-    .word .loword(ff6vwf_long_blitz_name_3)
-    .word .loword(ff6vwf_long_blitz_name_4)
-    .word .loword(ff6vwf_long_blitz_name_5)
-    .word .loword(ff6vwf_long_blitz_name_6)
-    .word .loword(ff6vwf_long_blitz_name_7)
+.macro def_pointer_array prefix, count
+.repeat count, i
+    .word .loword(.ident(.concat(.concat(.string(prefix), "_"), .string(i))))
+.endrepeat
+.endmacro
+
+ff6vwf_long_blitz_names: def_pointer_array ff6vwf_long_blitz_name, 8
 
 ff6vwf_long_blitz_name_0: .asciiz "Raging Fist"
 ff6vwf_long_blitz_name_1: .asciiz "Aura Cannon"
@@ -316,15 +314,7 @@ ff6vwf_long_blitz_name_5: .asciiz "Razor Gale"
 ff6vwf_long_blitz_name_6: .asciiz "Soul Spiral"
 ff6vwf_long_blitz_name_7: .asciiz "Phantom Rush"
 
-ff6vwf_long_dance_names:
-    .word .loword(ff6vwf_long_dance_name_0)
-    .word .loword(ff6vwf_long_dance_name_1)
-    .word .loword(ff6vwf_long_dance_name_2)
-    .word .loword(ff6vwf_long_dance_name_3)
-    .word .loword(ff6vwf_long_dance_name_4)
-    .word .loword(ff6vwf_long_dance_name_5)
-    .word .loword(ff6vwf_long_dance_name_6)
-    .word .loword(ff6vwf_long_dance_name_7)
+ff6vwf_long_dance_names: def_pointer_array ff6vwf_long_dance_name, 8
 
 ff6vwf_long_dance_name_0: .asciiz "Wind Rhapsody"
 ff6vwf_long_dance_name_1: .asciiz "Forest Nocturne"
@@ -335,5 +325,17 @@ ff6vwf_long_dance_name_5: .asciiz "Water Harmony"
 ff6vwf_long_dance_name_6: .asciiz "Twilight Requiem"
 ff6vwf_long_dance_name_7: .asciiz "Snowman Rondo"
 
+ff6vwf_long_magitek_names: def_pointer_array ff6vwf_long_magitek_name, 8
+
+ff6vwf_long_magitek_name_0: .asciiz "Fire Beam"
+ff6vwf_long_magitek_name_1: .asciiz "Thunder Beam"
+ff6vwf_long_magitek_name_2: .asciiz "Ice Beam"
+ff6vwf_long_magitek_name_3: .asciiz "Bio Blast"
+ff6vwf_long_magitek_name_4: .asciiz "Healing Force"
+ff6vwf_long_magitek_name_5: .asciiz "Confuser"
+ff6vwf_long_magitek_name_6: .asciiz "Banisher"
+ff6vwf_long_magitek_name_7: .asciiz "Magitek Missile"
+
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_dance_names: far
+.export ff6vwf_long_magitek_names: far

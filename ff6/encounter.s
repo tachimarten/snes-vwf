@@ -20,6 +20,7 @@
 .import ff6vwf_schedule_text_dma: near
 .import ff6vwf_string_char_offsets: far
 .import ff6vwf_long_dance_names: far
+.import ff6vwf_long_magitek_names: far
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
 
@@ -59,10 +60,8 @@ ff6vwf_encounter_text_dma_stack_ptr: .res 1
 ff6vwf_encounter_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_encounter_item_type_to_draw: .res 1
-; ID of the current rage slot we're drawing.
-ff6vwf_encounter_current_rage_slot: .res 1
-; ID of the current dance slot we're drawing.
-ff6vwf_encounter_current_dance_slot: .res 1
+; ID of the current skill (Rage, dance, Magitek) slot we're drawing.
+ff6vwf_encounter_current_skill_slot: .res 1
 
 ff6vwf_encounter_bss_end:
  
@@ -113,6 +112,9 @@ ff6vwf_encounter_bss_end:
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORDANCE"
     jml _ff6vwf_encounter_build_menu_item_for_dance     ; 4 bytes
 
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORMAGITEK"
+    jml _ff6vwf_encounter_build_menu_item_for_magitek   ; 4 bytes
+
 ; FF6 routine to draw the name of one of Gau's Rages during encounters.
 .segment "PTEXTENCOUNTERDRAWRAGENAME"
     jsl _ff6vwf_encounter_draw_rage_name
@@ -120,6 +122,11 @@ ff6vwf_encounter_bss_end:
 
 .segment "PTEXTENCOUNTERDRAWDANCENAME"
     jsl _ff6vwf_encounter_draw_dance_name
+    rts
+
+; FF6 routine to draw the name of a Magitek Armor attack.
+.segment "PTEXTENCOUNTERDRAWMAGITEKNAME"
+    jsl _ff6vwf_encounter_draw_magitek_name
     rts
 
 ; Part of the FF6 encounter NMI/VBLANK handler. We patch it to upload our text if needed.
@@ -453,7 +460,7 @@ ff6_rage_display_list_right = $7e5760
     a8
 
     ; Figure out what text line slot we're going to use.
-    lda f:ff6vwf_encounter_current_rage_slot
+    lda f:ff6vwf_encounter_current_skill_slot
     a16
     and #$00ff
     tax
@@ -504,23 +511,63 @@ ff6_rage_display_list_right = $7e5760
     rtl
 .endproc
 
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_dance_name(uint8 unused,
+;                                                           uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_dance_name
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+    tyx
+    ldy #.loword(ff6vwf_long_dance_names)
+    sty outgoing_args+0
+    lda #^ff6vwf_long_dance_names
+    sta outgoing_args+2
+    jsr _ff6vwf_encounter_draw_dance_or_magitek_name
+
+    leave __FRAME_SIZE__
+    txy
+    rtl
+.endproc
+
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_magitek_name(uint8 unused,
+;                                                             uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_magitek_name
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+    tyx
+    ldy #.loword(ff6vwf_long_magitek_names)
+    sty outgoing_args+0
+    lda #^ff6vwf_long_magitek_names
+    sta outgoing_args+2
+    jsr _ff6vwf_encounter_draw_dance_or_magitek_name
+
+    leave __FRAME_SIZE__
+    txy
+    rtl
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_dance_or_magitek_name(uint16 dest_tilemap_offset,
+;                                                              const char far *name_list)
+.proc _ff6vwf_encounter_draw_dance_or_magitek_name
 begin_locals
     decl_local outgoing_args, 7
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
     decl_local text_line_slot, 1            ; uint8
     decl_local dance_id_ptr, 2              ; uint8 near *
     decl_local dance_id, 1                  ; uint8
-    decl_local string_ptr, 2                ; char near *
+    decl_local string_ptr, 2                ; const char near *
+begin_args_nearcall
+    decl_arg name_list, 3                   ; const char far *
 
-ff6_display_list_ptr        = $7e004f
-ff6_dance_display_list_left  = $7e575a
-ff6_dance_display_list_right = $7e5760
+ff6_display_list_ptr    = $7e004f
 
     enter __FRAME_SIZE__
 
     ; Initialize locals.
-    sty dest_tilemap_offset
+    stx dest_tilemap_offset
     a16
     lda f:ff6_display_list_ptr
     inc
@@ -529,13 +576,10 @@ ff6_dance_display_list_right = $7e5760
     a8
 
     ; Figure out what text line slot we're going to use.
-    lda f:ff6vwf_encounter_current_dance_slot
-    asl
     ldx dance_id_ptr
-    cpx #.loword(ff6_dance_display_list_right)
-    bne :+
-    inc
-:   sta text_line_slot                      ; dance_slot * 2, plus one if right column
+    jsr _ff6vwf_encounter_get_text_line_slot_2_col_4_row
+    txa
+    sta text_line_slot
 
     ; Fetch enemy ID.
     lda (dance_id_ptr)
@@ -546,8 +590,8 @@ ff6_dance_display_list_right = $7e5760
     a16
     and #$00ff
     asl
-    tax
-    lda f:ff6vwf_long_dance_names,x
+    tay
+    lda [name_list],y
     sta string_ptr
     a8
 
@@ -557,7 +601,7 @@ ff6_dance_display_list_right = $7e5760
     ldx text_line_slot
     ldy string_ptr
     sty outgoing_args+1             ; string
-    lda #^ff6vwf_long_dance_names
+    lda name_list+2
     sta outgoing_args+3             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
@@ -569,9 +613,8 @@ ff6_dance_display_list_right = $7e5760
     sta outgoing_args+0         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
 
-    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
     leave __FRAME_SIZE__
-    rtl
+    rts
 .endproc
 
 ; uint16 _ff6vwf_encounter_draw_enemy_name_tile(char tile, uint16 dest_tilemap_offset)
@@ -841,7 +884,7 @@ begin_args_nearcall
 .endproc
 
 .proc _ff6vwf_encounter_build_menu_item_for_rage
-    sta f:ff6vwf_encounter_current_rage_slot    ; from $c15945
+    sta f:ff6vwf_encounter_current_skill_slot    ; from $c15945
 
     ; Stuff the original function did that we overwrote.
     phy
@@ -852,7 +895,7 @@ begin_args_nearcall
 .endproc
 
 .proc _ff6vwf_encounter_build_menu_item_for_dance
-    sta f:ff6vwf_encounter_current_dance_slot
+    sta f:ff6vwf_encounter_current_skill_slot
 
     ; Stuff the original function did that we overwrote.
     phy
@@ -860,4 +903,31 @@ begin_args_nearcall
     tay
     tdc
     jmp $c14d0c
+.endproc
+
+.proc _ff6vwf_encounter_build_menu_item_for_magitek
+    sta f:ff6vwf_encounter_current_skill_slot
+
+    ; Stuff the original function did that we overwrote.
+    phy
+    asl
+    tay
+    tdc
+    jmp $c14d32
+.endproc
+
+; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_2_col_4_row(near *skill_id_ptr)
+;
+; Determines the text line slot to use for Dance or Magitek.
+.proc _ff6vwf_encounter_get_text_line_slot_2_col_4_row
+ff6_encounter_display_list_left  = $7e575a
+ff6_encounter_display_list_right = $7e5760
+
+    lda f:ff6vwf_encounter_current_skill_slot
+    asl
+    cpx #.loword(ff6_encounter_display_list_right)
+    bne :+
+    inc
+:   tax         ; skill slot * 2, plus one if right column
+    rts
 .endproc
