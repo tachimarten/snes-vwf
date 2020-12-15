@@ -32,9 +32,11 @@ VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 
 ; FF6 globals
 
+ff6_menu_null                   = $7e0000
 ff6_menu_list_slot              = $7e00e5
 ff6_menu_bg1_write_row          = $7e00e6
 ff6_menu_src_ptr                = $7e00e7
+ff6_menu_dest_ptr               = $7e00eb
 ff6_menu_list                   = $7e9d89
 ff6_menu_positioned_text_ptr    = $7e9e89
 ff6_menu_string_buffer          = $7e9e8b
@@ -90,8 +92,10 @@ ff6_menu_trigger_nmi = $1368
     jsl _ff6vwf_menu_draw_equipment_name
     rts
 
-; Wraps FF6's "force NMI" function in a far call.
+; Let's put some trampolines here.
 _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
+_ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
+_ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 
 .export _ff6vwf_menu_force_nmi_trampoline
 
@@ -168,25 +172,33 @@ ff6_menu_rage_cursor_data:
     .word $BC18        ; Rage 7
     .word $C818        ; Rage 8
 
-; At $c355e4
+; Code imported from Ted Woolsey Uncensored Edition (hereafter TWUE) at $c355e4 to label Sabin's
+; Blitzes in the menu.
+;
+; We import the code as-is in order to maintain compatibility with TWUE.
 .segment "PTEXTMENUBUILDBLITZMENUTWUE"
-    jmp $4D8F
+ff6_menu_vertical_page_offset = $49
 
-lbl_55e4:
-    dec A
-    lsr A
-    eor $49
-    lsr A
+    ; This is a hack from TWUE to piggyback off the identical tail of another function in order to
+    ; make room for some code below.
+    jmp $4d8f
+
+.proc _ff6twue_menu_blitz_55e4
+    dec
+    lsr
+    eor z:ff6_menu_vertical_page_offset
+    lsr
     rts 
+.endproc
 
 .proc ff6twue_build_blitz_menu
-ff6_menu_build_blitz_list = $561b
-ff6_menu_init_menu_pos = $83f7
-ff6_menu_draw_blitz_inputs = $5643
+ff6_menu_build_blitz_list = $c3561b
+ff6_menu_init_menu_pos = $c383f7
+ff6_menu_draw_blitz_inputs = $c35643
 
 @lbl_55ea:
-    jsr ff6_menu_build_blitz_list
-    jsr ff6_menu_init_menu_pos
+    jsr a:.loword(ff6_menu_build_blitz_list)
+    jsr a:.loword(ff6_menu_init_menu_pos)
     stz <ff6_menu_list_slot
     inc <ff6_menu_bg1_write_row
     ldy #16
@@ -198,7 +210,7 @@ ff6_menu_draw_blitz_inputs = $5643
     bcc :+
     adc #13
 :   tax
-    jsr a:ff6_menu_draw_blitz_inputs
+    jsr a:.loword(ff6_menu_draw_blitz_inputs)
     inc <ff6_menu_list_slot
     lda #$e0
     trb <ff6_menu_bg1_write_row
@@ -211,14 +223,15 @@ ff6_menu_draw_blitz_inputs = $5643
 .endproc
 
 ; At $c35614 in Ted Woolsey Uncensored Edition.
-lbl_5614:
+.proc _ff6twue_menu_blitz_compute_map_ptr
 ff6_menu_compute_bg1_tilemap_a_pos = $c3809f
     dec
     ora #1                                          ; Make Y position odd.
     jmp .loword(ff6_menu_compute_bg1_tilemap_a_pos) ; Compute map pointer.
+.endproc
 
 .segment "PTEXTMENUBLITZNEXTROWTWUE"
-ff6twue_menu_blitz_next_row:
+.proc ff6twue_menu_blitz_next_row
     tya
     lsr
     bcc :+
@@ -228,103 +241,103 @@ ff6twue_menu_blitz_next_row:
     dec .loword(ff6_menu_list_slot)
 :   tdc 
     rts 
+.endproc
 
+; nearproc void ff6twue_build_tilemap(uint8 inreg(A) blitz_id)
 .segment "PTEXTMENUBLITZBUILDTILEMAPTWUE"
 .proc ff6twue_menu_blitz_build_tilemap
-    asl A
-    sta $E0
-    lda $E6
-    jsr lbl_55e4
-    ldy #$9E8B
-    sty $2181
-    ldy #$000A
-    lda $E0
-    bcs lbl_56df
-    asl A
-    asl A
-    adc $E0
-    tax 
-@lbl_569d:
-    lda $E6F831,X
-    sta $2180
-    lda #$24
-    sta $2180
-    inx 
-    dey 
-    bne @lbl_569d
-    bra lbl_5704
-    tya 
-    lsr A
-    bcc @lbl_56ba
-    lsr A
-    bcc @lbl_56ba
-    dec $E5
-    dec $E5
-@lbl_56ba:
-    tdc 
-    rts 
+blitz_id = $e0
+src_ptr = $e7
+ff6_blitz_inputs = $c35c1c
+ff6_blitz_input_tiles = $c47a40
+ff6_short_blitz_names = $e6f831
 
-    ldy $00
-    rep #$20
-    lda [$E7]
-    sta $EB
-    inc $E7
-    inc $E7
-    sep #$20
-    lda #$7E
-    sta $ED
-@lbl_56ce:
-    rep #$20
-    lda [$E7],Y
-    beq lbl_56dc
-    sta [$EB],Y
-    sep #$20
-    iny 
-    iny 
-    bra @lbl_56ce
-lbl_56dc:
-    sep #$20
-    rts 
-lbl_56df:
-    asl A
-    sta $E0
-    asl A
-    adc $E0
-    ldx #$C35C
-    stx $E8
-    tax 
-@lbl_56eb:
-    lda $C47A40,X       ; load Blitz input
-    asl A
-    adc #$1C            ; tile attributes for Blitz inputs
-    sta $E7
-    lda [$E7]
-    sta $2180
-    inc $E7
-    lda [$E7]
-    sta $2180
-    inx 
-    dey 
-    bne @lbl_56eb
-lbl_5704:
-    stz $2180
-    stz $2180
-    rts 
+    asl
+    sta z:blitz_id      ; blitz_id *= 2
+    lda <ff6_menu_bg1_write_row+0
+    jsr _ff6twue_menu_blitz_55e4
+    ldy #.loword(ff6_menu_string_buffer)
+    sty WMADDL
+    ldy #10
+    lda z:blitz_id
+    bcs draw_input
 
-.endproc
-.segment "PTEXTMENUDRAWBLITZ"
-    lda $E6
-    jsr lbl_5614
-/*
+; $c35698:
+@draw_blitz_name:
+    lsr
+    tax
     jsl _ff6vwf_menu_draw_blitz
-    rts
-_ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
-_ff6vwf_menu_draw_blitz_inputs_trampoline:  def_trampoline $5683
-_ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
-*/
-_ff6vwf_menu_compute_map_ptr_trampoline = $0
-_ff6vwf_menu_draw_blitz_inputs_trampoline = $0
-_ff6vwf_menu_move_blitz_tilemap_trampoline = $0
+    bra out
+
+@draw_blitz_name_end_code:
+.repeat $17 - (@draw_blitz_name_end_code - @draw_blitz_name)
+    .byte $00
+.endrepeat
+
+@unknown_code_0:
+    tya 
+    lsr
+    bcc :+
+    lsr
+    bcc :+
+    dec $E5
+    dec $E5
+:   tdc 
+    rts 
+
+ff6twue_menu_move_blitz_tilemap:
+    ldy <ff6_menu_null+0
+    a16
+    lda [<ff6_menu_src_ptr]
+    sta <ff6_menu_dest_ptr
+    inc <ff6_menu_src_ptr
+    inc <ff6_menu_src_ptr
+    a8
+    lda #$7E
+    sta <(ff6_menu_dest_ptr + 2)
+@move_blitz_tilemap_loop:
+    a16
+    lda [<ff6_menu_src_ptr],Y
+    beq move_blitz_tilemap_out
+    sta [<ff6_menu_dest_ptr],Y
+    a8
+    iny 
+    iny 
+    bra @move_blitz_tilemap_loop
+move_blitz_tilemap_out:
+    a8
+    rts 
+
+draw_input:
+    asl             
+    sta z:blitz_id      ; blitz_id * 4
+    asl
+    adc z:blitz_id      ; blitz_id * 12
+    ldx #(ff6_blitz_inputs >> 8)
+    stx src_ptr+1
+    tax 
+@copy_blitz_input_char:
+    lda f:ff6_blitz_input_tiles,x    ; load Blitz input
+    asl
+    adc #<ff6_blitz_inputs      ; tile attributes for Blitz inputs
+    sta src_ptr
+    lda [src_ptr]
+    sta WMDATA
+    inc src_ptr
+    lda [src_ptr]
+    sta WMDATA
+    inx 
+    dey 
+    bne @copy_blitz_input_char
+    stz WMDATA
+    stz WMDATA
+out:
+    rts 
+.endproc
+
+.segment "PTEXTMENUDRAWBLITZ"
+    lda z:<ff6_menu_bg1_write_row
+    jsr _ff6twue_menu_blitz_compute_map_ptr
 
 .segment "PTEXTMENUDRAWDANCE"
     jsl _ff6vwf_menu_draw_dance
@@ -812,55 +825,58 @@ ff6_rage_list = $7e9d89
     rtl
 .endproc
 
-; farproc void _ff6vwf_menu_draw_blitz(uint8 tile_x_offset)
+; farproc void _ff6vwf_menu_draw_blitz(uint8 blitz_id)
 .proc _ff6vwf_menu_draw_blitz
 begin_locals
-    decl_local outgoing_args, 3
-    decl_local blitz_id, 1      ; uint8
-    decl_local tile_x_offset, 1 ; uint8
+    decl_local outgoing_args, 7
+    decl_local blitz_id, 1          ; uint8
+    decl_local string_ptr, 2        ; const char near *
+    decl_local text_line_slot, 1    ; uint8
+
+FF6TWUE_BLITZ_NAME_ATTRS = $24
 
     enter __FRAME_SIZE__
 
-    ; Save tile X offset.
+    ; Initialize locals.
     txa
-    sta tile_x_offset
+    sta blitz_id
 
-    ; Check for Blitz in slot.
+    ; Compute slot.
     lda f:ff6_menu_list_slot
+    lsr
+    sta text_line_slot
+
+    ; Compute string pointer.
+    lda blitz_id
     a16
     and #$00ff
+    asl
     tax
+    lda f:ff6vwf_long_blitz_names,x
+    sta string_ptr
     a8
-    lda f:ff6_menu_list,x
-    sta blitz_id
-    cmp #$ff
-    beq @no_blitz
 
-    ; Draw Blitz name.
-    ldx #.loword(ff6vwf_long_blitz_names)
-    stx outgoing_args+0
-    tax                     ; X = Blitz ID
-    ldy tile_x_offset
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_blitz_names
-    sta outgoing_args+2
-    jsr _ff6vwf_menu_draw_blitz_or_dance_name
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx text_line_slot
+    jsr ff6vwf_render_string
 
-    ; Go to the next row, and draw Blitz input.
-    lda f:ff6_menu_bg1_write_row
-    inc
-    inc
-    sta f:ff6_menu_bg1_write_row
-    ldx blitz_id
-    ldy tile_x_offset
-    jsr _ff6vwf_menu_draw_blitz_input
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline
 
-    ; Back up a row, because FF6 expects us to.
-    lda f:ff6_menu_bg1_write_row
-    dec
-    dec
-    sta f:ff6_menu_bg1_write_row
+    ; Draw tiles.
+    ldx text_line_slot
+    ldy #FF6_SHORT_BLITZ_NAME_LENGTH
+    lda #FF6TWUE_BLITZ_NAME_ATTRS
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_attributed_vwf_tiles
 
-@no_blitz:
     ; FIXME(tachiweasel): Fill with blanks if no Blitz here.
     leave __FRAME_SIZE__
     rtl
@@ -965,53 +981,6 @@ begin_args_nearcall
     ldy #FF6_SHORT_BLITZ_NAME_LENGTH
     stz outgoing_args+0
     jsr _ff6vwf_menu_draw_attributed_vwf_tiles
-
-    ; Move tilemap.
-    a16
-    lda #.loword(ff6_menu_positioned_text_ptr)
-    sta f:ff6_menu_src_ptr+0
-    a8
-    lda #^ff6_menu_positioned_text_ptr
-    sta f:ff6_menu_src_ptr+2
-    jsl _ff6vwf_menu_move_blitz_tilemap_trampoline
-
-    leave __FRAME_SIZE__
-    rts
-.endproc
-
-; nearproc void _ff6vwf_menu_draw_blitz_input(uint8 blitz_id, uint8 tile_x_offset)
-.proc _ff6vwf_menu_draw_blitz_input
-begin_locals
-    decl_local outgoing_args, 5
-    decl_local string_ptr, 2    ; char near *
-    decl_local blitz_id, 1      ; uint8
-
-    enter __FRAME_SIZE__
-
-    ; Save Blitz ID.
-    txa
-    sta blitz_id
-
-    ; Compute map pointer.
-    tya
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6_menu_bg1_write_row
-    jsl _ff6vwf_menu_compute_map_ptr_trampoline
-    a16
-    txa
-    sta f:ff6_menu_positioned_text_ptr
-    a8
-
-    ; Draw Blitz inputs.
-    lda blitz_id
-    a16
-    and #$00ff
-    tax
-    a8
-    jsl _ff6vwf_menu_draw_blitz_inputs_trampoline
 
     ; Move tilemap.
     a16

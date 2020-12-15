@@ -28,6 +28,14 @@ OPHCT    = $213c    ; Horizontal Scanline Location
 OPVCT    = $213d    ; Vertical Scanline Location
 SLHV     = $2137    ; Software Latch for H/V Counter
 STAT78   = $213f    ; PPU Status Flag and Version
+APUIO0   = $2140    ; APU IO Register 0
+APUIO1   = $2141    ; APU IO Register 1
+APUIO2   = $2142    ; APU IO Register 2
+APUIO3   = $2143    ; APU IO Register 3
+WMDATA   = $2180    ; WRAM Data Register
+WMADDL   = $2181    ; WRAM Address Register
+WMADDM   = $2182    ; WRAM Address Register
+WMADDH   = $2183    ; WRAM Address Register
 
 ; CPU registers
 NMITIMEN = $4200
