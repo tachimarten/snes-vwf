@@ -98,8 +98,13 @@ ff6vwf_encounter_bss_end:
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORITEMINHAND"
     jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
 
+; FF6 routine that builds a menu item for one of Edgar's tools (during encounters). We patch it
+; to record that this is a tool so that the VWF rendering routine can use the appropriate slot.
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORTOOLS"
     jml _ff6vwf_encounter_build_menu_item_for_tools
+
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORTHROW"
+    jml _ff6vwf_encounter_build_menu_item_for_throw
 
 ; FF6 routine to draw an item name during encounters.
 .segment "PTEXTENCOUNTERDRAWITEMNAME"
@@ -326,6 +331,22 @@ ff6_enemy_name_table  = $cfc050
     a16
     asl
     jml $c14bfb
+.endproc
+
+; Original function: $c14c27.
+.proc _ff6vwf_encounter_build_menu_item_for_throw
+.a8
+    sta f:ff6vwf_encounter_current_item_slot
+    pha
+    lda #FF6VWF_ITEM_TYPE_INVENTORY
+    sta f:ff6vwf_encounter_item_type_to_draw
+    pla
+
+    ; Stuff the original function did
+    phy
+    a16
+    sta f:$7e0040
+    jml $c14c2c
 .endproc
 
 .proc _ff6vwf_encounter_draw_item_name
