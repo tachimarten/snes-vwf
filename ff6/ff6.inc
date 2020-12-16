@@ -39,6 +39,7 @@ ff6_short_item_names    = $d2b300
 ; of VBLANK time.
 .macro ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel, dma_timeout
     ldy #0
+
 @__loop:
     lda STAT78
     lda SLHV
@@ -80,6 +81,8 @@ ff6_short_item_names    = $d2b300
     bra @__loop
 
 @__out:
+    ; Reset high/low selector of OPVCT to avoid screen corruption when riding chocobos!
+    lda STAT78
 .endmacro
 
 .endif
