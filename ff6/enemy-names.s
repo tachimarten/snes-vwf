@@ -764,7 +764,7 @@ ff6vwf_long_enemy_names:
     .word .loword(ff6vwf_long_enemy_name_381)
 
 ff6vwf_long_enemy_name_000: .asciiz "Guard"
-ff6vwf_long_enemy_name_001: .asciiz "Soldier"
+ff6vwf_long_enemy_name_001: .asciiz "Imperial Soldier"
 ff6vwf_long_enemy_name_002: .asciiz "Templar"
 ff6vwf_long_enemy_name_003: .asciiz "Ninja"
 ff6vwf_long_enemy_name_004: .asciiz "Samurai"
