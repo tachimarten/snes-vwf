@@ -499,8 +499,18 @@ ff6_rage_display_list_right = $7e5760
     lda (enemy_id_ptr)
     sta enemy_id
 
-    ; Compute string pointer.
+    ; If empty (or Tonberries), don't display it.
     lda enemy_id
+    cmp #$ff
+    bne @got_a_rage
+
+    ldx dest_tilemap_offset
+    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    jsr _ff6vwf_encounter_draw_blank_tile_data
+    bra @out
+
+@got_a_rage:
+    ; Compute string pointer.
     a16
     and #$00ff
     asl
@@ -527,6 +537,7 @@ ff6_rage_display_list_right = $7e5760
     sta outgoing_args+0         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
 
+@out:
     txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
     leave __FRAME_SIZE__
     rtl
