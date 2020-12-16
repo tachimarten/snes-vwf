@@ -117,37 +117,59 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
     jml _ff6vwf_menu_draw_gear_info_text
 
 .segment "PTEXTMENUINITRAGEMENU"
-    stz $4a         ; List scroll: 0
-    jsr $091f       ; Create scrollbar
+ff6_menu_create_scrollbar           = $c3091f
+ff6_menu_rage_load_navigation_data  = $c34c4c
+ff6_menu_rage_relocate_cursor       = $c34c55
+ff6_menu_draw_rages                 = $c35391
+
+ff6_menu_current_state              = $7e0026
+ff6_menu_bg2_hscroll                = $7e0039
+ff6_menu_bg3_hscroll                = $7e003d
+ff6_menu_list_scroll                = $7e004a
+ff6_menu_page_height                = $7e005a
+ff6_menu_page_width                 = $7e005b
+ff6_menu_max_page_scroll_pos        = $7e005c
+ff6_menu_horizontal_movement_speed  = $7e34ca
+ff6_menu_vertical_movement_speed    = $7e354a
+
+FF6_MENU_STATE_RAGE = $1d
+
+    stz <ff6_menu_list_scroll                       ; List scroll: 0
+    jsr .loword(ff6_menu_create_scrollbar)          ; Create scrollbar
     a16
-    lda #$0066      ; V-Speed: 0.4 px
-    sta f:$7e354a,x ; Set scrollbar's
-    lda #$0068      ; Y: 104
-    sta f:$7e34ca,x ; Set scrollbar's
+    lda #$0066                                      ; V-Speed: 0.4 px
+    sta f:ff6_menu_vertical_movement_speed,x        ; Set scrollbar's
+    lda #$0068                                      ; Y: 104
+    sta f:ff6_menu_horizontal_movement_speed,x      ; Set scrollbar's
     a8
-    jsr $4c4c       ; Load navig data
-    jsr $4c55       ; Relocate cursor
-    lda #$f0        ; Top row
-    sta $5c         ; Set scroll limit
-    lda #8          ; Onscreen rows: 8
-    sta $5a         ; Set rows per page
-    lda #1          ; Onscreen cols: 1
-    sta $5b         ; Set cols per page
-    ldy #256        ; X: 256
-    sty $39         ; Set BG2 X-Pos
-    sty $3d         ; Set BG3 X-Pos
-    jsr $5391       ; Draw rages, etc.
-    lda #$1d        ; C3/28BA
-    sta $26         ; Next: Sustain menu
+    jsr .loword(ff6_menu_rage_load_navigation_data) ; Load navig data
+    jsr .loword(ff6_menu_rage_relocate_cursor)      ; Relocate cursor
+    lda #$f0                                        ; Top row
+    sta <ff6_menu_max_page_scroll_pos               ; Set scroll limit
+    lda #8                                          ; Onscreen rows: 8
+    sta <ff6_menu_page_height                       ; Set rows per page
+    lda #1                                          ; Onscreen cols: 1
+    sta <ff6_menu_page_width                        ; Set cols per page
+    ldy #256                                        ; X: 256
+    sty <ff6_menu_bg2_hscroll                       ; Set BG2 X-Pos
+    sty <ff6_menu_bg3_hscroll                       ; Set BG3 X-Pos
+    jsr .loword(ff6_menu_draw_rages)                ; Draw rages, etc.
+    lda #FF6_MENU_STATE_RAGE                        ; C3/28BA
+    sta <ff6_menu_current_state                     ; Next: Sustain menu
     rts
 
 .segment "PTEXTMENUDRAWRAGEROW"
-    lda #$20        ; Palette 0
-    sta $29         ; Color: User's
-    jsr $5409       ; Define source
-    ldx #5          ; X: 5
-    jsr $5418       ; Draw Rage A
-    inc $e5         ; Rage slot +1
+ff6_menu_bg_attrs = $7e0029
+
+ff6_menu_rage_define_source = $c35409
+ff6_menu_rage_draw          = $c35418
+
+    lda #$20                                    ; Palette 0
+    sta <ff6_menu_bg_attrs                      ; Color: User's
+    jsr .loword(ff6_menu_rage_define_source)    ; Define source
+    ldx #5                                      ; X: 5
+    jsr .loword(ff6_menu_rage_draw)             ; Draw Rage A
+    inc <ff6_menu_list_slot                     ; Rage slot +1
     rts
 
 ; FF6 routine to draw a rage in the Skills menu.
