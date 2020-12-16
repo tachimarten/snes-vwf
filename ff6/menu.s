@@ -231,12 +231,11 @@ ff6vwf_menu_draw_blitz:
     jsl _ff6vwf_menu_draw_dance
     rts
 
-; Part of the FF6 function at $c38a0e.
-.segment "PTEXTMENUDRAWITEMTOBEUSED"
+.segment "PTEXTMENUDRAWITEMTOBEUSED"        ; $c38a0e
     jsl _ff6vwf_menu_draw_item_to_be_used
     nopx 7
 
-.segment "PTEXTMENUDRAWITEMFORSALE"
+.segment "PTEXTMENUDRAWITEMFORSALE"         ; $c3b9bd
     jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
     nopx 2
 _ff6vwf_menu_draw_item_for_sale_after:
@@ -255,11 +254,17 @@ _ff6vwf_menu_draw_item_for_sale_after:
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
 .segment "PTEXTMENURUNDMA"
+ff6_menu_refresh_mode_7 = $c3d263
+ff6_menu_refresh_oam    = $c31463
+ff6_menu_refresh_cgram  = $c314d2
+ff6_menu_do_vram_dma_a  = $c31488
+ff6_menu_do_vram_dma_b  = $c314ac
+
     jsl _ff6vwf_menu_run_dma_setup
-    jsr $d263           ; Refresh Mode 7
-    jsr $1463           ; Refresh OAM
-    jsr $14d2           ; Refresh CGRAM
-    jsr $1488           ; Do VRAM DMA A
+    jsr .loword(ff6_menu_refresh_mode_7)
+    jsr .loword(ff6_menu_refresh_oam)
+    jsr .loword(ff6_menu_refresh_cgram)
+    jsr .loword(ff6_menu_do_vram_dma_a)
 
     ; We have priority over VRAM DMA B.
     ;
@@ -267,7 +272,7 @@ _ff6vwf_menu_draw_item_for_sale_after:
     jsl _ff6vwf_menu_run_dma
     bcs @we_did_dma
 
-    jsr $14ac           ; Do VRAM DMA B
+    jsr .loword(ff6_menu_do_vram_dma_b)
 @we_did_dma:
     rts
 
@@ -277,8 +282,10 @@ _ff6vwf_menu_draw_item_for_sale_after:
 ; Menu functions
 
 .proc _ff6vwf_menu_init
+ff6_reset_vars = $d4cdf3
+
     ; Stuff the original function did
-    jsl $d4cdf3     ; Reset many vars
+    jsl ff6_reset_vars      ; Reset many vars
 
     ; Initialize the stack.
     lda #0
@@ -933,8 +940,8 @@ ff6_menu_item_for_sale = $7e00f1
     jsr std_mod16_8
 
     ; Draw item.
-    ldx item_id
     txy                 ; text_line_slot
+    ldx item_id
     jsr _ff6vwf_menu_draw_item_name_bg3
 
     ; Call the "upload text" function and have it return back into the "draw item for sale"
