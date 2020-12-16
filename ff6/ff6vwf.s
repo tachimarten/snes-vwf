@@ -19,10 +19,10 @@
 
 .import ff6vwf_encounter_text_dma_stack_base: far
 .import ff6vwf_encounter_text_tiles: far
-.import ff6vwf_encounter_text_dma_stack_ptr: far
+.import ff6vwf_encounter_text_dma_stack_size: far
 .import ff6vwf_menu_text_dma_stack_base: far
 .import ff6vwf_menu_text_tiles: far
-.import ff6vwf_menu_text_dma_stack_ptr: far
+.import ff6vwf_menu_text_dma_stack_size: far
 .import ff6vwf_long_item_names: far
 
 ; Our own functions, in a separate bank
@@ -159,6 +159,8 @@ begin_args_nearcall
 ; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
 .proc ff6vwf_schedule_text_dma
 begin_locals
+    decl_local outgoing_args, 7
+    decl_local dma_stack_size, 1        ; uint8
     decl_local dma_stack_ptr, 3         ; uint16 far *
     decl_local tile_base_addr, 2        ; vram *
     decl_local max_line_byte_size, 2    ; uint8
@@ -174,48 +176,56 @@ begin_args_nearcall
     sta text_line_index
     sty tile_base_addr
 
-    ; Grab the DMA stack pointer and bump it. If it overflows, bail out to avoid crashing the game.
-    ; FIXME(tachiweasel): This seems racy...
+    ; Lock the DMA stack pointer.
     lda flags
     and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    bne @get_menu_dma_stack_pointer
+    bne @lock_menu_dma_stack_pointer
 
-    ; Encounter path for the above
-    lda #^ff6vwf_encounter_text_dma_stack_base
-    sta dma_stack_ptr+2
-    lda f:ff6vwf_encounter_text_dma_stack_ptr
+    ; Encounter path for the above:
     a16
-    and #$00ff
-    add #.loword(ff6vwf_encounter_text_dma_stack_base)
-    sta dma_stack_ptr
+    lda #.loword(ff6vwf_encounter_text_dma_stack_base)
+    sta outgoing_args+0
+    lda #.loword(ff6vwf_encounter_text_dma_stack_size)
+    sta outgoing_args+3
     a8
-    lda f:ff6vwf_encounter_text_dma_stack_ptr
-    add #FF6VWF_DMA_STRUCT_SIZE
-    cmp #VWF_ENCOUNTER_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
-    blt :+
-    jmp @out
-:   sta f:ff6vwf_encounter_text_dma_stack_ptr
-    bra @done_dma_stack_pointer
+    lda #^ff6vwf_encounter_text_dma_stack_base
+    sta outgoing_args+2             ; dma_stack_base
+    lda #^ff6vwf_encounter_text_dma_stack_size
+    sta outgoing_args+5             ; dma_stack_size
+    lda #VWF_ENCOUNTER_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
+    sta outgoing_args+6             ; dma_stack_capacity
+    bra @call_lock_dma_stack
 
     ; Menu path for the above
-@get_menu_dma_stack_pointer:
-    lda #^ff6vwf_menu_text_dma_stack_base
-    sta dma_stack_ptr+2
-    lda f:ff6vwf_menu_text_dma_stack_ptr
+@lock_menu_dma_stack_pointer:
     a16
-    and #$00ff
-    add #.loword(ff6vwf_menu_text_dma_stack_base)
-    sta dma_stack_ptr
+    lda #.loword(ff6vwf_menu_text_dma_stack_base)
+    sta outgoing_args+0
+    lda #.loword(ff6vwf_menu_text_dma_stack_size)
+    sta outgoing_args+3
     a8
-    lda f:ff6vwf_menu_text_dma_stack_ptr
-    add #FF6VWF_DMA_STRUCT_SIZE
-    cmp #VWF_MENU_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
-    blt :+
-    jmp @out
-:   sta f:ff6vwf_menu_text_dma_stack_ptr
+    lda #^ff6vwf_menu_text_dma_stack_base
+    sta outgoing_args+2             ; dma_stack_base
+    lda #^ff6vwf_menu_text_dma_stack_size
+    sta outgoing_args+5             ; dma_stack_size
+    lda #VWF_MENU_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
+    sta outgoing_args+6             ; dma_stack_capacity
+    bra @call_lock_dma_stack
+
+@call_lock_dma_stack:
+    a16
+    tdc
+    add #dma_stack_ptr
+    tax                             ; out_dma_stack_ptr = &dma_stack_ptr
+    tdc
+    add #dma_stack_size
+    tay                             ; out_dma_stack_size = &dma_stack_size
+    a8
+    jsr _ff6vwf_lock_dma_stack
+    cpx #0
+    beq @out
 
     ; Look up string char offset for the text line.
-@done_dma_stack_pointer:
     lda text_line_index
     a16
     and #$00ff
@@ -271,12 +281,85 @@ begin_args_nearcall
     sta [dma_stack_ptr]
     a8
 
+    ; Unlock.
+    lda flags
+    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    bne @unlock_menu
+    ; Encounter path:
+    lda dma_stack_size
+    sta f:ff6vwf_encounter_text_dma_stack_size
+    bra @out
+    ; Menu path:
+@unlock_menu:
+    lda dma_stack_size
+    sta f:ff6vwf_menu_text_dma_stack_size
+
 @out:
     leave __FRAME_SIZE__
     rts
 .endproc
 
 .export ff6vwf_schedule_text_dma
+
+; nearproc bool _ff6vwf_lock_dma_stack(struct dma far *near *out_dma_stack_ptr,
+;                                      uint8 near *out_dma_stack_size,
+;                                      struct dma far *dma_stack_base,
+;                                      uint8 far *dma_stack_size_ptr,
+;                                      uint8 dma_stack_capacity)
+;
+; Returns true if there was space or false on overflow. NOT reentrant.
+.proc _ff6vwf_lock_dma_stack
+begin_locals
+    decl_local out_dma_stack_ptr, 2     ; struct dma far *near *
+    decl_local out_dma_stack_size, 2    ; uint8 near *
+    decl_local pre_dma_stack_size, 1    ; uint8
+begin_args_nearcall
+    decl_arg dma_stack_base, 3          ; struct dma far *
+    decl_arg dma_stack_size_ptr, 3      ; uint8 far *
+    decl_arg dma_stack_capacity, 1      ; uint8
+
+    enter __FRAME_SIZE__
+
+    ; Store arguments.
+    stx out_dma_stack_ptr
+    sty out_dma_stack_size
+
+    ; Bump size.
+    lda [dma_stack_size_ptr]
+    sta pre_dma_stack_size
+    add #FF6VWF_DMA_STRUCT_SIZE
+    cmp dma_stack_capacity
+    ble @it_fits
+
+    ; Overflow. Bail out.
+    ldx #0
+    bra @out
+
+@it_fits:
+    sta (out_dma_stack_size)
+
+    ; Lock the DMA stack by setting its size to zero, ensuring NMI won't touch it.
+    lda #0
+    sta [dma_stack_size_ptr]
+
+    ; Store stack pointer.
+    lda pre_dma_stack_size
+    a16
+    and #$00ff
+    add dma_stack_base+0
+    sta (out_dma_stack_ptr)     ; Store low word.
+    a8
+    ldy #2
+    lda dma_stack_base+2
+    sta (out_dma_stack_ptr),y   ; Store bank byte.
+
+    ; Finish up.
+    ldx #1
+
+@out:
+    leave __FRAME_SIZE__
+    rts
+.endproc
 
 ; Constant data
 

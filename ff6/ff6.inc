@@ -37,7 +37,7 @@ ff6_short_item_names    = $d2b300
 ;
 ; This is a macro because every cycle really counts. We continually run *VERY* close to running out
 ; of VBLANK time.
-.macro ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_ptr, dma_channel, dma_timeout
+.macro ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_size, dma_channel, dma_timeout
     ldy #0
 
 @__loop:
@@ -52,12 +52,12 @@ ff6_short_item_names    = $d2b300
 @__do_it:
     ; Any DMA lines to upload?
     tdc                         ; Fast clear top byte of A to 0.
-    lda f:text_dma_stack_ptr
+    lda f:text_dma_stack_size
     beq @__out
 
     ; Pop it off the stack.
     sub #FF6VWF_DMA_STRUCT_SIZE
-    sta f:text_dma_stack_ptr
+    sta f:text_dma_stack_size
     tax
     a16
     lda f:text_dma_stack_base+0,x   ; dest VRAM address

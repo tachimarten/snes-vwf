@@ -46,7 +46,7 @@ ff6/ff6vwf.smc:	ff6/ff6.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
 	$(LD65) -C ff6/ff6vwf.cfg -o $@ -m ff6/ff6vwf.map -vm $(FF6VWF_OBJS) $<
 
 ff6/ff6twuevwf.smc:	ff6/ff6twue.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
-	$(LD65) -C ff6/ff6vwf.cfg -o $@ -m ff6/ff6vwf.map -vm $(FF6VWF_OBJS) $<
+	$(LD65) -C ff6/ff6vwf.cfg -o $@ -m ff6/ff6twuevwf.map -vm $(FF6VWF_OBJS) $<
 
 .PHONY:	clean ff6
 

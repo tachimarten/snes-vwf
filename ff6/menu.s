@@ -69,13 +69,13 @@ ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_MENU_SLOT_COU
 ; to VRAM.
 ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
-ff6vwf_menu_text_dma_stack_ptr: .res 1
+ff6vwf_menu_text_dma_stack_size: .res 1
 
 ff6vwf_menu_bss_end:
 
 .export ff6vwf_menu_text_dma_stack_base
 .export ff6vwf_menu_text_tiles
-.export ff6vwf_menu_text_dma_stack_ptr
+.export ff6vwf_menu_text_dma_stack_size
 .export ff6vwf_menu_bss_end
 
 .reloc 
@@ -318,7 +318,7 @@ ff6_reset_vars = $d4cdf3
 
     ; Initialize the stack.
     lda #0
-    sta f:ff6vwf_menu_text_dma_stack_ptr
+    sta f:ff6vwf_menu_text_dma_stack_size
 
     ; Return.
     jml $c368fe
@@ -1218,7 +1218,7 @@ ff6_menu_bg3_ypos = $3f
 .endproc
 
 .proc _ff6vwf_menu_run_dma
-    ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0, 250
+    ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_size, 0, 250
     rtl
 .endproc
 

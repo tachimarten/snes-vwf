@@ -42,6 +42,8 @@ ff6_encounter_enemy_ids         = $7e200d
 ; Encounter BSS
 .org $7ec000
 
+; Current of the stack *in bytes*.
+ff6vwf_encounter_text_dma_stack_size: .res 1
 ; Stack of DMA structures. They look like:
 ;
 ; struct dma {
@@ -51,23 +53,21 @@ ff6_encounter_enemy_ids         = $7e200d
 ; };
 ;
 ff6vwf_encounter_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_ENCOUNTER_SLOT_COUNT
-; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
-; to VRAM.
-ff6vwf_encounter_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_ENCOUNTER_SLOT_COUNT
-; Current of the stack *in bytes*.
-ff6vwf_encounter_text_dma_stack_ptr: .res 1
 ; ID of the current item slot we're drawing.
 ff6vwf_encounter_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_encounter_item_type_to_draw: .res 1
 ; ID of the current skill (Rage, dance, Magitek) slot we're drawing.
 ff6vwf_encounter_current_skill_slot: .res 1
+; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
+; to VRAM.
+ff6vwf_encounter_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_ENCOUNTER_SLOT_COUNT
 
 ff6vwf_encounter_bss_end:
  
 .export ff6vwf_encounter_text_dma_stack_base
 .export ff6vwf_encounter_text_tiles
-.export ff6vwf_encounter_text_dma_stack_ptr
+.export ff6vwf_encounter_text_dma_stack_size
 .export ff6vwf_encounter_bss_end
 
 .reloc 
@@ -162,7 +162,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 ; farproc void _ff6vwf_encounter_init()
 .proc _ff6vwf_encounter_init
     lda #0
-    sta ff6vwf_encounter_text_dma_stack_ptr
+    sta f:ff6vwf_encounter_text_dma_stack_size
     jsl $c00016 ; original code
     jml $c1102e
 .endproc
@@ -935,7 +935,7 @@ begin_locals
     ; Run our generic DMA routine.
     pha
     plb
-    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 250
+    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_size, 7, 250
     tdc
     lda #$7e
     pha
@@ -944,6 +944,8 @@ begin_locals
     ; Tear down.
     jml $c10be1
 .endproc
+
+.export _ff6vwf_encounter_run_dma
 
 .proc _ff6vwf_encounter_build_menu_item_for_rage
     sta f:ff6vwf_encounter_current_skill_slot    ; from $c15945

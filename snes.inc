@@ -120,6 +120,11 @@ RDMPYH   = $4217
     bcs label
 .endmacro
 
+.macro ble label
+    beq label
+    bcc label
+.endmacro
+
 ; Creates a C-like function prolog. DP is set to point at the first local variable (so it's
 ; basically a frame pointer).
 ;
