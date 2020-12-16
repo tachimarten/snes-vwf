@@ -44,6 +44,7 @@ ff6_menu_string_buffer          = $7e9e8b
 ; FF6 functions
 
 ff6_menu_draw_name      = $7fd9
+ff6_menu_draw_item_name = $c37fd9
 
 ; FF6-specific macros
 
@@ -239,6 +240,11 @@ ff6vwf_menu_draw_blitz:
     jml _ff6vwf_menu_draw_item_for_sale     ; 4 bytes
     nopx 2
 _ff6vwf_menu_draw_item_for_sale_after:
+
+.segment "PTEXTMENUDRAWITEMNAMEINSTATSSUBMENU"          ; $c3b9bd
+    jml _ff6vwf_menu_draw_item_name_in_stats_submenu    ; 4 bytes
+    nopx 2
+_ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 
 .segment "PTEXTMENUBUILDCOLOSSEUMITEMS"
     jml _ff6vwf_menu_build_colosseum_items  ; 4 bytes
@@ -945,11 +951,27 @@ ff6_menu_item_for_sale = $7e00f1
     ldx item_id
     jsr _ff6vwf_menu_draw_item_name_bg3
 
-    ; Call the "upload text" function and have it return back into the "draw item for sale"
-    ; function.
+    ; Return back to the caller.
     leave __FRAME_SIZE__
     pea .loword(_ff6vwf_menu_draw_item_for_sale_after)-1
-    jml $c37fd9
+    jml ff6_menu_draw_item_name
+.endproc
+
+; Draws the item name in the statistics subscreen of the "buy" menu in shops.
+;
+; This doesn't really follow a calling convention, since it's more of a patch than a function.
+.proc _ff6vwf_menu_draw_item_name_in_stats_submenu
+ff6_menu_item_for_sale = $7e00f1
+
+    tax     ; Save item ID in X.
+
+    ; Draw item.
+    ldy #0
+    jsr _ff6vwf_menu_draw_item_name_bg3
+
+    ; Return back to the caller.
+    pea .loword(_ff6vwf_menu_draw_item_name_in_stats_submenu_after)-1
+    jml ff6_menu_draw_item_name
 .endproc
 
 ; nearproc void _ff6vwf_menu_draw_item_name_bg3(uint8 item_id, uint8 text_line_slot)
