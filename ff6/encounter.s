@@ -914,7 +914,7 @@ begin_locals
     ; Run our generic DMA routine.
     pha
     plb
-    _ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 250
+    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_ptr, 7, 250
     tdc
     lda #$7e
     pha

@@ -270,7 +270,8 @@ ff6_menu_do_vram_dma_b  = $c314ac
     ;
     ; For this to work, we must eagerly trigger NMI every time we render some text.
     jsl _ff6vwf_menu_run_dma
-    bcs @we_did_dma
+    cpy #0
+    bne @we_did_dma
 
     jsr .loword(ff6_menu_do_vram_dma_b)
 @we_did_dma:
@@ -1173,20 +1174,7 @@ ff6_menu_bg3_ypos = $3f
 .endproc
 
 .proc _ff6vwf_menu_run_dma
-    _ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0, 250
-    rtl
-.endproc
-
-.proc _ff6vwf_menu_run_all_dma_now
-    phd
-    pea $00
-    pld
-
-@loop:
-    _ff6vwf_run_dma_now ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0
-    bcs @loop
-
-    pld
+    ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_ptr, 0, 250
     rtl
 .endproc
 
