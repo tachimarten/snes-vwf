@@ -56,7 +56,7 @@ ff6_menu_string_buffer              = $7e9e8b
 ; FF6 functions
 
 ff6_menu_create_scrollbar   = $c3091f
-ff6_menu_draw_item_name     = $c37fd9
+ff6_menu_draw_string        = $c37fd9
 
 ; FF6-specific macros
 
@@ -171,8 +171,15 @@ ff6_menu_espers_draw            = $c35509
     rts
 
 ; FF6 routine to draw an esper in the Espers menu.
-.segment "PTEXTMENUDRAWESPERNAME"       ; $c35527
-    jsl _ff6vwf_menu_draw_esper_name    ; 4 bytes
+.segment "PTEXTMENUDRAWESPERNAME"           ; $c35527
+    jsl _ff6vwf_menu_draw_esper_name        ; 4 bytes
+
+.segment "PTEXTMENUDRAWESPERNAMEININFOMENU" ; $c359ba
+ff6_menu_selected_esper = $7e0099
+
+    ldx <ff6_menu_selected_esper
+    jsl _ff6vwf_menu_draw_esper_name_in_info_menu
+    nopx $59d2-$59ba-6
 
 .segment "PTEXTMENUINITRAGEMENU"
 ff6_menu_rage_load_navigation_data  = $c34c4c
@@ -340,11 +347,17 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 
 .segment "PTEXTMENUDRAWCOLOSSEUMITEM"
     jsl _ff6vwf_menu_draw_colosseum_item    ; 4 bytes
-    jmp .loword(ff6_menu_draw_item_name)    ; Draw item name.
+    jmp .loword(ff6_menu_draw_string)       ; Draw item name.
 
 .segment "PTEXTMENUDRAWCOLOSSEUMENEMY"
     jsl _ff6vwf_menu_draw_colosseum_enemy   ; 4 bytes
-    jmp .loword(ff6_menu_draw_item_name)    ; Draw enemy name.
+    jmp .loword(ff6_menu_draw_string)       ; Draw enemy name.
+
+; This displays the held Esper in the Skills menu and the Lineup menu.
+.segment "PTEXTMENUDRAWESPERNAMEINSTATUSPANEL"
+    tax
+    jsl _ff6vwf_menu_draw_esper_name_in_info_menu
+    jmp .loword(ff6_menu_draw_string)
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -459,8 +472,6 @@ begin_locals
 
 ; farproc void _ff6vwf_menu_draw_inventory_item_name_for_item_menu()
 .proc _ff6vwf_menu_draw_inventory_item_name_for_item_menu
-ff6_menu_draw_string = $c37fd9
-
     lda f:ff6_menu_list_slot
     tax
     tay
@@ -775,7 +786,7 @@ ff6_menu_allow_sfx_repeat = $7e00ae
 .proc _ff6vwf_menu_draw_esper_name
 begin_locals
     decl_local outgoing_args, 5
-    decl_local enemy_id, 1
+    decl_local esper_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
 
@@ -785,31 +796,26 @@ ff6_esper_list = $7e9d89
 
     ; Look up enemy ID.
     lda f:ff6_menu_list_slot
-    sta text_line_slot
     a16
     and #$00ff
     tax
     a8
     lda f:ff6_esper_list,x
-    sta enemy_id
+    sta esper_id
 
     ; Compute string pointer.
-    lda enemy_id
+    lda esper_id
     a16
     and #$00ff
     asl
     tax
     lda f:ff6vwf_long_esper_names,x
     sta string_ptr
+    a8
 
     ; Compute text line slot.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #9                  ; Number of menu items on screen plus one.
-    jsr std_mod16_8
+    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
+    txa
     sta text_line_slot
 
     ; Render string.
@@ -828,7 +834,7 @@ ff6_esper_list = $7e9d89
 
     ; Draw tiles.
     ldx text_line_slot
-    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    ldy #FF6_SHORT_ESPER_NAME_LENGTH
     stz outgoing_args+0
     jsr _ff6vwf_menu_draw_vwf_tiles
 
@@ -838,6 +844,52 @@ ff6_esper_list = $7e9d89
     a8
     rtl
 .endproc
+
+; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id)
+.proc _ff6vwf_menu_draw_esper_name_in_info_menu
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2
+
+TEXT_LINE_SLOT = 9
+
+    enter __FRAME_SIZE__
+
+    ; Compute string pointer.
+    a16
+    txa
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_esper_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_esper_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #TEXT_LINE_SLOT
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx #TEXT_LINE_SLOT
+    ldy #FF6_SHORT_ESPER_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.export _ff6vwf_menu_draw_esper_name_in_info_menu
 
 .proc _ff6vwf_menu_draw_rage_name
 begin_locals
@@ -852,7 +904,6 @@ ff6_rage_list = $7e9d89
 
     ; Look up enemy ID.
     lda f:ff6_menu_list_slot
-    sta text_line_slot
     a16
     and #$00ff
     tax
@@ -868,15 +919,11 @@ ff6_rage_list = $7e9d89
     tax
     lda f:ff6vwf_long_enemy_names,x
     sta string_ptr
+    a8
 
     ; Compute text line slot.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #9                  ; Number of menu items on screen plus one.
-    jsr std_mod16_8
+    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
+    txa
     sta text_line_slot
 
     ; Render string.
@@ -901,6 +948,18 @@ ff6_rage_list = $7e9d89
 
     leave __FRAME_SIZE__
     rtl
+.endproc
+
+; nearproc uint8 _ff6vwf_menu_get_text_line_slot_for_esper_or_rage()
+.proc _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #9                  ; Number of menu items on screen plus one.
+    jsr std_mod16_8
+    rts
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_blitz(uint8 blitz_id)
@@ -1128,7 +1187,7 @@ ff6_menu_item_for_sale = $7e00f1
     ; Return back to the caller.
     leave __FRAME_SIZE__
     pea .loword(_ff6vwf_menu_draw_item_for_sale_after)-1
-    jml ff6_menu_draw_item_name
+    jml ff6_menu_draw_string
 .endproc
 
 ; Draws the item name in the statistics subscreen of the "buy" menu in shops.
@@ -1145,7 +1204,7 @@ ff6_menu_item_for_sale = $7e00f1
 
     ; Return back to the caller.
     pea .loword(_ff6vwf_menu_draw_item_name_in_stats_submenu_after)-1
-    jml ff6_menu_draw_item_name
+    jml ff6_menu_draw_string
 .endproc
 
 ; nearproc void _ff6vwf_menu_draw_item_name_bg3(uint8 item_id, uint8 text_line_slot)
