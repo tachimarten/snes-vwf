@@ -72,6 +72,8 @@ ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_
 ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * FF6VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_size: .res 1
+; Last party member drawn in Lineup. This avoids uploading every frame, which causes flicker.
+ff6vwf_last_lineup_party_member: .res 1
 
 ff6vwf_menu_bss_end:
 
@@ -321,9 +323,11 @@ ff6_reset_vars = $d4cdf3
     ; Stuff the original function did
     jsl ff6_reset_vars      ; Reset many vars
 
-    ; Initialize the stack.
+    ; Initialize globals.
     lda #0
     sta f:ff6vwf_menu_text_dma_stack_size
+    lda #$ff
+    sta f:ff6vwf_last_lineup_party_member
 
     ; Return.
     jml $c368fe
@@ -1196,7 +1200,7 @@ begin_locals
 ff6_party_characters = $7e0000
 ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0-3 respectively
 
-LAST_TEXT_LINE_SLOT = 11
+LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
 
     ; Determine party member ID.
     lda 0,y
@@ -1219,10 +1223,18 @@ LAST_TEXT_LINE_SLOT = 11
     inx
     cpx #8
     bne :-
+
+    ; Special case: If we've already drawn this party member's class, bail out. This avoids flicker
+    ; in the Lineup menu, which calls this function every frame...
     lda #LAST_TEXT_LINE_SLOT
     sta text_line_slot
-@found_text_line_slot:
+    lda f:ff6vwf_last_lineup_party_member
+    cmp party_member_id
+    beq @draw_tiles
+    lda party_member_id
+    sta f:ff6vwf_last_lineup_party_member
 
+@found_text_line_slot:
     ; Compute string pointer.
     lda party_member_id
     a16
@@ -1247,6 +1259,7 @@ LAST_TEXT_LINE_SLOT = 11
     ; Upload it now. (We won't get a chance later...)
     jsr _ff6vwf_menu_force_nmi
 
+@draw_tiles:
     ; Draw tiles.
     ldx text_line_slot
     ldy #FF6_SHORT_ENEMY_NAME_LENGTH
