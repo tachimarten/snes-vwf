@@ -19,6 +19,7 @@
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_string_char_offsets: far
+.import ff6vwf_long_spell_names: far
 .import ff6vwf_long_esper_names: far
 .import ff6vwf_long_blitz_names: far
 .import ff6vwf_long_dance_names: far
@@ -157,7 +158,7 @@ FF6_MENU_STATE_ESPERS = $1e
 
 ; FF6 duplicates menu setup code into this and the above. We consolidate it.
 .segment "PTEXTMENULEAVEESPERINFOMENU"      ; $c35950
-    jsl _ff6vwf_menu_setup_espers_menu  ; 4 bytes
+    jsl _ff6vwf_menu_setup_espers_menu      ; 4 bytes
     nopx $595c-$5954
 
 .segment "PTEXTMENUDRAWESPERSROW"       ; $c354e3
@@ -180,6 +181,10 @@ ff6_menu_selected_esper = $7e0099
     ldx <ff6_menu_selected_esper
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     nopx $59d2-$59ba-6
+
+.segment "PTEXTMENUDRAWSPELLNAMEINESPERINFOMENU"    ; $c35af6
+    jsl _ff6vwf_menu_draw_spell_name_in_esper_info_menu
+    nopx 2
 
 .segment "PTEXTMENUINITRAGEMENU"
 ff6_menu_rage_load_navigation_data  = $c34c4c
@@ -794,7 +799,7 @@ ff6_esper_list = $7e9d89
 
     enter __FRAME_SIZE__
 
-    ; Look up enemy ID.
+    ; Look up Esper ID.
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -890,6 +895,75 @@ TEXT_LINE_SLOT = 9
 .endproc
 
 .export _ff6vwf_menu_draw_esper_name_in_info_menu
+
+.proc _ff6vwf_menu_draw_spell_name_in_esper_info_menu
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local spell_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+
+ff6_current_spell_id    = $7e00e1
+ff6_current_row         = $7e00f5
+
+FIRST_SPELL_ROW = $11
+
+    enter __FRAME_SIZE__
+
+    ; Look up spell ID.
+    lda f:ff6_current_spell_id
+    sta spell_id
+
+    ; Compute string pointer.
+    lda spell_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_spell_names,x
+    sta string_ptr
+    a8
+
+    ; Compute text line slot.
+    a16
+    lda ff6_current_row
+    sub #FIRST_SPELL_ROW
+    lsr
+    a8
+    sta text_line_slot
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_spell_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx text_line_slot
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline
+
+    ; Draw spell icon.
+    ldx spell_id
+    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    jsr std_mul8
+    lda ff6_short_spell_names,x
+    sta ff6_menu_string_buffer
+
+    ; Draw tiles.
+    ldx text_line_slot
+    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    lda #1
+    sta outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    ldx #$9e92      ; The original function did this...
+    leave __FRAME_SIZE__
+    rtl
+.endproc
 
 .proc _ff6vwf_menu_draw_rage_name
 begin_locals
