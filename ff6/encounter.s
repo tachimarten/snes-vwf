@@ -174,7 +174,7 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 .proc _ff6vwf_encounter_init
     lda #0
     sta f:ff6vwf_encounter_text_dma_stack_size
-    jsl $c00016 ; original code
+    jsl $c00016         ; original code
     jml $c1102e
 .endproc
 
@@ -480,6 +480,11 @@ ff6_display_list_ptr         = $7e004f
 ff6_spell_display_list_left  = $7e575a
 ff6_spell_display_list_right = $7e5760
 
+; This is an immediate byte for a LDA instruction in the middle of a function. Yuck! But that's the
+; only way I can think of to safely determine the length of a spell name, whether we're running in
+; vanilla or TWUE.
+ff6_spell_name_length = $c1601b
+
     enter __FRAME_SIZE__
 
     ; Initialize locals.
@@ -508,7 +513,8 @@ ff6_spell_display_list_right = $7e5760
 
     ; Draw blanks if empty.
     ldx dest_tilemap_offset
-    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    lda f:ff6_spell_name_length
+    tay
     jsr _ff6vwf_encounter_draw_blank_tile_data
     bra @out
 
@@ -551,7 +557,7 @@ ff6_spell_display_list_right = $7e5760
     jsr _ff6vwf_encounter_draw_tile_data
 
 @out:
-    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
     leave __FRAME_SIZE__
     rtl
 .endproc
