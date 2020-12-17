@@ -435,6 +435,36 @@ ff6vwf_long_spell_name_51: .asciiz "Esuna"
 ff6vwf_long_spell_name_52: .asciiz "Regen"
 ff6vwf_long_spell_name_53: .asciiz "Reraise"
 
+ff6vwf_long_esper_names: def_pointer_array ff6vwf_long_esper_name, 27
+
+ff6vwf_long_esper_name_0:  .asciiz "Ramuh"
+ff6vwf_long_esper_name_1:  .asciiz "Ifrit"
+ff6vwf_long_esper_name_2:  .asciiz "Shiva"
+ff6vwf_long_esper_name_3:  .asciiz "Siren"
+ff6vwf_long_esper_name_4:  .asciiz "Midgardsormr"
+ff6vwf_long_esper_name_5:  .asciiz "Catoblepas"
+ff6vwf_long_esper_name_6:  .asciiz "Maduin"
+ff6vwf_long_esper_name_7:  .asciiz "Bismarck"
+ff6vwf_long_esper_name_8:  .asciiz "Cait Sith"
+ff6vwf_long_esper_name_9:  .asciiz "Quetzalli"
+ff6vwf_long_esper_name_10: .asciiz "Valigarmanda"
+ff6vwf_long_esper_name_11: .asciiz "Odin"
+ff6vwf_long_esper_name_12: .asciiz "Raiden"
+ff6vwf_long_esper_name_13: .asciiz "Bahamut"
+ff6vwf_long_esper_name_14: .asciiz "Alexander"
+ff6vwf_long_esper_name_15: .asciiz "Crusader"
+ff6vwf_long_esper_name_16: .asciiz "Ragnarok"
+ff6vwf_long_esper_name_17: .asciiz "Kirin"
+ff6vwf_long_esper_name_18: .asciiz "Zona Seeker"
+ff6vwf_long_esper_name_19: .asciiz "Carbuncle"
+ff6vwf_long_esper_name_20: .asciiz "Phantom"
+ff6vwf_long_esper_name_21: .asciiz "Seraphim"
+ff6vwf_long_esper_name_22: .asciiz "Golem"
+ff6vwf_long_esper_name_23: .asciiz "Unicorn"
+ff6vwf_long_esper_name_24: .asciiz "Fenrir"
+ff6vwf_long_esper_name_25: .asciiz "Lakshmi"
+ff6vwf_long_esper_name_26: .asciiz "Phoenix"
+
 ff6vwf_long_blitz_names: def_pointer_array ff6vwf_long_blitz_name, 8
 
 ff6vwf_long_blitz_name_0: .asciiz "Raging Fist"
@@ -508,6 +538,7 @@ ff6vwf_long_class_name_34: .asciiz "Shogun"
 ff6vwf_long_class_name_35: .asciiz "Moogle"
 
 .export ff6vwf_long_spell_names: far
+.export ff6vwf_long_esper_names: far
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far

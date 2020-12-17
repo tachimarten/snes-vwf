@@ -19,6 +19,7 @@
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_string_char_offsets: far
+.import ff6vwf_long_esper_names: far
 .import ff6vwf_long_blitz_names: far
 .import ff6vwf_long_dance_names: far
 .import ff6vwf_long_class_names: far
@@ -34,19 +35,28 @@ VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 
 ; FF6 globals
 
-ff6_menu_null                   = $7e0000
-ff6_menu_list_slot              = $7e00e5
-ff6_menu_bg1_write_row          = $7e00e6
-ff6_menu_src_ptr                = $7e00e7
-ff6_menu_dest_ptr               = $7e00eb
-ff6_menu_list                   = $7e9d89
-ff6_menu_positioned_text_ptr    = $7e9e89
-ff6_menu_string_buffer          = $7e9e8b
+ff6_menu_null                       = $7e0000
+ff6_menu_current_state              = $7e0026
+ff6_menu_bg2_hscroll                = $7e0039
+ff6_menu_bg3_hscroll                = $7e003d
+ff6_menu_list_scroll                = $7e004a
+ff6_menu_page_height                = $7e005a
+ff6_menu_page_width                 = $7e005b
+ff6_menu_max_page_scroll_pos        = $7e005c
+ff6_menu_list_slot                  = $7e00e5
+ff6_menu_bg1_write_row              = $7e00e6
+ff6_menu_src_ptr                    = $7e00e7
+ff6_menu_dest_ptr                   = $7e00eb
+ff6_menu_horizontal_movement_speed  = $7e34ca
+ff6_menu_vertical_movement_speed    = $7e354a
+ff6_menu_list                       = $7e9d89
+ff6_menu_positioned_text_ptr        = $7e9e89
+ff6_menu_string_buffer              = $7e9e8b
 
 ; FF6 functions
 
-ff6_menu_draw_name      = $7fd9
-ff6_menu_draw_item_name = $c37fd9
+ff6_menu_create_scrollbar   = $c3091f
+ff6_menu_draw_item_name     = $c37fd9
 
 ; FF6-specific macros
 
@@ -120,21 +130,54 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 .segment "PTEXTMENUDRAWGEARINFOTEXT"
     jml _ff6vwf_menu_draw_gear_info_text
 
+.segment "PTEXTMENUINITESPERSMENU"      ; $c320b3
+ff6_menu_create_blinker                 = $c32eeb
+ff6_menu_espers_load_navigation_data    = $c34c18
+ff6_menu_espers_relocate_cursor         = $c34c21
+ff6_menu_draw_espers                    = $c35452
+
+FF6_MENU_STATE_ESPERS = $1e
+
+    stz <ff6_menu_list_scroll                           ; List scroll: 0
+    jsr .loword(ff6_menu_create_scrollbar)              ; Create scrollbar
+    a16                                                 ; 16-bit A
+    lda #$0800                                          ; V-Speed: 8 px
+    sta f:ff6_menu_vertical_movement_speed,x            ; Set scrollbar's
+    lda #104                                            ; Y: 104
+    sta f:ff6_menu_horizontal_movement_speed,x          ; Set scrollbar's
+    a8                                                  ; 8-bit A
+    jsr .loword(ff6_menu_espers_load_navigation_data)   ; Load navig data
+    jsr .loword(ff6_menu_espers_relocate_cursor)        ; Relocate cursor
+    jsl _ff6vwf_menu_setup_espers_menu
+    jsr .loword(ff6_menu_draw_espers)                   ; Draw espers, etc.
+    lda #FF6_MENU_STATE_ESPERS                          ; C3/28D3
+    sta <ff6_menu_current_state                         ; Next: Sustain menu
+    jsr .loword(ff6_menu_create_blinker)                ; Create blinker
+    rts
+
+; FF6 duplicates menu setup code into this and the above. We consolidate it.
+.segment "PTEXTMENULEAVEESPERINFOMENU"      ; $c35950
+    jsl _ff6vwf_menu_setup_espers_menu  ; 4 bytes
+    nopx $595c-$5954
+
+.segment "PTEXTMENUDRAWESPERSROW"       ; $c354e3
+ff6_menu_espers_define_source   = $c354fa
+ff6_menu_espers_draw            = $c35509
+
+    jsr .loword(ff6_menu_espers_define_source)  ; Define source
+    ldx #3                                      ; X: 3
+    jsr .loword(ff6_menu_espers_draw)           ; Draw esper A
+    inc <ff6_menu_list_slot                     ; Esper slot +1
+    rts
+
+; FF6 routine to draw an esper in the Espers menu.
+.segment "PTEXTMENUDRAWESPERNAME"       ; $c35527
+    jsl _ff6vwf_menu_draw_esper_name    ; 4 bytes
+
 .segment "PTEXTMENUINITRAGEMENU"
-ff6_menu_create_scrollbar           = $c3091f
 ff6_menu_rage_load_navigation_data  = $c34c4c
 ff6_menu_rage_relocate_cursor       = $c34c55
 ff6_menu_draw_rages                 = $c35391
-
-ff6_menu_current_state              = $7e0026
-ff6_menu_bg2_hscroll                = $7e0039
-ff6_menu_bg3_hscroll                = $7e003d
-ff6_menu_list_scroll                = $7e004a
-ff6_menu_page_height                = $7e005a
-ff6_menu_page_width                 = $7e005b
-ff6_menu_max_page_scroll_pos        = $7e005c
-ff6_menu_horizontal_movement_speed  = $7e34ca
-ff6_menu_vertical_movement_speed    = $7e354a
 
 FF6_MENU_STATE_RAGE = $1d
 
@@ -180,6 +223,26 @@ ff6_menu_rage_draw          = $c35418
 .segment "PTEXTMENUDRAWRAGENAME"
     jsl _ff6vwf_menu_draw_rage_name         ; 4 bytes
     nop
+
+; FF6 Esper menu navigation data, patched to be 1 column
+.segment "PTEXTMENUESPERSNAVDATA"       ; $c34c27
+ff6_menu_espers_nav_data:
+    .byte $01          ; Wraps horizontally
+    .byte $00          ; Initial column
+    .byte $00          ; Initial row
+    .byte $01          ; 1 column
+    .byte $08          ; 8 rows
+
+; Cursor positions for Espers menu
+ff6_menu_espers_cursor_data:
+    .word $7408        ; Esper 1
+    .word $8008        ; Esper 2
+    .word $8C08        ; Esper 3
+    .word $9808        ; Esper 4
+    .word $A408        ; Esper 5
+    .word $B008        ; Esper 6
+    .word $BC08        ; Esper 7
+    .word $C808        ; Esper 8
 
 ; FF6 Rage menu navigation data, patched to be 1 column
 .segment "PTEXTMENURAGENAVDATA"
@@ -277,11 +340,11 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 
 .segment "PTEXTMENUDRAWCOLOSSEUMITEM"
     jsl _ff6vwf_menu_draw_colosseum_item    ; 4 bytes
-    jmp ff6_menu_draw_name                  ; Draw item name.
+    jmp .loword(ff6_menu_draw_item_name)    ; Draw item name.
 
 .segment "PTEXTMENUDRAWCOLOSSEUMENEMY"
     jsl _ff6vwf_menu_draw_colosseum_enemy   ; 4 bytes
-    jmp ff6_menu_draw_name                  ; Draw enemy name.
+    jmp .loword(ff6_menu_draw_item_name)    ; Draw enemy name.
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -694,6 +757,88 @@ ff6_menu_allow_sfx_repeat = $7e00ae
 
 .export _ff6vwf_menu_force_nmi
 
+.proc _ff6vwf_menu_setup_espers_menu
+    lda #18                                             ; Top row: Midgardsormr (Terrato)
+    sta f:ff6_menu_max_page_scroll_pos                  ; Set scroll limit
+    lda #8                                              ; Onscreen rows: 8
+    sta f:ff6_menu_page_height                          ; Set rows per page
+    lda #1                                              ; Onscreen cols: 1
+    sta f:ff6_menu_page_width                           ; Set cols per page
+    a16
+    lda #256                                            ; X: 256
+    sta f:ff6_menu_bg2_hscroll                          ; Set BG2 X-Pos
+    sta f:ff6_menu_bg3_hscroll                          ; Set BG3 X-Pos
+    a8
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_esper_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local enemy_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+
+ff6_esper_list = $7e9d89
+
+    enter __FRAME_SIZE__
+
+    ; Look up enemy ID.
+    lda f:ff6_menu_list_slot
+    sta text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_esper_list,x
+    sta enemy_id
+
+    ; Compute string pointer.
+    lda enemy_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_esper_names,x
+    sta string_ptr
+
+    ; Compute text line slot.
+    lda text_line_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #9                  ; Number of menu items on screen plus one.
+    jsr std_mod16_8
+    sta text_line_slot
+
+    ; Render string.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_esper_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx text_line_slot
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsl _ff6vwf_menu_force_nmi_trampoline
+
+    ; Draw tiles.
+    ldx text_line_slot
+    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    a16
+    lda #0      ; The original function did this...
+    a8
+    rtl
+.endproc
+
 .proc _ff6vwf_menu_draw_rage_name
 begin_locals
     decl_local outgoing_args, 5
@@ -928,8 +1073,6 @@ begin_args_nearcall
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_item_to_be_used()
-;
-; FIXME(tachiweasel): Cursor sprite disappears sometimes after calling this...
 .proc _ff6vwf_menu_draw_item_to_be_used
 TEXT_LINE_SLOT = 0
 
