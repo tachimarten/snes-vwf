@@ -378,6 +378,63 @@ ff6vwf_string_char_offsets:
 .endrepeat
 .endmacro
 
+ff6vwf_long_spell_names: def_pointer_array ff6vwf_long_spell_name, 54
+
+ff6vwf_long_spell_name_0:  .asciiz "Fire"
+ff6vwf_long_spell_name_1:  .asciiz "Blizzard"
+ff6vwf_long_spell_name_2:  .asciiz "Thunder"
+ff6vwf_long_spell_name_3:  .asciiz "Poison"
+ff6vwf_long_spell_name_4:  .asciiz "Drain"
+ff6vwf_long_spell_name_5:  .asciiz "Fira"
+ff6vwf_long_spell_name_6:  .asciiz "Blizzara"
+ff6vwf_long_spell_name_7:  .asciiz "Thundara"
+ff6vwf_long_spell_name_8:  .asciiz "Bio"
+ff6vwf_long_spell_name_9:  .asciiz "Firaga"
+ff6vwf_long_spell_name_10: .asciiz "Blizzaga"
+ff6vwf_long_spell_name_11: .asciiz "Thundaga"
+ff6vwf_long_spell_name_12: .asciiz "Break"
+ff6vwf_long_spell_name_13: .asciiz "Death"
+ff6vwf_long_spell_name_14: .asciiz "Holy"
+ff6vwf_long_spell_name_15: .asciiz "Flare"
+ff6vwf_long_spell_name_16: .asciiz "Gravity"
+ff6vwf_long_spell_name_17: .asciiz "Graviga"
+ff6vwf_long_spell_name_18: .asciiz "Banish"
+ff6vwf_long_spell_name_19: .asciiz "Meteor"
+ff6vwf_long_spell_name_20: .asciiz "Ultima"
+ff6vwf_long_spell_name_21: .asciiz "Quake"
+ff6vwf_long_spell_name_22: .asciiz "Tornado"
+ff6vwf_long_spell_name_23: .asciiz "Meltdown"
+ff6vwf_long_spell_name_24: .asciiz "Libra"
+ff6vwf_long_spell_name_25: .asciiz "Slow"
+ff6vwf_long_spell_name_26: .asciiz "Rasp"
+ff6vwf_long_spell_name_27: .asciiz "Slience"
+ff6vwf_long_spell_name_28: .asciiz "Protect"
+ff6vwf_long_spell_name_29: .asciiz "Sleep"
+ff6vwf_long_spell_name_30: .asciiz "Confuse"
+ff6vwf_long_spell_name_31: .asciiz "Haste"
+ff6vwf_long_spell_name_32: .asciiz "Stop"
+ff6vwf_long_spell_name_33: .asciiz "Berserk"
+ff6vwf_long_spell_name_34: .asciiz "Float"
+ff6vwf_long_spell_name_35: .asciiz "Imp"
+ff6vwf_long_spell_name_36: .asciiz "Reflect"
+ff6vwf_long_spell_name_37: .asciiz "Shell"
+ff6vwf_long_spell_name_38: .asciiz "Vanish"
+ff6vwf_long_spell_name_39: .asciiz "Hastega"
+ff6vwf_long_spell_name_40: .asciiz "Slowga"
+ff6vwf_long_spell_name_41: .asciiz "Osmose"
+ff6vwf_long_spell_name_42: .asciiz "Warp"
+ff6vwf_long_spell_name_43: .asciiz "Quick"
+ff6vwf_long_spell_name_44: .asciiz "Dispel"
+ff6vwf_long_spell_name_45: .asciiz "Cure"
+ff6vwf_long_spell_name_46: .asciiz "Cura"
+ff6vwf_long_spell_name_47: .asciiz "Curaga"
+ff6vwf_long_spell_name_48: .asciiz "Raise"
+ff6vwf_long_spell_name_49: .asciiz "Arise"
+ff6vwf_long_spell_name_50: .asciiz "Poisona"
+ff6vwf_long_spell_name_51: .asciiz "Esuna"
+ff6vwf_long_spell_name_52: .asciiz "Regen"
+ff6vwf_long_spell_name_53: .asciiz "Reraise"
+
 ff6vwf_long_blitz_names: def_pointer_array ff6vwf_long_blitz_name, 8
 
 ff6vwf_long_blitz_name_0: .asciiz "Raging Fist"
@@ -450,6 +507,7 @@ ff6vwf_long_class_name_33: .asciiz "Imperial Soldier"
 ff6vwf_long_class_name_34: .asciiz "Shogun"
 ff6vwf_long_class_name_35: .asciiz "Moogle"
 
+.export ff6vwf_long_spell_names: far
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far

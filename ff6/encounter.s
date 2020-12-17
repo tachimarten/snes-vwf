@@ -19,6 +19,7 @@
 .import ff6vwf_render_string: near
 .import ff6vwf_schedule_text_dma: near
 .import ff6vwf_string_char_offsets: far
+.import ff6vwf_long_spell_names: far
 .import ff6vwf_long_dance_names: far
 .import ff6vwf_long_magitek_names: far
 .import ff6vwf_long_enemy_names: far
@@ -35,7 +36,9 @@ FF6VWF_ITEM_TYPE_TOOL           = 2
 
 ; FF6 globals
 
-ff6_encounter_enemy_ids         = $7e200d
+ff6_encounter_enemy_ids          = $7e200d
+ff6_encounter_display_list_left  = $7e575a
+ff6_encounter_display_list_right = $7e5760
 
 .segment "BSS"
 
@@ -111,6 +114,9 @@ ff6vwf_encounter_bss_end:
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORSPELL"
+    jml _ff6vwf_encounter_build_menu_item_for_spell     ; 4 bytes
+
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORRAGE"
     jml _ff6vwf_encounter_build_menu_item_for_rage      ; 4 bytes
 
@@ -119,6 +125,11 @@ ff6vwf_encounter_bss_end:
 
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORMAGITEK"
     jml _ff6vwf_encounter_build_menu_item_for_magitek   ; 4 bytes
+
+; FF6 routine to draw the name of a spell during encounters.
+.segment "PTEXTENCOUNTERDRAWSPELLNAME"
+    jsl _ff6vwf_encounter_draw_spell_name
+    rts
 
 ; FF6 routine to draw the name of one of Gau's Rages during encounters.
 .segment "PTEXTENCOUNTERDRAWRAGENAME"
@@ -456,6 +467,95 @@ ff6_tool_display_list_right = $7e5760
     rtl
 .endproc
 
+.proc _ff6vwf_encounter_draw_spell_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local text_line_slot, 1            ; uint8
+    decl_local spell_id_ptr, 2              ; uint8 near *
+    decl_local spell_id, 1                  ; uint8
+    decl_local string_ptr, 2                ; char near *
+
+ff6_display_list_ptr         = $7e004f
+ff6_spell_display_list_left  = $7e575a
+ff6_spell_display_list_right = $7e5760
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    a16
+    lda f:ff6_display_list_ptr
+    inc
+    sta f:ff6_display_list_ptr
+    sta spell_id_ptr
+    a8
+
+    ; Figure out what text line slot we're going to use.
+    ldx spell_id_ptr
+    jsr _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage
+    txa
+    sta text_line_slot
+
+    ; Fetch spell ID.
+    lda (spell_id_ptr)
+    sta spell_id
+
+    ; If empty, don't display it.
+    lda spell_id
+    cmp #$ff
+    bne @got_a_spell
+
+    ; Draw blanks if empty.
+    ldx dest_tilemap_offset
+    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    jsr _ff6vwf_encounter_draw_blank_tile_data
+    bra @out
+
+@got_a_spell:
+    ; Compute string pointer.
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_spell_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #0
+    sta outgoing_args+0             ; 2bpp
+    ldx text_line_slot
+    ldy string_ptr
+    sty outgoing_args+1             ; string
+    lda #^ff6vwf_long_spell_names
+    sta outgoing_args+3             ; string bank byte
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Draw spell icon.
+    ldx spell_id
+    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    jsr std_mul8
+    lda ff6_short_spell_names,x
+    tax                             ; tile_to_draw
+    ldy dest_tilemap_offset
+    jsr _ff6vwf_encounter_draw_tile
+    stx dest_tilemap_offset
+
+    ; Draw tile data.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy text_line_slot          ; text_line_slot
+    lda #0
+    sta outgoing_args+0         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data
+
+@out:
+    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 .proc _ff6vwf_encounter_draw_rage_name
 begin_locals
     decl_local outgoing_args, 7
@@ -481,19 +581,10 @@ ff6_rage_display_list_right = $7e5760
     a8
 
     ; Figure out what text line slot we're going to use.
-    lda f:ff6vwf_encounter_current_skill_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #5
-    jsr std_mod16_8
-    asl
     ldx enemy_id_ptr
-    cpx #.loword(ff6_rage_display_list_left)
-    beq :+
-    inc
-:   sta text_line_slot      ; (current_rage_slot % 5) * 2, plus one if it's the right column
+    jsr _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage
+    txa
+    sta text_line_slot
 
     ; Fetch enemy ID.
     lda (enemy_id_ptr)
@@ -958,6 +1049,16 @@ begin_locals
 
 .export _ff6vwf_encounter_run_dma
 
+.proc _ff6vwf_encounter_build_menu_item_for_spell
+    sta f:ff6vwf_encounter_current_skill_slot    ; from $c14db5
+
+    ; Stuff the original function did that we overwrote.
+    phy
+    asl
+    sta $40
+    jmp $c14db9
+.endproc
+
 .proc _ff6vwf_encounter_build_menu_item_for_rage
     sta f:ff6vwf_encounter_current_skill_slot    ; from $c15945
 
@@ -991,13 +1092,41 @@ begin_locals
     jmp $c14d32
 .endproc
 
+; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage(near *skill_id_ptr)
+;
+; Determines the text line slot to use for Magic or Rage.
+.proc _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage
+begin_locals
+    decl_local skill_id_ptr, 2  ; near *
+
+    enter __FRAME_SIZE__
+
+    stx skill_id_ptr
+
+    lda f:ff6vwf_encounter_current_skill_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #5
+    jsr std_mod16_8     ; current_skill_slot % 5
+
+    asl
+    ldx skill_id_ptr
+    cpx #.loword(ff6_encounter_display_list_left)
+    beq :+
+
+    inc
+:   tax         ; (current_skill_slot % 5) * 2, plus one if it's the right column
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
 ; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_for_dance_or_magitek(near *skill_id_ptr)
 ;
 ; Determines the text line slot to use for Dance or Magitek.
 .proc _ff6vwf_encounter_get_text_line_slot_for_dance_or_magitek
-ff6_encounter_display_list_left  = $7e575a
-ff6_encounter_display_list_right = $7e5760
-
     lda f:ff6vwf_encounter_current_skill_slot
     asl
     cpx #.loword(ff6_encounter_display_list_right)

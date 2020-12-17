@@ -25,11 +25,13 @@ FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it
 
 FF6_SHORT_ITEM_LENGTH = 13
 FF6_SHORT_ENEMY_NAME_LENGTH = 10
+FF6_SHORT_SPELL_NAME_LENGTH = 7
 FF6_SHORT_BLITZ_NAME_LENGTH = 10
 
 ; Globals
 
 ff6_short_item_names    = $d2b300
+ff6_short_spell_names   = $e6f567
 
 ; Macros
 
