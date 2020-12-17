@@ -11,6 +11,7 @@
 .include "../snes.inc"
 
 .import std_memset: near
+.import std_div16_8: near
 .import std_mod16_8: near
 .import std_mul16_8: near
 .import std_mul8: near
@@ -20,6 +21,7 @@
 .import ff6vwf_string_char_offsets: far
 .import ff6vwf_long_blitz_names: far
 .import ff6vwf_long_dance_names: far
+.import ff6vwf_long_class_names: far
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
 
@@ -64,10 +66,10 @@ ff6_menu_draw_item_name = $c37fd9
 .org $7eb800
 
 ; Stack of DMA structures, just like the encounter ones.
-ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_MENU_SLOT_COUNT
-; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
+ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
+; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
 ; to VRAM.
-ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_MENU_SLOT_COUNT
+ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * FF6VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_size: .res 1
 
@@ -278,6 +280,9 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 .segment "PTEXTMENUDRAWCOLOSSEUMENEMY"
     jsl _ff6vwf_menu_draw_colosseum_enemy   ; 4 bytes
     jmp ff6_menu_draw_name                  ; Draw enemy name.
+
+.segment "PTEXTMENUDRAWCLASSNAME"
+    jsl _ff6vwf_menu_draw_class_name
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -567,7 +572,7 @@ begin_args_nearcall
 
     ; Draw tiles.
     tyx                             ; Put offset in X.
-    ldy #VWF_MAX_LINE_LENGTH
+    ldy #FF6VWF_MAX_LINE_LENGTH
 :   sta ff6_menu_string_buffer,x
     inc
     inx
@@ -623,7 +628,7 @@ begin_args_nearcall
 
     ; Draw tiles.
     ldx #0
-    ldy #VWF_MAX_LINE_LENGTH
+    ldy #FF6VWF_MAX_LINE_LENGTH
 :   lda current_tile
     sta f:ff6_menu_string_buffer,x
     inc current_tile
@@ -1177,6 +1182,85 @@ TEXT_LINE_SLOT = 2
     leave __FRAME_SIZE__
     rtl
 .endproc
+
+.proc _ff6vwf_menu_draw_class_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2
+    decl_local icon_position, 2     ; uint16
+    decl_local party_member_id, 1
+    decl_local text_line_slot, 1
+
+    enter __FRAME_SIZE__
+
+ff6_party_characters = $7e0000
+ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0-3 respectively
+
+LAST_TEXT_LINE_SLOT = 11
+
+    ; Determine party member ID.
+    lda 0,y
+    sta party_member_id
+
+    ; Determine which text line slot to use.
+    a16
+    lda f:ff6_icon_position
+    sta icon_position
+    a8
+    ldx #0
+    stz text_line_slot
+:   a16
+    lda f:@party_member_icon_positions,x
+    cmp icon_position
+    a8
+    beq @found_text_line_slot
+    inc text_line_slot
+    inx
+    inx
+    cpx #8
+    bne :-
+    lda #LAST_TEXT_LINE_SLOT
+    sta text_line_slot
+@found_text_line_slot:
+
+    ; Compute string pointer.
+    lda party_member_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_class_names,x
+    sta string_ptr
+
+    ; Render string.
+    a8
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+0     ; 4bpp
+    ldy string_ptr
+    sty outgoing_args+1     ; string ptr
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+3     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx text_line_slot
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx text_line_slot
+    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
+    stz outgoing_args+0
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    rtl
+
+@party_member_icon_positions:
+    .word $1578, $4578, $7578, $a578
+.endproc
+
+.export _ff6vwf_menu_draw_class_name
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.

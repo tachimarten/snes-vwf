@@ -192,7 +192,7 @@ begin_args_nearcall
     sta outgoing_args+2             ; dma_stack_base
     lda #^ff6vwf_encounter_text_dma_stack_size
     sta outgoing_args+5             ; dma_stack_size
-    lda #VWF_ENCOUNTER_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
+    lda #FF6VWF_ENCOUNTER_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
     sta outgoing_args+6             ; dma_stack_capacity
     bra @call_lock_dma_stack
 
@@ -208,7 +208,7 @@ begin_args_nearcall
     sta outgoing_args+2             ; dma_stack_base
     lda #^ff6vwf_menu_text_dma_stack_size
     sta outgoing_args+5             ; dma_stack_size
-    lda #VWF_MENU_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
+    lda #FF6VWF_MENU_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
     sta outgoing_args+6             ; dma_stack_capacity
     bra @call_lock_dma_stack
 
@@ -366,17 +366,9 @@ begin_args_nearcall
 .segment "DATA"
 
 ff6vwf_string_char_offsets:
-    .byte $08   ; 0
-    .byte $12   ; 1
-    .byte $1c   ; 2
-    .byte $26   ; 3
-    .byte $30   ; 4
-    .byte $3a   ; 5
-    .byte $44   ; 6
-    .byte $4e   ; 7
-    .byte $58   ; 8
-    .byte $62   ; 9
-    .byte $6c   ; 10
+.repeat .max(FF6VWF_ENCOUNTER_SLOT_COUNT, FF6VWF_MENU_SLOT_COUNT), i
+    .byte $08+FF6VWF_MAX_LINE_LENGTH*i
+.endrepeat
 
 .export ff6vwf_string_char_offsets: far
 
@@ -419,6 +411,46 @@ ff6vwf_long_magitek_name_5: .asciiz "Confuser"
 ff6vwf_long_magitek_name_6: .asciiz "Banisher"
 ff6vwf_long_magitek_name_7: .asciiz "Magitek Missile"
 
+ff6vwf_long_class_names: def_pointer_array ff6vwf_long_class_name, 36
+
+ff6vwf_long_class_name_0:  .asciiz "Sorceress"
+ff6vwf_long_class_name_1:  .asciiz "Adventurer"
+ff6vwf_long_class_name_2:  .asciiz "Samurai"
+ff6vwf_long_class_name_3:  .asciiz "Assassin"
+ff6vwf_long_class_name_4:  .asciiz "Machinist"
+ff6vwf_long_class_name_5:  .asciiz "Monk"
+ff6vwf_long_class_name_6:  .asciiz "Rune Knight"
+ff6vwf_long_class_name_7:  .asciiz "Blue Mage"
+ff6vwf_long_class_name_8:  .asciiz "Pictomancer"
+ff6vwf_long_class_name_9:  .asciiz "Gambler"
+ff6vwf_long_class_name_10: .asciiz "Moogle"
+ff6vwf_long_class_name_11: .asciiz "Moogle"
+ff6vwf_long_class_name_12: .asciiz "Feral Youth"
+ff6vwf_long_class_name_13: .asciiz "Mimic"
+ff6vwf_long_class_name_14: .asciiz "Yeti"
+ff6vwf_long_class_name_15: .asciiz "Priest"
+ff6vwf_long_class_name_16: .asciiz "General"
+ff6vwf_long_class_name_17: .asciiz "Ghost"
+ff6vwf_long_class_name_18: .asciiz "Ghost"
+ff6vwf_long_class_name_19: .asciiz "Moogle"
+ff6vwf_long_class_name_20: .asciiz "Moogle"
+ff6vwf_long_class_name_21: .asciiz "Moogle"
+ff6vwf_long_class_name_22: .asciiz "Moogle"
+ff6vwf_long_class_name_23: .asciiz "Moogle"
+ff6vwf_long_class_name_24: .asciiz "Moogle"
+ff6vwf_long_class_name_25: .asciiz "Moogle"
+ff6vwf_long_class_name_26: .asciiz "Moogle"
+ff6vwf_long_class_name_27: .asciiz "Moogle"
+ff6vwf_long_class_name_28: .asciiz "Moogle"
+ff6vwf_long_class_name_29: .asciiz "Moogle"
+ff6vwf_long_class_name_30: .asciiz "Esper"
+ff6vwf_long_class_name_31: .asciiz "Moogle"
+ff6vwf_long_class_name_32: .asciiz "Imperial Soldier"
+ff6vwf_long_class_name_33: .asciiz "Imperial Soldier"
+ff6vwf_long_class_name_34: .asciiz "Shogun"
+ff6vwf_long_class_name_35: .asciiz "Moogle"
+
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far
+.export ff6vwf_long_class_names: far

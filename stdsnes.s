@@ -101,6 +101,31 @@ begin_locals
 
 .export std_mul16_8
 
+; nearproc uint16 std_div16_8(uint16 a, uint8 b)
+;
+; Computes a / b.
+.proc std_div16_8
+    txa
+    sta f:WRDIVL
+    xba
+    sta f:WRDIVH
+    tya
+    sta f:WRDIVB
+
+    ; 16 cycle delay
+.repeat 7
+    nop
+.endrepeat
+    a16
+
+    lda f:RDDIVL
+    tax
+    a8
+    rts
+.endproc
+
+.export std_div16_8
+
 ; nearproc uint16 std_mod16_8(uint16 a, uint8 b)
 ;
 ; Computes a % b.

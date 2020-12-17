@@ -8,15 +8,15 @@
 ; Constants
 
 ; Number of text lines we can store in VRAM at one time, for encounters.
-VWF_ENCOUNTER_SLOT_COUNT = 10
+FF6VWF_ENCOUNTER_SLOT_COUNT = 10
 ; Number of text lines we can store in VRAM at one time, for the menu.
-VWF_MENU_SLOT_COUNT = 11
+FF6VWF_MENU_SLOT_COUNT = 12
 ; The maximum length of a line of text in 8-pixel tiles.
-VWF_MAX_LINE_LENGTH = 10
+FF6VWF_MAX_LINE_LENGTH = 10
 ; The maximum length of a line of text in bytes (2bpp).
-VWF_MAX_LINE_BYTE_SIZE_2BPP = VWF_MAX_LINE_LENGTH * 2 * 8
+VWF_MAX_LINE_BYTE_SIZE_2BPP = FF6VWF_MAX_LINE_LENGTH * 2 * 8
 ; The maximum length of a line of text in bytes (4bpp).
-VWF_MAX_LINE_BYTE_SIZE_4BPP = VWF_MAX_LINE_LENGTH * 2 * 8 * 2
+VWF_MAX_LINE_BYTE_SIZE_4BPP = FF6VWF_MAX_LINE_LENGTH * 2 * 8 * 2
 
 FF6VWF_DMA_STRUCT_SIZE = 6
 

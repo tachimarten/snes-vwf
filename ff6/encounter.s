@@ -52,16 +52,16 @@ ff6vwf_encounter_text_dma_stack_size: .res 1
 ;     uint16 size;                  // number of bytes to be transferred
 ; };
 ;
-ff6vwf_encounter_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * VWF_ENCOUNTER_SLOT_COUNT
+ff6vwf_encounter_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_ENCOUNTER_SLOT_COUNT
 ; ID of the current item slot we're drawing.
 ff6vwf_encounter_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_encounter_item_type_to_draw: .res 1
 ; ID of the current skill (Rage, dance, Magitek) slot we're drawing.
 ff6vwf_encounter_current_skill_slot: .res 1
-; Buffer space for the lines of text, `VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
+; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
 ; to VRAM.
-ff6vwf_encounter_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * VWF_ENCOUNTER_SLOT_COUNT
+ff6vwf_encounter_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * FF6VWF_ENCOUNTER_SLOT_COUNT
 
 ff6vwf_encounter_bss_end:
  
@@ -663,7 +663,7 @@ ff6_display_list_ptr    = $7e004f
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
     lda name_length
-    sub #VWF_MAX_LINE_LENGTH - 1
+    sub #FF6VWF_MAX_LINE_LENGTH - 1
     sta outgoing_args+0         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
     bra @out
@@ -886,7 +886,7 @@ begin_args_nearcall
     stx dest_tilemap_offset
     tya
     sta text_line_slot
-    lda #VWF_MAX_LINE_LENGTH
+    lda #FF6VWF_MAX_LINE_LENGTH
     sta tiles_to_draw
 
     ; Draw tile data.
