@@ -47,6 +47,7 @@
 
 ; nearproc void ff6vwf_render_string(uint8 first_tile_id,
 ;                                    vram near *tile_base_addr,
+;                                    uint8 max_tile_count,
 ;                                    uint8 flags,
 ;                                    char far *string_ptr)
 ;
@@ -59,23 +60,17 @@ begin_locals
     decl_local tile_base_addr, 2
     decl_local max_line_byte_size, 2
     decl_local bytes_to_skip, 1
-    decl_local max_tile_count, 1
 begin_args_nearcall
+    decl_arg max_tile_count, 1
     decl_arg flags, 1
     decl_arg string_ptr, 3
 
     enter __FRAME_SIZE__
 
     ; Initialize locals.
-    sty tile_base_addr
-
-    ; FIXME(tachiweasel): Legacy...
-    lda #10
-    sta max_tile_count      ; FIXME(tachiweasel): Don't do this!
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
     txa
     sta first_tile_id
+    sty tile_base_addr
 
     ; Compute pointer into the character map.
     a16

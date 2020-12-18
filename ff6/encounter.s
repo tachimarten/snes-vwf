@@ -240,23 +240,27 @@ ff6_enemy_name_table  = $cfc050
     sta string_ptr
     a8
 
-    ; Render string.
-    lda #0
-    sta outgoing_args+0                 ; flags = 2bpp
-    ldx enemy_index                     ; text_line_slot
-    ldy string_ptr+0
-    sty outgoing_args+1                 ; string_ptr+0
-    lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+3                 ; string_ptr+2
-    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
-    jsr ff6vwf_render_string
-
-    ; Draw tiles.
+    ; Calculate first tile index.
     ldx enemy_index
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
     txa
     sta current_tile_index
+
+    ; Render string.
+    ldx current_tile_index              ; first_tile_id
+    lda #10
+    sta outgoing_args+0                 ; max_tile_count
+    lda #0
+    sta outgoing_args+1                 ; flags = 2bpp
+    ldy string_ptr+0
+    sty outgoing_args+2                 ; string_ptr+0
+    lda #^ff6vwf_long_enemy_names
+    sta outgoing_args+4                 ; string_ptr+2
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Draw tiles.
     ldx dest_tilemap_offset
 :   txy                                 ; dest_tilemap_offset
     ldx current_tile_index              ; tile_to_draw
@@ -441,14 +445,20 @@ ff6_tool_display_list_right = $7e5760
     jsr ff6vwf_get_long_item_name
     stx string_ptr
 
-    ; Render string.
-    lda #0
-    sta outgoing_args+0             ; 2bpp
+    ; Compute first tile index.
     ldx item_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0             ; max_tile_count
+    lda #0
+    sta outgoing_args+1             ; 2bpp
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2             ; string
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+3             ; string bank byte
+    sta outgoing_args+4             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
 
@@ -525,14 +535,20 @@ ff6_spell_name_length = $c1601b
     sta string_ptr
     a8
 
-    ; Render string.
-    lda #0
-    sta outgoing_args+0             ; 2bpp
+    ; Calculate first tile ID.
     ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2             ; string
     lda #^ff6vwf_long_spell_names
-    sta outgoing_args+3             ; string bank byte
+    sta outgoing_args+4             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
 
@@ -613,14 +629,20 @@ ff6_rage_display_list_right = $7e5760
     sta string_ptr
     a8
 
-    ; Render string.
-    lda #0
-    sta outgoing_args+0             ; 2bpp
+    ; Calculate first tile ID.
     ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2             ; string
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+3             ; string bank byte
+    sta outgoing_args+4             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
 
@@ -742,14 +764,20 @@ ff6_display_list_ptr    = $7e004f
     sta string_ptr
     a8
 
-    ; Render string.
-    lda #0
-    sta outgoing_args+0             ; 2bpp
+    ; Calculate first tile ID.
     ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2             ; string
     lda name_list+2
-    sta outgoing_args+3             ; string bank byte
+    sta outgoing_args+4             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
 
@@ -913,7 +941,7 @@ ff6_dma_size_to_transfer = $10
 
 .proc _ff6vwf_encounter_reupload_all_enemy_names
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 6
     decl_local enemy_slot, 1
     decl_local string_ptr, 2        ; char near *
 
@@ -941,14 +969,20 @@ begin_locals
     sta string_ptr
     a8
 
+    ; Calculate first tile ID.
+    ldx enemy_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+
     ; Render string.
+    lda #10
+    sta outgoing_args+0
     lda #0
-    sta outgoing_args+0                 ; 2bpp
-    ldx enemy_slot                      ; text_line_slot
+    sta outgoing_args+1                 ; 2bpp
     ldy string_ptr
-    sty outgoing_args+1                 ; string_ptr+0
+    sty outgoing_args+2                 ; string_ptr+0
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+3                 ; string_ptr+2
+    sta outgoing_args+4                 ; string_ptr+2
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
 
