@@ -16,9 +16,9 @@
 .import std_mul16_8: near
 .import std_mul8: near
 
+.import ff6vwf_calculate_first_tile_id_simple: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
-.import ff6vwf_string_char_offsets: far
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_esper_names: far
 .import ff6vwf_long_blitz_names: far
@@ -74,17 +74,17 @@ ff6_menu_draw_string        = $c37fd9
 .segment "BSS"
 
 ; Menu BSS
-.org $7eb800
+.org $7eb000
 
-; Stack of DMA structures, just like the encounter ones.
-ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
-; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
-; to VRAM.
-ff6vwf_menu_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * FF6VWF_MENU_SLOT_COUNT
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_size: .res 1
 ; Last party member drawn in Lineup. This avoids uploading every frame, which causes flicker.
 ff6vwf_last_lineup_party_member: .res 1
+; Stack of DMA structures, just like the encounter ones.
+ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
+; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
+; to VRAM.
+ff6vwf_menu_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
 
 ff6vwf_menu_bss_end:
 
@@ -628,6 +628,7 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 .proc _ff6vwf_menu_draw_vwf_tiles
 begin_locals
     decl_local tile_count, 2
+    decl_local first_tile_index, 1
 begin_args_nearcall
     decl_arg offset, 1
 
@@ -640,22 +641,22 @@ begin_args_nearcall
     sta tile_count
     a8
 
-    ; Put offset in Y.
+    ; Calculate first tile index.
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_index
+
+    ; Put offset in X.
     lda offset
     a16
     and #$00ff
-    tay
-
-    ; Calculate first tile index.
-    txa
-    and #$00ff
     tax
     a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
 
     ; Draw tiles.
-    tyx                             ; Put offset in X.
-    ldy #FF6VWF_MAX_LINE_LENGTH
+    lda first_tile_index
+    ldy #10
 :   sta ff6_menu_string_buffer,x
     inc
     inx
@@ -702,16 +703,14 @@ begin_args_nearcall
     a8
 
     ; Calculate first tile index.
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
     txa
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x
     sta current_tile
 
     ; Draw tiles.
     ldx #0
-    ldy #FF6VWF_MAX_LINE_LENGTH
+    ldy #10
 :   lda current_tile
     sta f:ff6_menu_string_buffer,x
     inc current_tile

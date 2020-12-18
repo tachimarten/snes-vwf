@@ -45,8 +45,8 @@
 
 .export ff6vwf_get_long_item_name
 
-; nearproc void ff6vwf_render_string(uint8 text_line_slot,
-;                                    uint16 tile_base_addr,
+; nearproc void ff6vwf_render_string(uint8 first_tile_id,
+;                                    vram near *tile_base_addr,
 ;                                    uint8 flags,
 ;                                    char far *string_ptr)
 ;
@@ -54,11 +54,12 @@
 .proc ff6vwf_render_string
 begin_locals
     decl_local outgoing_args, 7
-    decl_local text_line_slot, 1
-    decl_local text_line_chardata_ptr, 3
+    decl_local first_tile_id, 1
+    decl_local text_line_chardata_ptr, 3    ; chardata far *
     decl_local tile_base_addr, 2
     decl_local max_line_byte_size, 2
     decl_local bytes_to_skip, 1
+    decl_local max_tile_count, 1
 begin_args_nearcall
     decl_arg flags, 1
     decl_arg string_ptr, 3
@@ -66,62 +67,54 @@ begin_args_nearcall
     enter __FRAME_SIZE__
 
     ; Initialize locals.
-    txa
-    sta text_line_slot
     sty tile_base_addr
 
+    ; FIXME(tachiweasel): Legacy...
+    lda #10
+    sta max_tile_count      ; FIXME(tachiweasel): Don't do this!
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
+
+    ; Compute pointer into the character map.
+    a16
+    tdc
+    add #text_line_chardata_ptr
+    tax
+    a8
+    ldy first_tile_id
+    lda flags
+    sta outgoing_args+0
+    jsr _ff6vwf_tile_id_to_wram_addr
+
     ; Compute max line byte size.
+    ldx max_tile_count
+    ldy flags
+    jsr _ff6vwf_tile_count_to_byte_count
+    stx max_line_byte_size
+
+    ; Compute bytes to skip.
     lda flags
     and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    bne :+
+    bne @have_4bpp
     lda #0
-    ldx #VWF_MAX_LINE_BYTE_SIZE_2BPP
-    bra :++
-:   lda #16
-    ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP
-:   sta bytes_to_skip
-    stx max_line_byte_size              ; Keep in X to pass to the multiply function below.
-
-    ; Compute dest pointer.
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    bne @compute_dest_ptr_menu
-
-    ; Compute dest pointer, encounter version.
-    lda #^ff6vwf_encounter_text_tiles
-    sta z:text_line_chardata_ptr+2
-    ldy text_line_slot
-    jsr std_mul16_8
-    a16
-    txa
-    add #.loword(ff6vwf_encounter_text_tiles) ; ff6vwf_encounter_text_tiles[text_line_slot * MLBS]
-    sta z:text_line_chardata_ptr
-    a8
-    bra @render_string
-
-    ; Compute dest pointer, menu version.
-@compute_dest_ptr_menu:
-    lda #^ff6vwf_menu_text_tiles
-    sta z:text_line_chardata_ptr+2
-    ldy text_line_slot
-    jsr std_mul16_8
-    a16
-    txa
-    add #.loword(ff6vwf_menu_text_tiles) ; ff6vwf_menu_text_tiles[text_line_slot * MLBS]
-    sta z:text_line_chardata_ptr
-    a8
+    bra @store_bytes_to_skip
+@have_4bpp:
+    lda #16
+@store_bytes_to_skip:
+    sta bytes_to_skip
 
     ; Render string.
-@render_string:
     lda string_ptr+2
-    sta outgoing_args+5
+    sta outgoing_args+5             ; string_ptr, bank byte
     ldy string_ptr+0
-    sty outgoing_args+3             ; string_ptr
+    sty outgoing_args+3             ; string_ptr, low word
     lda z:text_line_chardata_ptr+2
     sta outgoing_args+2
     ldy z:text_line_chardata_ptr+0
     sty outgoing_args+0             ; dest_ptr
-    ldx bytes_to_skip
+    ldx bytes_to_skip               ; bytes_to_skip
     jsl vwf_render_string
 
     ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
@@ -140,10 +133,12 @@ begin_args_nearcall
     jsr std_memset
 
     ; Schedule the upload.
-    ldx text_line_slot
+    ldx max_line_byte_size
+    stx outgoing_args+0
+    ldx first_tile_id
     ldy tile_base_addr
     lda flags
-    sta outgoing_args+0
+    sta outgoing_args+2
     jsr ff6vwf_schedule_text_dma
 
     leave __FRAME_SIZE__
@@ -152,8 +147,9 @@ begin_args_nearcall
 
 .export ff6vwf_render_string
 
-; nearproc void ff6vwf_schedule_text_dma(uint8 text_line_index,
-;                                        uint16 tile_base_addr,
+; nearproc void ff6vwf_schedule_text_dma(uint8 first_tile_id,
+;                                        vram near *tile_base_addr,
+;                                        uint16 max_line_byte_size,
 ;                                        uint8 flags)
 ;
 ; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
@@ -162,18 +158,18 @@ begin_locals
     decl_local outgoing_args, 7
     decl_local dma_stack_size, 1        ; uint8
     decl_local dma_stack_ptr, 3         ; uint16 far *
-    decl_local tile_base_addr, 2        ; vram *
-    decl_local max_line_byte_size, 2    ; uint8
-    decl_local text_line_index, 1       ; uint8
-    decl_local string_char_offset, 1    ; uint8
+    decl_local tile_base_addr, 2        ; vram near *
+    decl_local first_tile_id, 1         ; uint8
+    decl_local src_addr, 3              ; chardata far *
 begin_args_nearcall
+    decl_arg max_line_byte_size, 2      ; uint16
     decl_arg flags, 1                   ; uint8
 
     enter __FRAME_SIZE__
 
     ; Initialize locals.
     txa
-    sta text_line_index
+    sta first_tile_id
     sty tile_base_addr
 
     ; Lock the DMA stack pointer.
@@ -225,58 +221,37 @@ begin_args_nearcall
     cpx #0
     beq @out
 
-    ; Look up string char offset for the text line.
-    lda text_line_index
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x
-    sta string_char_offset
-
-    ; Calculate max line byte size and byte size of one tile.
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    bne :+
-    ldx #VWF_MAX_LINE_BYTE_SIZE_2BPP
-    lda #8*2
-    bra :++
-:   ldx #VWF_MAX_LINE_BYTE_SIZE_4BPP
-    lda #8*4
-:   stx max_line_byte_size              ; Keep in X to pass to the multiply function below.
-
     ; Calculate and store VRAM address.
-    ldy string_char_offset
-    tax
-    jsr std_mul8
+    ldx tile_base_addr
+    ldy first_tile_id
+    lda flags
+    sta outgoing_args+0
+    jsr _ff6vwf_tile_id_to_vram_addr
     a16
     txa
-    add tile_base_addr                  ; VRAM address
-    lsr                                 ; word address
-    sta [dma_stack_ptr]                 ; write VRAM address
+    lsr                                 ; Make a word address.
+    sta [dma_stack_ptr]                 ; Write VRAM address.
     inc dma_stack_ptr
     inc dma_stack_ptr
     a8
 
-    ; Calculate source address.
-    ldx max_line_byte_size
-    ldy text_line_index
-    jsr std_mul16_8
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    ; Calculate and store source address.
     a16
-    bne :+
-    txa
-    add #.loword(ff6vwf_encounter_text_tiles)   ; src address
-    bra @push_src_address
-:   txa
-    add #.loword(ff6vwf_menu_text_tiles)        ; src address
-
-    ; Push our source address and size on the stack.
-@push_src_address:
+    tdc
+    add #src_addr
+    tax
+    a8
+    ldy first_tile_id
+    lda flags
+    sta outgoing_args+0
+    jsr _ff6vwf_tile_id_to_wram_addr
+    a16
+    lda src_addr
     sta [dma_stack_ptr]
     inc dma_stack_ptr
     inc dma_stack_ptr
+
+    ; Push size on the stack.
     lda max_line_byte_size
     sta [dma_stack_ptr]
     a8
@@ -300,6 +275,95 @@ begin_args_nearcall
 .endproc
 
 .export ff6vwf_schedule_text_dma
+
+; nearproc void _ff6vwf_tile_id_to_wram_addr(chardata far *near *out_tile_addr,
+;                                            uint8 tile_id,
+;                                            uint8 flags)
+.proc _ff6vwf_tile_id_to_wram_addr
+begin_locals
+    decl_local outgoing_args, 1
+    decl_local tile_id, 1
+    decl_local out_tile_addr, 2     ; chardata far *near *
+begin_args_nearcall
+    decl_arg flags, 1               ; uint8
+
+    enter __FRAME_SIZE__
+
+    stx out_tile_addr
+    tya
+    sta tile_id
+
+    ldy #2
+    lda flags
+    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    bne @menu
+    lda #^ff6vwf_encounter_text_tiles
+    sta (out_tile_addr),y
+    ldx #.loword(ff6vwf_encounter_text_tiles)
+    bra @calculate_addr
+@menu:
+    lda #^ff6vwf_menu_text_tiles
+    sta (out_tile_addr),y
+    ldx #.loword(ff6vwf_menu_text_tiles)
+
+@calculate_addr:
+    ldy tile_id         ; tile_id
+    lda flags
+    sta outgoing_args+0 ; X is base addr
+    jsr _ff6vwf_tile_id_to_vram_addr
+    a16
+    txa
+    sta (out_tile_addr)
+    a8
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc vram *_ff6vwf_tile_id_to_vram_addr(vram *base_addr, uint8 tile_id, uint8 flags)
+.proc _ff6vwf_tile_id_to_vram_addr
+begin_locals
+    decl_local base_addr, 2 ; uint16
+begin_args_nearcall
+    decl_arg flags, 1       ; uint8
+
+    enter __FRAME_SIZE__
+
+    stx base_addr
+
+    tyx
+    ldy flags
+    jsr _ff6vwf_tile_count_to_byte_count
+
+    a16
+    txa
+    add base_addr
+    tax
+    a8
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_tile_count_to_byte_count(uint8 tile_count, uint8 flags)
+.proc _ff6vwf_tile_count_to_byte_count
+    a16
+    tya
+    and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    bne @have_4bpp
+    txa
+    and #$00ff
+    bra @shift
+@have_4bpp:
+    txa
+    and #$00ff
+    asl
+@shift:
+    asli 4
+    tax
+    a8
+    rts
+.endproc
 
 ; nearproc bool _ff6vwf_lock_dma_stack(struct dma far *near *out_dma_stack_ptr,
 ;                                      uint8 near *out_dma_stack_size,
@@ -361,16 +425,27 @@ begin_args_nearcall
     rts
 .endproc
 
+; nearproc uint8 ff6vwf_calculate_first_tile_id_simple(uint8 text_line_slot, uint8 max_line_size)
+.proc ff6vwf_calculate_first_tile_id_simple
+    jsr std_mul8
+    txa
+    add #8
+    tax
+    rts
+.endproc
+
+.export ff6vwf_calculate_first_tile_id_simple
+
 ; Constant data
 
 .segment "DATA"
 
-ff6vwf_string_char_offsets:
+ff6vwf_string_10_char_offsets:
 .repeat .max(FF6VWF_ENCOUNTER_SLOT_COUNT, FF6VWF_MENU_SLOT_COUNT), i
-    .byte $08+FF6VWF_MAX_LINE_LENGTH*i
+    .byte $08+10*i
 .endrepeat
 
-.export ff6vwf_string_char_offsets: far
+.export ff6vwf_string_10_char_offsets: far
 
 .macro def_pointer_array prefix, count
 .repeat count, i

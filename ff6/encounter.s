@@ -15,10 +15,10 @@
 .import std_mul16_8: near
 .import std_mul8: near
 
+.import ff6vwf_calculate_first_tile_id_simple: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_schedule_text_dma: near
-.import ff6vwf_string_char_offsets: far
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_dance_names: far
 .import ff6vwf_long_magitek_names: far
@@ -62,9 +62,8 @@ ff6vwf_encounter_current_item_slot: .res 1
 ff6vwf_encounter_item_type_to_draw: .res 1
 ; ID of the current skill (Rage, dance, Magitek) slot we're drawing.
 ff6vwf_encounter_current_skill_slot: .res 1
-; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
-; to VRAM.
-ff6vwf_encounter_text_tiles: .res VWF_MAX_LINE_BYTE_SIZE_4BPP * FF6VWF_ENCOUNTER_SLOT_COUNT
+; Buffer space for the lines of text, ready to be uploaded to VRAM.
+ff6vwf_encounter_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
 
 ff6vwf_encounter_bss_end:
  
@@ -243,7 +242,7 @@ ff6_enemy_name_table  = $cfc050
 
     ; Render string.
     lda #0
-    sta outgoing_args+0                 ; 2bpp
+    sta outgoing_args+0                 ; flags = 2bpp
     ldx enemy_index                     ; text_line_slot
     ldy string_ptr+0
     sty outgoing_args+1                 ; string_ptr+0
@@ -253,12 +252,10 @@ ff6_enemy_name_table  = $cfc050
     jsr ff6vwf_render_string
 
     ; Draw tiles.
-    lda enemy_index
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+    ldx enemy_index
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                                 ; dest_tilemap_offset
@@ -760,7 +757,7 @@ ff6_display_list_ptr    = $7e004f
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
     lda name_length
-    sub #FF6VWF_MAX_LINE_LENGTH - 1
+    sub #10 - 1
     sta outgoing_args+0         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
     bra @out
@@ -983,16 +980,14 @@ begin_args_nearcall
     stx dest_tilemap_offset
     tya
     sta text_line_slot
-    lda #FF6VWF_MAX_LINE_LENGTH
+    lda #10
     sta tiles_to_draw
 
     ; Draw tile data.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6vwf_string_char_offsets,x  ; Compute start tile.
+    ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa
     sta current_tile_index
     ldx dest_tilemap_offset
 :   txy                     ; dest_tilemap_offset
