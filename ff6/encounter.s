@@ -476,8 +476,10 @@ ff6_tool_display_list_right = $7e5760
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy item_slot               ; text_line_slot
+    lda #FF6_SHORT_ITEM_LENGTH
+    sta outgoing_args+0         ; text_tiles_to_draw
     lda #2
-    sta outgoing_args+0         ; blank_tiles_at_end
+    sta outgoing_args+1         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
 
     leave __FRAME_SIZE__
@@ -576,8 +578,9 @@ ff6_spell_name_length = $c1601b
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
-    lda #0
-    sta outgoing_args+0         ; blank_tiles_at_end
+    lda f:ff6_spell_name_length
+    sta outgoing_args+0         ; text_tiles_to_draw
+    stz outgoing_args+1         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
 
 @out:
@@ -743,8 +746,10 @@ begin_args_nearcall
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
+    lda #10
+    sta outgoing_args+0         ; text_tiles_to_draw
     lda #1
-    sta outgoing_args+0         ; blank_tiles_at_end
+    sta outgoing_args+1         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
 
 @out:
@@ -877,9 +882,11 @@ ff6_display_list_ptr    = $7e004f
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy text_line_slot          ; text_line_slot
+    lda #10
+    sta outgoing_args+0         ; text_tiles_to_draw
     lda name_length
     sub #10 - 1
-    sta outgoing_args+0         ; blank_tiles_at_end
+    sta outgoing_args+1         ; blank_tiles_at_end
     jsr _ff6vwf_encounter_draw_tile_data
     bra @out
 
@@ -1091,14 +1098,15 @@ begin_locals
 
 ; nearproc uint16 _ff6vwf_encounter_draw_tile_data(uint16 dest_tilemap_offset,
 ;                                                  uint8 text_line_slot,
+;                                                  uint8 text_tiles_to_draw,
 ;                                                  uint8 blank_tiles_at_end)
 .proc _ff6vwf_encounter_draw_tile_data
 begin_locals
     decl_local dest_tilemap_offset, 2       ; uint16
     decl_local text_line_slot, 1            ; uint8
-    decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; char
 begin_args_nearcall
+    decl_arg text_tiles_to_draw, 1          ; uint8
     decl_arg blank_tiles_at_end, 1          ; uint8
 
     enter __FRAME_SIZE__
@@ -1107,8 +1115,6 @@ begin_args_nearcall
     stx dest_tilemap_offset
     tya
     sta text_line_slot
-    lda #10
-    sta tiles_to_draw
 
     ; Draw tile data.
     ldx text_line_slot
@@ -1117,13 +1123,17 @@ begin_args_nearcall
     txa
     sta current_tile_index
     ldx dest_tilemap_offset
-:   txy                     ; dest_tilemap_offset
+    lda text_tiles_to_draw
+    cmp #0
+:   beq :+
+    txy                     ; dest_tilemap_offset
     lda current_tile_index
     inc current_tile_index
     tax                     ; tile_to_draw
     jsr _ff6vwf_encounter_draw_tile
-    dec tiles_to_draw
-    bne :-
+    dec text_tiles_to_draw
+    bra :-
+:
 
     ; Add blank tiles on the end, if necessary. (X should still contain dest tilemap offset.)
     ldy blank_tiles_at_end
