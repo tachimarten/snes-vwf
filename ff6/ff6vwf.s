@@ -561,6 +561,33 @@ ff6vwf_long_dance_name_5: .asciiz "Water Harmony"
 ff6vwf_long_dance_name_6: .asciiz "Twilight Requiem"
 ff6vwf_long_dance_name_7: .asciiz "Snowman Rondo"
 
+ff6vwf_long_lore_names: def_pointer_array ff6vwf_long_lore_name, 24
+
+ff6vwf_long_lore_name_0:  .asciiz "Doom"
+ff6vwf_long_lore_name_1:  .asciiz "Roulette"
+ff6vwf_long_lore_name_2:  .asciiz "Tsunami"
+ff6vwf_long_lore_name_3:  .asciiz "Aqua Breath"
+ff6vwf_long_lore_name_4:  .asciiz "Aero"
+ff6vwf_long_lore_name_5:  .asciiz "1,000 Needles"
+ff6vwf_long_lore_name_6:  .asciiz "Mighty Guard"
+ff6vwf_long_lore_name_7:  .asciiz "Revenge Blast"
+ff6vwf_long_lore_name_8:  .asciiz "White Wind"
+ff6vwf_long_lore_name_9:  .asciiz "Level 5 Death"
+ff6vwf_long_lore_name_10: .asciiz "Level 4 Flare"
+ff6vwf_long_lore_name_11: .asciiz "Level 3 Confuse"
+ff6vwf_long_lore_name_12: .asciiz "Reflect???"
+ff6vwf_long_lore_name_13: .asciiz "Level ? Holy"
+ff6vwf_long_lore_name_14: .asciiz "Traveler"
+ff6vwf_long_lore_name_15: .asciiz "Force Field"
+ff6vwf_long_lore_name_16: .asciiz "Dischord"
+ff6vwf_long_lore_name_17: .asciiz "Bad Breath"
+ff6vwf_long_lore_name_18: .asciiz "Transfusion"
+ff6vwf_long_lore_name_19: .asciiz "Rippler"
+ff6vwf_long_lore_name_20: .asciiz "Stone"
+ff6vwf_long_lore_name_21: .asciiz "Quasar"
+ff6vwf_long_lore_name_22: .asciiz "Grand Delta"
+ff6vwf_long_lore_name_23: .asciiz "Self-Destruct"
+
 ff6vwf_long_magitek_names: def_pointer_array ff6vwf_long_magitek_name, 8
 
 ff6vwf_long_magitek_name_0: .asciiz "Fire Beam"
@@ -614,6 +641,7 @@ ff6vwf_long_class_name_35: .asciiz "Moogle"
 .export ff6vwf_long_spell_names: far
 .export ff6vwf_long_esper_names: far
 .export ff6vwf_long_blitz_names: far
+.export ff6vwf_long_lore_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far
 .export ff6vwf_long_class_names: far

@@ -22,6 +22,7 @@
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_esper_names: far
 .import ff6vwf_long_blitz_names: far
+.import ff6vwf_long_lore_names: far
 .import ff6vwf_long_dance_names: far
 .import ff6vwf_long_class_names: far
 .import ff6vwf_long_enemy_names: far
@@ -332,6 +333,10 @@ ff6_menu_compute_bg1_tilemap_a_pos = $c3809f
 ff6vwf_menu_draw_blitz:
     lda z:<ff6_menu_bg1_write_row
     jsr _ff6twue_menu_blitz_compute_map_ptr
+
+.segment "PTEXTMENUDRAWLORE"    ; $c35290
+    jsl _ff6vwf_menu_draw_lore
+    nop
 
 .segment "PTEXTMENUDRAWDANCE"
     jsl _ff6vwf_menu_draw_dance
@@ -851,15 +856,44 @@ ff6_menu_allow_sfx_repeat = $7e00ae
 
 .proc _ff6vwf_menu_draw_esper_name
 begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_long_esper_names)
+    stx outgoing_args+0
+    lda #^ff6vwf_long_esper_names
+    sta outgoing_args+2
+    ldx #FF6_SHORT_ESPER_NAME_LENGTH
+    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+
+    leave __FRAME_SIZE__
+    a16
+    lda #0      ; The original function did this...
+    a8
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_esper_or_lore_or_rage_name(uint8 short_name_length,
+;                                                            const char near *const far *name_list)
+.proc _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+begin_locals
     decl_local outgoing_args, 6
+    decl_local short_name_length, 1
     decl_local esper_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
     decl_local first_tile_id, 1
+begin_args_nearcall
+    decl_arg name_list, 3
 
 ff6_esper_list = $7e9d89
 
     enter __FRAME_SIZE__
+
+    ; Save arguments.
+    txa
+    sta short_name_length
 
     ; Look up Esper ID.
     lda f:ff6_menu_list_slot
@@ -875,13 +909,13 @@ ff6_esper_list = $7e9d89
     a16
     and #$00ff
     asl
-    tax
-    lda f:ff6vwf_long_esper_names,x
+    tay
+    lda [name_list],y
     sta string_ptr
     a8
 
     ; Compute text line slot.
-    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
+    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage
     txa
     sta text_line_slot
 
@@ -899,7 +933,7 @@ ff6_esper_list = $7e9d89
     sta outgoing_args+1     ; 4bpp
     ldy string_ptr
     sty outgoing_args+2     ; string ptr
-    lda #^ff6vwf_long_esper_names
+    lda name_list+2
     sta outgoing_args+4     ; string ptr bank
     ldy #VWF_MENU_TILE_BG1_BASE_ADDR
     jsr ff6vwf_render_string
@@ -909,16 +943,13 @@ ff6_esper_list = $7e9d89
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy #FF6_SHORT_ESPER_NAME_LENGTH
+    ldy short_name_length
     stz outgoing_args+0                 ; blanks_count
     stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
-    a16
-    lda #0      ; The original function did this...
-    a8
-    rtl
+    rts
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id)
@@ -1061,77 +1092,26 @@ begin_locals
     rtl
 .endproc
 
+; farproc void _ff6vwf_menu_draw_rage_name()
 .proc _ff6vwf_menu_draw_rage_name
 begin_locals
-    decl_local outgoing_args, 6
-    decl_local enemy_id, 1
-    decl_local string_ptr, 2
-    decl_local text_line_slot, 1
-    decl_local first_tile_id, 1
-
-ff6_rage_list = $7e9d89
+    decl_local outgoing_args, 3
 
     enter __FRAME_SIZE__
 
-    ; Look up enemy ID.
-    lda f:ff6_menu_list_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    lda f:ff6_rage_list,x
-    sta enemy_id
-
-    ; Compute string pointer.
-    lda enemy_id
-    a16
-    and #$00ff
-    asl
-    tax
-    lda f:ff6vwf_long_enemy_names,x
-    sta string_ptr
-    a8
-
-    ; Compute text line slot.
-    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
-    txa
-    sta text_line_slot
-
-    ; Calculate first tile ID.
-    ldx text_line_slot
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
-    txa
-    sta first_tile_id
-
-    ; Render string.
-    lda #10
-    sta outgoing_args+0     ; 4bpp
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
-    ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    ldx #.loword(ff6vwf_long_enemy_names)
+    stx outgoing_args+0
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
-    jsr ff6vwf_render_string
-
-    ; Upload it now. (We won't get a chance later...)
-    jsl _ff6vwf_menu_force_nmi_trampoline
-
-    ; Draw tiles.
-    ldx first_tile_id
-    ldy #FF6_SHORT_ENEMY_NAME_LENGTH
-    stz outgoing_args+0                 ; blanks_count
-    stz outgoing_args+1                 ; initial_offset
-    jsr _ff6vwf_menu_draw_vwf_tiles
+    sta outgoing_args+2
+    ldx #FF6_SHORT_ENEMY_NAME_LENGTH
+    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
 
     leave __FRAME_SIZE__
     rtl
 .endproc
 
-; nearproc uint8 _ff6vwf_menu_get_text_line_slot_for_esper_or_rage()
-.proc _ff6vwf_menu_get_text_line_slot_for_esper_or_rage
+; nearproc uint8 _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage()
+.proc _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -1205,6 +1185,24 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
 .endproc
 
 .export _ff6vwf_menu_draw_blitz     ; For debugging.
+
+; farproc void _ff6vwf_menu_draw_lore()
+.proc _ff6vwf_menu_draw_lore
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_long_lore_names)
+    stx outgoing_args+0
+    lda #^ff6vwf_long_lore_names
+    sta outgoing_args+2
+    ldx #FF6_SHORT_LORE_NAME_LENGTH
+    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
 
 ; farproc void _ff6vwf_menu_draw_dance(uint8 tile_x_offset)
 .proc _ff6vwf_menu_draw_dance
