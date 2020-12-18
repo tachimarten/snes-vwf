@@ -131,6 +131,10 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 .segment "PTEXTMENUDRAWGEARINFOTEXT"
     jml _ff6vwf_menu_draw_gear_info_text
 
+.segment "PTEXTMENUDRAWSPELLNAMEINMAGICMENU"    ; $c3504c
+    jsl _ff6vwf_menu_draw_spell_name_in_magic_menu
+    nopx 2
+
 .segment "PTEXTMENUINITESPERSMENU"      ; $c320b3
 ff6_menu_create_blinker                 = $c32eeb
 ff6_menu_espers_load_navigation_data    = $c34c18
@@ -420,6 +424,7 @@ begin_locals
     decl_local item_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
     tax             ; Put item ID in X.
 
@@ -455,6 +460,8 @@ begin_locals
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -472,10 +479,12 @@ begin_locals
     jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Draw tiles.
-    ldx text_line_slot
-    ldy #FF6_SHORT_ITEM_LENGTH
+    ldx first_tile_id
+    ldy #10
+    lda #FF6_SHORT_ITEM_LENGTH - 10
+    sta outgoing_args+0                 ; blanks_count
     lda #1
-    sta outgoing_args+0
+    sta outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
@@ -541,6 +550,29 @@ ff6_inventory_ids = $7e1869
     jml $c385ad
 .endproc
 
+; farproc void _ff6vwf_menu_draw_spell_name_in_magic_menu()
+.proc _ff6vwf_menu_draw_spell_name_in_magic_menu
+    ; Compute text line slot.
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #18             ; 8 visible rows plus one off-screen row, 2 columns
+    jsr std_mod16_8
+    tay                 ; spell slot
+
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_list,x
+    tax                 ; spell ID
+
+    jmp _ff6vwf_menu_draw_spell_name
+.endproc
+
 ; nearproc void _ff6vwf_menu_draw_item_name_bg1(uint8 item_id, uint8 menu_item_index)
 ;
 ; This function will automatically mod the menu item index by 11 to get the text string index.
@@ -553,6 +585,7 @@ begin_locals
     decl_local item_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
 FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 
@@ -602,6 +635,8 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -619,10 +654,12 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     jsr _ff6vwf_menu_force_nmi
 
     ; Draw tiles.
-    ldx text_line_slot
-    ldy #FF6_MENU_INVENTORY_ITEM_LENGTH
+    ldx first_tile_id
+    ldy #10
+    lda #FF6_MENU_INVENTORY_ITEM_LENGTH - 10 - 1
+    sta outgoing_args+0                 ; blanks_count
     lda #1
-    sta outgoing_args+0
+    sta outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
 @out:
@@ -635,30 +672,25 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 
 .export _ff6vwf_menu_draw_inventory_item_name ; for debugging
 
-; nearproc void _ff6vwf_menu_draw_vwf_tiles(uint8 text_line_slot,
-;                                           uint8 tile_count,
-;                                           uint8 offset)
+; nearproc void _ff6vwf_menu_draw_vwf_tiles(uint8 first_tile_id,
+;                                           uint8 text_tile_count,
+;                                           uint8 blanks_count,
+;                                           uint8 initial_offset)
 .proc _ff6vwf_menu_draw_vwf_tiles
 begin_locals
-    decl_local tile_count, 2
     decl_local first_tile_index, 1
+    decl_local text_tile_count, 1
 begin_args_nearcall
+    decl_arg blanks_count, 1
     decl_arg offset, 1
 
     enter __FRAME_SIZE__
 
     ; Initialize locals.
-    tya
-    a16
-    and #$00ff
-    sta tile_count
-    a8
-
-    ; Calculate first tile index.
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
     txa
     sta first_tile_index
+    tya
+    sta text_tile_count
 
     ; Put offset in X.
     lda offset
@@ -667,21 +699,38 @@ begin_args_nearcall
     tax
     a8
 
+    ; Put text tile count in Y.
+    lda text_tile_count
+    a16
+    and #$00ff
+    tay
+    a8
+
     ; Draw tiles.
     lda first_tile_index
-    ldy #10
-:   sta ff6_menu_string_buffer,x
+    cpy #0
+:   beq :+
+    sta ff6_menu_string_buffer,x
     inc
     inx
     dey
-    bne :-
+    bra :-
+:
+
+    ; Put blanks in Y.
+    lda blanks_count
+    a16
+    and #$00ff
+    tay
+    a8
 
     ; Draw blanks.
     lda #$ff
-:   cpx tile_count
-    bge :+
+    cpy #0
+:   beq :+
     sta ff6_menu_string_buffer,x
     inx
+    dey
     bra :-
 :
 
@@ -806,6 +855,7 @@ begin_locals
     decl_local esper_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
 ff6_esper_list = $7e9d89
 
@@ -839,6 +889,8 @@ ff6_esper_list = $7e9d89
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -856,9 +908,10 @@ ff6_esper_list = $7e9d89
     jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Draw tiles.
-    ldx text_line_slot
+    ldx first_tile_id
     ldy #FF6_SHORT_ESPER_NAME_LENGTH
-    stz outgoing_args+0
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
@@ -906,9 +959,10 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + 8
     jsr _ff6vwf_menu_force_nmi
 
     ; Draw tiles.
-    ldx #TEXT_LINE_SLOT
+    ldx #FIRST_TILE_ID
     ldy #FF6_SHORT_ESPER_NAME_LENGTH
-    stz outgoing_args+0
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
@@ -917,23 +971,43 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + 8
 
 .export _ff6vwf_menu_draw_esper_name_in_info_menu
 
+; farproc void _ff6vwf_menu_draw_spell_name_in_esper_info_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_esper_info_menu
-begin_locals
-    decl_local outgoing_args, 6
-    decl_local spell_id, 1
-    decl_local string_ptr, 2
-    decl_local text_line_slot, 1
-
 ff6_current_spell_id    = $7e00e1
 ff6_current_row         = $7e00f5
 
 FIRST_SPELL_ROW = $11
 
+    ; Calculate text slot.
+    a16
+    lda ff6_current_row
+    sub #FIRST_SPELL_ROW
+    lsr
+    tay
+    a8
+
+    lda f:ff6_current_spell_id
+    tax
+    jmp _ff6vwf_menu_draw_spell_name
+
+.endproc
+
+; farproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 text_slot)
+.proc _ff6vwf_menu_draw_spell_name
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local spell_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
+
     enter __FRAME_SIZE__
 
-    ; Look up spell ID.
-    lda f:ff6_current_spell_id
+    ; Store arguments.
+    txa
     sta spell_id
+    tya
+    sta text_line_slot
 
     ; Compute string pointer.
     lda spell_id
@@ -945,21 +1019,15 @@ FIRST_SPELL_ROW = $11
     sta string_ptr
     a8
 
-    ; Compute text line slot.
-    a16
-    lda ff6_current_row
-    sub #FIRST_SPELL_ROW
-    lsr
-    a8
-    sta text_line_slot
-
     ; Calculate first tile ID.
     ldx text_line_slot
-    ldy #10
+    ldy #5
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
-    lda #10
+    lda #5
     sta outgoing_args+0     ; 4bpp
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+1     ; 4bpp
@@ -981,10 +1049,11 @@ FIRST_SPELL_ROW = $11
     sta ff6_menu_string_buffer
 
     ; Draw tiles.
-    ldx text_line_slot
-    ldy #FF6_SHORT_SPELL_NAME_LENGTH
+    ldx first_tile_id
+    ldy #5
+    stz outgoing_args+0
     lda #1
-    sta outgoing_args+0
+    sta outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     ldx #$9e92      ; The original function did this...
@@ -998,6 +1067,7 @@ begin_locals
     decl_local enemy_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
 ff6_rage_list = $7e9d89
 
@@ -1031,6 +1101,8 @@ ff6_rage_list = $7e9d89
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1048,9 +1120,10 @@ ff6_rage_list = $7e9d89
     jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Draw tiles.
-    ldx text_line_slot
+    ldx first_tile_id
     ldy #FF6_SHORT_ENEMY_NAME_LENGTH
-    stz outgoing_args+0
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
@@ -1333,6 +1406,7 @@ begin_locals
     decl_local item_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
     enter __FRAME_SIZE__
 
@@ -1355,6 +1429,8 @@ begin_locals
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1372,10 +1448,11 @@ begin_locals
     jsr _ff6vwf_menu_force_nmi
 
     ; Draw tiles.
-    ldx text_line_slot
+    ldx first_tile_id
     ldy #FF6_SHORT_ITEM_LENGTH
+    stz outgoing_args+0                 ; blanks_count
     lda #1
-    sta outgoing_args+0
+    sta outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
@@ -1396,6 +1473,7 @@ begin_locals
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
     decl_local tilemap_position, 2
+    decl_local first_tile_id, 1
 
     tay                     ; Save item in Y.
     enter __FRAME_SIZE__
@@ -1427,6 +1505,8 @@ begin_locals
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first tile ID
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1444,10 +1524,11 @@ begin_locals
     jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Draw tiles.
-    ldx text_line_slot
+    ldx first_tile_id
     ldy #FF6_SHORT_ITEM_LENGTH
+    stz outgoing_args+0             ; blanks_count
     lda #1
-    sta outgoing_args+0
+    sta outgoing_args+1             ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     ; Save tilemap position where FF6 expects it.
@@ -1508,9 +1589,10 @@ FIRST_TILE_ID = 2 * 10 + 8
     jsl _ff6vwf_menu_force_nmi_trampoline
 
     ; Draw tiles.
-    ldx #TEXT_LINE_SLOT
+    ldx #FIRST_TILE_ID
     ldy #FF6_SHORT_ENEMY_NAME_LENGTH
-    stz outgoing_args+0
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     ; Store tilemap position.
@@ -1530,6 +1612,7 @@ begin_locals
     decl_local icon_position, 2     ; uint16
     decl_local party_member_id, 1
     decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
     enter __FRAME_SIZE__
 
@@ -1585,6 +1668,8 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1603,9 +1688,10 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
 
 @draw_tiles:
     ; Draw tiles.
-    ldx text_line_slot
+    ldx first_tile_id
     ldy #FF6_SHORT_ENEMY_NAME_LENGTH
-    stz outgoing_args+0
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__

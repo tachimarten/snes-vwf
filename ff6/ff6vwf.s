@@ -60,6 +60,7 @@ begin_locals
     decl_local tile_base_addr, 2
     decl_local max_line_byte_size, 2
     decl_local bytes_to_skip, 1
+    decl_local bytes_rendered, 2            ; uint16
 begin_args_nearcall
     decl_arg max_tile_count, 1
     decl_arg flags, 1
@@ -119,13 +120,16 @@ begin_args_nearcall
     sta outgoing_args+2             ; ptr, bank byte
     a16
     txa
-    sub max_line_byte_size
     sub z:text_line_chardata_ptr+0
-    neg16                           ; -(X - MLBS - item_name_tiles) == MLBS - (X - item_name_tiles)
+    sta bytes_rendered
+    lda max_line_byte_size
+    sub bytes_rendered
+    ble @overflow                   ; Overflow?
     tay                             ; count
     a8
     ldx #0                          ; value
     jsr std_memset
+@overflow:
 
     ; Schedule the upload.
     ldx max_line_byte_size
