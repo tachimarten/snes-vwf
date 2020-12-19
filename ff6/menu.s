@@ -24,6 +24,7 @@
 .import ff6vwf_long_blitz_names: far
 .import ff6vwf_long_lore_names: far
 .import ff6vwf_long_dance_names: far
+.import ff6vwf_long_key_item_names: far
 .import ff6vwf_long_class_names: far
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
@@ -34,6 +35,9 @@
 VWF_MENU_TILE_BG1_BASE_ADDR = $a000
 ; Address in VRAM where characters begin, for BG3 on the menu.
 VWF_MENU_TILE_BG3_BASE_ADDR = $c000
+
+; List item is a Key Item.
+FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
 
 ; FF6 globals
 
@@ -70,6 +74,12 @@ ff6_menu_draw_string        = $c37fd9
     jsr target
     pld
     rtl
+.endmacro
+
+.macro def_static_text_tiles slot, count
+    .repeat count, i
+        .byte 8 + slot*10 + i
+    .endrepeat
 .endmacro
 
 .segment "BSS"
@@ -372,6 +382,14 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
     tax
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     jmp .loword(ff6_menu_draw_string)
+
+.segment "PTEXTMENUDRAWKEYITEM"         ; $c38460
+    jml _ff6vwf_menu_draw_key_item
+    stp     ; should never be reached
+
+.segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
+    jsl _ff6vwf_menu_draw_config_menu
+    nop
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -839,6 +857,20 @@ ff6_menu_allow_sfx_repeat = $7e00ae
 
 .export _ff6vwf_menu_force_nmi
 
+; nearproc void _ff6vwf_menu_commit_transaction()
+;
+; Flushes all DMA.
+.proc _ff6vwf_menu_commit_transaction
+    lda f:ff6vwf_menu_text_dma_stack_size
+@loop:
+    beq @out
+    jsr _ff6vwf_menu_force_nmi
+    lda f:ff6vwf_menu_text_dma_stack_size
+    bra @loop
+@out:
+    rts
+.endproc
+
 .proc _ff6vwf_menu_setup_espers_menu
     lda #18                                             ; Top row: Midgardsormr (Terrato)
     sta f:ff6_menu_max_page_scroll_pos                  ; Set scroll limit
@@ -865,7 +897,8 @@ begin_locals
     lda #^ff6vwf_long_esper_names
     sta outgoing_args+2
     ldx #FF6_SHORT_ESPER_NAME_LENGTH
-    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+    ldy #0
+    jsr _ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
     a16
@@ -874,16 +907,41 @@ begin_locals
     rtl
 .endproc
 
-; nearproc void _ff6vwf_menu_draw_esper_or_lore_or_rage_name(uint8 short_name_length,
-;                                                            const char near *const far *name_list)
-.proc _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+; farpatch _ff6vwf_menu_draw_key_item()
+.proc _ff6vwf_menu_draw_key_item
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_long_key_item_names)
+    stx outgoing_args+0
+    lda #^ff6vwf_long_key_item_names
+    sta outgoing_args+2
+    ldx #FF6_SHORT_KEY_ITEM_NAME_LENGTH
+    ldy #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
+    jsr _ff6vwf_menu_draw_list_item
+
+    leave __FRAME_SIZE__
+    jml ff6_menu_draw_string
+.endproc
+
+.export _ff6vwf_menu_draw_key_item
+
+; nearproc void _ff6vwf_menu_draw_list_item(uint8 short_name_length,
+;                                           uint8 flags,
+;                                           const char near *const far *name_list)
+.proc _ff6vwf_menu_draw_list_item
 begin_locals
     decl_local outgoing_args, 6
     decl_local short_name_length, 1
+    decl_local flags, 1
+    decl_local max_tile_count, 1
     decl_local esper_id, 1
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
     decl_local first_tile_id, 1
+    decl_local blanks_count, 1
 begin_args_nearcall
     decl_arg name_list, 3
 
@@ -894,6 +952,22 @@ ff6_esper_list = $7e9d89
     ; Save arguments.
     txa
     sta short_name_length
+    tya
+    sta flags
+
+    ; Compute max tile and blanks count.
+    lda flags
+    and #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
+    bne :+
+    lda #10
+    ldx #0
+    bra @store_max_tile_and_blanks_count
+:   lda #8
+    ldx #4
+@store_max_tile_and_blanks_count:
+    sta max_tile_count
+    txa
+    sta blanks_count
 
     ; Look up Esper ID.
     lda f:ff6_menu_list_slot
@@ -915,19 +989,25 @@ ff6_esper_list = $7e9d89
     a8
 
     ; Compute text line slot.
-    jsr _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage
+    lda flags
+    and #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
+    bne :+
+    jsr _ff6vwf_menu_get_text_line_slot_for_scrollable_list
     txa
+    bra @store_text_line_slot
+:   txa
+@store_text_line_slot:
     sta text_line_slot
 
     ; Calculate first tile ID.
     ldx text_line_slot
-    ldy #10
+    ldy max_tile_count
     jsr ff6vwf_calculate_first_tile_id_simple
     txa
     sta first_tile_id
 
     ; Render string.
-    lda #10
+    lda max_tile_count
     sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+1     ; 4bpp
@@ -943,8 +1023,9 @@ ff6_esper_list = $7e9d89
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy short_name_length
-    stz outgoing_args+0                 ; blanks_count
+    ldy max_tile_count
+    lda blanks_count
+    sta outgoing_args+0                 ; blanks_count
     stz outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
 
@@ -1104,14 +1185,15 @@ begin_locals
     lda #^ff6vwf_long_enemy_names
     sta outgoing_args+2
     ldx #FF6_SHORT_ENEMY_NAME_LENGTH
-    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+    ldy #0
+    jsr _ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
     rtl
 .endproc
 
-; nearproc uint8 _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage()
-.proc _ff6vwf_menu_get_text_line_slot_for_esper_or_lore_or_rage
+; nearproc uint8 _ff6vwf_menu_get_text_line_slot_for_scrollable_list()
+.proc _ff6vwf_menu_get_text_line_slot_for_scrollable_list
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -1198,7 +1280,8 @@ begin_locals
     lda #^ff6vwf_long_lore_names
     sta outgoing_args+2
     ldx #FF6_SHORT_LORE_NAME_LENGTH
-    jsr _ff6vwf_menu_draw_esper_or_lore_or_rage_name
+    ldy 0
+    jsr _ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
     rtl
@@ -1699,7 +1782,63 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     .word $1578, $4578, $7578, $a578
 .endproc
 
-.export _ff6vwf_menu_draw_class_name
+.proc _ff6vwf_menu_draw_config_menu
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local config_string_index, 1   ; uint8
+    decl_local current_tile_id, 1       ; uint8
+
+CONFIG_STRING_COUNT = 12
+ff6_update_config_menu_arrow = $c33980
+
+    enter __FRAME_SIZE__
+
+    lda #8
+    sta current_tile_id
+    lda #0
+    sta config_string_index
+
+@loop:
+    cmp #CONFIG_STRING_COUNT
+    beq @out
+
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_config_labels,x
+    sta outgoing_args+2     ; string_ptr
+    a8
+    lda #10
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; 4bpp
+    lda #^ff6vwf_config_labels
+    sta outgoing_args+4     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx current_tile_id
+    jsr ff6vwf_render_string
+
+    ; Upload it.
+    jsr _ff6vwf_menu_force_nmi
+
+    lda current_tile_id
+    add #10
+    sta current_tile_id
+    inc config_string_index
+    lda config_string_index
+    bra @loop
+
+@out:
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    lda #$01
+    ldy #.loword(ff6_update_config_menu_arrow)
+    rtl
+.endproc
+
+.export _ff6vwf_menu_draw_config_menu
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
@@ -1842,20 +1981,144 @@ out:
     rts 
 .endproc
 
+; ROM data patches
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
+
+; Positioned text for Config page 1
+.word $3d8f
+    def_static_text_tiles 7, .strlen("Controller")
+    .byte 0
+.word $39b5
+    ff6_def_charset_string 'W' 'a' 'i' 't'
+    .byte 0
+.word $3a65
+    ff6_def_charset_string 'F' 'a' 's' 't'
+    .byte 0
+.word $3a75
+    ff6_def_charset_string 'S' 'l' 'o' 'w'
+    .byte 0
+.word $3b35
+    ff6_def_charset_string 'S' 'h' 'o' 'r' 't'
+    .byte 0
+.word $3ba5
+    ff6_def_charset_string 'O' 'n'
+    .byte 0
+.word $3bb5
+    ff6_def_charset_string 'O' 'f' 'f'
+    .byte 0
+.word $3c25
+    ff6_def_charset_string 'S' 't' 'e' 'r' 'e' 'o'
+    .byte 0
+.word $3c35
+    ff6_def_charset_string 'M' 'o' 'n' 'o'
+    .byte 0
+.word $3cb5
+    ff6_def_charset_string 'M' 'e' 'm' 'o' 'r' 'y'
+    .byte 0
+.word $3d25
+    ff6_def_charset_string 'O' 'p' 't' 'i' 'm' 'u' 'm'
+    .byte 0
+.word $3db5
+    ff6_def_charset_string 'M' 'u' 'l' 't' 'i' 'p' 'l' 'e'
+    .byte 0
+.word $3a25
+    ff6_def_charset_string '1' ' ' '2' ' ' '3' ' ' '4' ' ' '5' ' ' '6'
+    .byte 0
+.word $3aa5
+    ff6_def_charset_string '1' ' ' '2' ' ' '3' ' ' '4' ' ' '5' ' ' '6'
+    .byte 0
+.word $3c8f
+    def_static_text_tiles 10, .strlen("Cursor")
+    .byte 0
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
+
+.word $78f9
+    ff6_def_charset_string 'C' 'o' 'n' 'f' 'i' 'g'
+    .byte 0
+.word $398f
+    def_static_text_tiles 0, .strlen("Bat.Mode")
+    .byte 0
+.word $3a0f
+    def_static_text_tiles 1, .strlen("Bat.Speed")
+    .byte 0
+.word $3a8f
+    def_static_text_tiles 2, .strlen("Msg.Speed")
+    .byte 0
+.word $3b0f
+    def_static_text_tiles 3, .strlen("Cmd.Set")
+    .byte 0
+.word $3b8f
+    def_static_text_tiles 4, .strlen("Gauge")
+    .byte 0
+.word $3c0f
+    def_static_text_tiles 5, .strlen("Sound")
+    .byte 0
+.word $3d0f
+    def_static_text_tiles 6, .strlen("Reequip")
+    .byte 0
+.word $39a5
+    ff6_def_charset_string 'A' 'c' 't' 'i' 'v' 'e'
+    .byte 0
+.word $3b25
+    ff6_def_charset_string 'W' 'i' 'n' 'd' 'o' 'w'
+    .byte 0
+.word $3ca5
+    ff6_def_charset_string 'R' 'e' 's' 'e' 't'
+    .byte 0
+.word $3d35
+    ff6_def_charset_string 'E' 'm' 'p' 't' 'y'
+    .byte 0
+.word $3da5
+    ff6_def_charset_string 'S' 'i' 'n' 'g' 'l' 'e'
+    .byte 0
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTC"   ; $c34a34
+
+.word $418f
+    def_static_text_tiles 8, .strlen("Mag.Order")
+    .byte 0
+.word $438f
+    def_static_text_tiles 9, .strlen("Window")
+    .byte 0
+.word $440f
+    .byte $ff, $ff, $ff, $ff, $ff   ; "Color"
+    .byte 0
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTD"   ; $c34afb
+
+.word $7b4d
+    def_static_text_tiles 7, .strlen("Controller")
+    .byte 0
+.repeat 4, i
+    .word $7c21+$80*i
+    ff6_def_charset_string 'C' 'n' 't' 'l' 'r' '1'
+    .byte 0
+    .word $7c33+$80*i
+    ff6_def_charset_string 'C' 'n' 't' 'l' 'r' '2'
+    .byte 0
+.endrepeat
+
 ; Constant data
 
 .segment "DATA"
 
 ff6vwf_string_equipment:
-    .byte 'E'-'A'+$80
-    .byte 'q'-'a'+$80+26
-    .byte 'u'-'a'+$80+26
-    .byte 'i'-'a'+$80+26
-    .byte 'p'-'a'+$80+26
-    .byte 'm'-'a'+$80+26
-    .byte 'e'-'a'+$80+26
-    .byte 'n'-'a'+$80+26
-    .byte 't'-'a'+$80+26
-    .byte $ff
+    ff6_def_charset_string 'E' 'q' 'u' 'i' 'p' 'm' 'e' 'n' 't' ' '
     .byte 0
 ff6vwf_string_equipment_end:
+
+ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, 11
+
+ff6vwf_config_label_0:  .asciiz "ATB Mode"
+ff6vwf_config_label_1:  .asciiz "Battle Speed"
+ff6vwf_config_label_2:  .asciiz "Text Speed"
+ff6vwf_config_label_3:  .asciiz "Command Set"
+ff6vwf_config_label_4:  .asciiz "Gauge"
+ff6vwf_config_label_5:  .asciiz "Sound"
+ff6vwf_config_label_6:  .asciiz "Reequip"
+ff6vwf_config_label_7:  .asciiz "Controllers"
+ff6vwf_config_label_8:  .asciiz "Magic Order"
+ff6vwf_config_label_9:  .asciiz "Window Color"
+ff6vwf_config_label_10: .asciiz "Cursor"

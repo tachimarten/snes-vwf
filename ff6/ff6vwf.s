@@ -446,13 +446,7 @@ ff6vwf_string_10_char_offsets:
 
 .export ff6vwf_string_10_char_offsets: far
 
-.macro def_pointer_array prefix, count
-.repeat count, i
-    .word .loword(.ident(.concat(.concat(.string(prefix), "_"), .string(i))))
-.endrepeat
-.endmacro
-
-ff6vwf_long_command_names: def_pointer_array ff6vwf_long_command_name, 30
+ff6vwf_long_command_names: ff6vwf_def_pointer_array ff6vwf_long_command_name, 30
 
 ff6vwf_long_command_name_0:  .asciiz "Attack"
 ff6vwf_long_command_name_1:  .asciiz "Items"
@@ -485,7 +479,7 @@ ff6vwf_long_command_name_27: .asciiz "Shock"
 ff6vwf_long_command_name_28: .asciiz "Possess"
 ff6vwf_long_command_name_29: .asciiz "Magitek"
 
-ff6vwf_long_spell_names: def_pointer_array ff6vwf_long_spell_name, 54
+ff6vwf_long_spell_names: ff6vwf_def_pointer_array ff6vwf_long_spell_name, 54
 
 ff6vwf_long_spell_name_0:  .asciiz "Fire"
 ff6vwf_long_spell_name_1:  .asciiz "Blizzard"
@@ -542,7 +536,7 @@ ff6vwf_long_spell_name_51: .asciiz "Esuna"
 ff6vwf_long_spell_name_52: .asciiz "Regen"
 ff6vwf_long_spell_name_53: .asciiz "Reraise"
 
-ff6vwf_long_esper_names: def_pointer_array ff6vwf_long_esper_name, 27
+ff6vwf_long_esper_names: ff6vwf_def_pointer_array ff6vwf_long_esper_name, 27
 
 ff6vwf_long_esper_name_0:  .asciiz "Ramuh"
 ff6vwf_long_esper_name_1:  .asciiz "Ifrit"
@@ -572,7 +566,7 @@ ff6vwf_long_esper_name_24: .asciiz "Fenrir"
 ff6vwf_long_esper_name_25: .asciiz "Lakshmi"
 ff6vwf_long_esper_name_26: .asciiz "Phoenix"
 
-ff6vwf_long_blitz_names: def_pointer_array ff6vwf_long_blitz_name, 8
+ff6vwf_long_blitz_names: ff6vwf_def_pointer_array ff6vwf_long_blitz_name, 8
 
 ff6vwf_long_blitz_name_0: .asciiz "Raging Fist"
 ff6vwf_long_blitz_name_1: .asciiz "Aura Cannon"
@@ -583,7 +577,7 @@ ff6vwf_long_blitz_name_5: .asciiz "Razor Gale"
 ff6vwf_long_blitz_name_6: .asciiz "Soul Spiral"
 ff6vwf_long_blitz_name_7: .asciiz "Phantom Rush"
 
-ff6vwf_long_dance_names: def_pointer_array ff6vwf_long_dance_name, 8
+ff6vwf_long_dance_names: ff6vwf_def_pointer_array ff6vwf_long_dance_name, 8
 
 ff6vwf_long_dance_name_0: .asciiz "Wind Rhapsody"
 ff6vwf_long_dance_name_1: .asciiz "Forest Nocturne"
@@ -594,7 +588,7 @@ ff6vwf_long_dance_name_5: .asciiz "Water Harmony"
 ff6vwf_long_dance_name_6: .asciiz "Twilight Requiem"
 ff6vwf_long_dance_name_7: .asciiz "Snowman Rondo"
 
-ff6vwf_long_lore_names: def_pointer_array ff6vwf_long_lore_name, 24
+ff6vwf_long_lore_names: ff6vwf_def_pointer_array ff6vwf_long_lore_name, 24
 
 ff6vwf_long_lore_name_0:  .asciiz "Doom"
 ff6vwf_long_lore_name_1:  .asciiz "Roulette"
@@ -621,7 +615,7 @@ ff6vwf_long_lore_name_21: .asciiz "Quasar"
 ff6vwf_long_lore_name_22: .asciiz "Grand Delta"
 ff6vwf_long_lore_name_23: .asciiz "Self-Destruct"
 
-ff6vwf_long_magitek_names: def_pointer_array ff6vwf_long_magitek_name, 8
+ff6vwf_long_magitek_names: ff6vwf_def_pointer_array ff6vwf_long_magitek_name, 8
 
 ff6vwf_long_magitek_name_0: .asciiz "Fire Beam"
 ff6vwf_long_magitek_name_1: .asciiz "Thunder Beam"
@@ -632,7 +626,30 @@ ff6vwf_long_magitek_name_5: .asciiz "Confuser"
 ff6vwf_long_magitek_name_6: .asciiz "Banisher"
 ff6vwf_long_magitek_name_7: .asciiz "Magitek Missile"
 
-ff6vwf_long_class_names: def_pointer_array ff6vwf_long_class_name, 36
+ff6vwf_long_key_item_names: ff6vwf_def_pointer_array ff6vwf_long_key_item_name, 20
+
+ff6vwf_long_key_item_name_0:  .asciiz "Rum"
+ff6vwf_long_key_item_name_1:  .asciiz "Old Clock-Key"
+ff6vwf_long_key_item_name_2:  .asciiz "Fish"
+ff6vwf_long_key_item_name_3:  .asciiz "Fish"
+ff6vwf_long_key_item_name_4:  .asciiz "Fish"
+ff6vwf_long_key_item_name_5:  .asciiz "Fish"
+ff6vwf_long_key_item_name_6:  .asciiz "Lump of Metal"
+ff6vwf_long_key_item_name_7:  .asciiz "Lola's Letter"
+ff6vwf_long_key_item_name_8:  .asciiz "Coral"
+ff6vwf_long_key_item_name_9:  .asciiz "Books"
+ff6vwf_long_key_item_name_10: .asciiz "Royal Letter"
+ff6vwf_long_key_item_name_11: .asciiz "Rust-Rid"
+ff6vwf_long_key_item_name_12: .asciiz "Autograph"           ; unused
+ff6vwf_long_key_item_name_13: .asciiz "Nail Polish"         ; unused
+ff6vwf_long_key_item_name_14: .asciiz "Opera Record"        ; unused
+ff6vwf_long_key_item_name_15: .asciiz "Magnifying Glass"    ; unused
+ff6vwf_long_key_item_name_16: .asciiz "Eerie Stone"         ; unused
+ff6vwf_long_key_item_name_17: .asciiz "Odd Picture"         ; unused
+ff6vwf_long_key_item_name_18: .asciiz "Dull Picture"        ; unused
+ff6vwf_long_key_item_name_19: .asciiz "Pendant"
+
+ff6vwf_long_class_names: ff6vwf_def_pointer_array ff6vwf_long_class_name, 36
 
 ff6vwf_long_class_name_0:  .asciiz "Sorceress"
 ff6vwf_long_class_name_1:  .asciiz "Adventurer"
@@ -678,4 +695,5 @@ ff6vwf_long_class_name_35: .asciiz "Moogle"
 .export ff6vwf_long_lore_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far
+.export ff6vwf_long_key_item_names: far
 .export ff6vwf_long_class_names: far

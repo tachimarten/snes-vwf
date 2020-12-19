@@ -28,6 +28,7 @@ FF6_SHORT_SPELL_NAME_LENGTH = 7
 FF6_SHORT_ESPER_NAME_LENGTH = 8
 FF6_SHORT_LORE_NAME_LENGTH = 10
 FF6_SHORT_BLITZ_NAME_LENGTH = 10
+FF6_SHORT_KEY_ITEM_NAME_LENGTH = 13
 
 ; Globals
 
@@ -35,6 +36,29 @@ ff6_short_item_names    = $d2b300
 ff6_short_spell_names   = $e6f567
 
 ; Macros
+
+.macro ff6_def_charset_string chars
+    .if !.blank(chars)
+        .if .left(1, chars) >= 'A' && .left(1, chars) <= 'Z'
+            .byte .left(1, chars) - 'A' + $80
+        .elseif .left(1, chars) >= 'a' && .left(1, chars) <= 'z'
+            .byte .left(1, chars) - 'a' + $9a
+        .elseif .left(1, chars) >= '0' && .left(1, chars) <= '9'
+            .byte .left(1, chars) - '0' + $b4
+        .elseif .left(1, chars) = ' '
+            .byte $ff
+        .else
+            .warning "unknown character in `ff6_charset_string`"
+        .endif
+        ff6_def_charset_string .right(.tcount(chars) - 1, chars)
+    .endif
+.endmacro
+
+.macro ff6vwf_def_pointer_array prefix, count
+.repeat count, i
+    .word .loword(.ident(.concat(.concat(.string(prefix), "_"), .string(i))))
+.endrepeat
+.endmacro
 
 ; A macro that does any DMA we need to do.
 ;
