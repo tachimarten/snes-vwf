@@ -42,6 +42,7 @@ ff6_encounter_enemy_ids          = $7e200d
 ff6_encounter_display_list_left  = $7e575a
 ff6_encounter_display_list_right = $7e5760
 ff6_encounter_active_character   = $7e62ca
+ff6_encounter_current_menu_state = $7e7bf0
 
 .segment "BSS"
 
@@ -88,6 +89,14 @@ ff6vwf_encounter_bss_end:
 .segment "PTEXTENCOUNTERDRAWCOMMANDNAME"        ; $c169de
     jsl _ff6vwf_encounter_draw_command_name_from_display_list
     rts
+
+.segment "PTEXTENCOUNTERDRAWROWMENUITEM"        ; $c15631
+    jsl _ff6vwf_encounter_draw_row_menu_item
+    nop
+
+.segment "PTEXTENCOUNTERDRAWDEFENDMENUITEM"     ; $c1563b
+    jsl _ff6vwf_encounter_draw_defend_menu_item
+    nop
 
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
@@ -190,6 +199,10 @@ ff6vwf_encounter_close_submenu_patch:
     jml _ff6vwf_encounter_close_submenu
     stp     ; not reached
 
+.segment "PTEXTENCOUNTERROWDEFTILEMAP" ; $c2e165
+    .byte $ff, $ff, 80+8, 81+8, 82+8, 0         ; "Row"
+    .byte $ff, $ff, 90+8, 91+8, 92+8, 93+8, 0   ; "Def."
+
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
@@ -239,7 +252,7 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
 
     ; Render command.
     ldx command_slot
-    jsr _ff6vwf_encounter_render_command_name
+    jsr _ff6vwf_encounter_fetch_and_render_command_name
 
     ; Was there a command (as opposed to an empty slot)?
     cpx #0
@@ -287,14 +300,52 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     rtl
 .endproc
 
-; nearproc bool _ff6vwf_encounter_render_command_name(uint8 command_slot)
-.proc _ff6vwf_encounter_render_command_name
+; farproc void _ff6vwf_encounter_draw_row_menu_item()
+.proc _ff6vwf_encounter_draw_row_menu_item
+MENU_ITEM_ROW = 20
+MENU_STATE_ROW_SUSTAIN = $17
+
+    ldx #MENU_ITEM_ROW
+    ldy #8
+    jsr _ff6vwf_encounter_render_command_name
+
+    ; Stuff the original function did:
+    lda #MENU_STATE_ROW_SUSTAIN
+    sta f:ff6_encounter_current_menu_state
+
+    a16
+    lda #0
+    a8
+    ldx #0
+    rtl
+.endproc
+
+; farproc void _ff6vwf_encounter_draw_defend_menu_item()
+.proc _ff6vwf_encounter_draw_defend_menu_item
+MENU_ITEM_DEFEND = 21
+MENU_STATE_DEFEND_SUSTAIN = $19
+
+    ldx #MENU_ITEM_DEFEND
+    ldy #9
+    jsr _ff6vwf_encounter_render_command_name
+
+    ; Stuff the original function did:
+    lda #MENU_STATE_DEFEND_SUSTAIN
+    sta f:ff6_encounter_current_menu_state
+
+    a16
+    lda #0
+    a8
+    ldx #0
+    rtl
+.endproc
+
+; nearproc bool _ff6vwf_encounter_fetch_and_render_command_name(uint8 command_slot)
+.proc _ff6vwf_encounter_fetch_and_render_command_name
 begin_locals
-    decl_local outgoing_args, 7
     decl_local command_slot, 1              ; uint8
     decl_local text_line_slot, 1            ; uint8
     decl_local command_id, 1                ; uint8
-    decl_local string_ptr, 2                ; char near *
 
 character_battle_commands = $7e202e
 
@@ -335,6 +386,33 @@ character_battle_commands = $7e202e
     bra @out
 
 @got_a_command:
+    tax
+    ldy text_line_slot
+    jsr _ff6vwf_encounter_render_command_name
+
+    ldx #1          ; Return true.
+
+@out:
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc void _ff6vwf_encounter_render_command_name(uint8 command_id, uint8 text_line_slot)
+.proc _ff6vwf_encounter_render_command_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local text_line_slot, 1    ; uint8
+    decl_local command_id, 1        ; uint8
+    decl_local string_ptr, 2        ; char near *
+
+    enter __FRAME_SIZE__
+
+    ; Store arguments.
+    tya
+    sta text_line_slot
+    txa
+    sta command_id    
+
     ; Compute string pointer.
     a16
     and #$00ff
@@ -360,9 +438,6 @@ character_battle_commands = $7e202e
     sta outgoing_args+4             ; string bank byte
     ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
     jsr ff6vwf_render_string
-
-    ; Return true, since we got a command.
-    ldx #1
 
 @out:
     leave __FRAME_SIZE__
@@ -1307,7 +1382,7 @@ begin_locals
     lda #0
     sta command_index
 :   tax
-    jsr _ff6vwf_encounter_render_command_name
+    jsr _ff6vwf_encounter_fetch_and_render_command_name
     lda command_index
     inc
     sta command_index
