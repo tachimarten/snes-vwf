@@ -20,6 +20,7 @@
 .import ff6vwf_render_string: near
 .import ff6vwf_schedule_text_dma: near
 .import ff6vwf_long_spell_names: far
+.import ff6vwf_long_command_names: far
 .import ff6vwf_long_dance_names: far
 .import ff6vwf_long_lore_names: far
 .import ff6vwf_long_magitek_names: far
@@ -40,6 +41,7 @@ FF6VWF_ITEM_TYPE_TOOL           = 2
 ff6_encounter_enemy_ids          = $7e200d
 ff6_encounter_display_list_left  = $7e575a
 ff6_encounter_display_list_right = $7e5760
+ff6_encounter_active_character   = $7e62ca
 
 .segment "BSS"
 
@@ -82,6 +84,10 @@ ff6vwf_encounter_bss_end:
 ; Encounter setup. We patch it to initialize our DMA stack.
 .segment "PTEXTENCOUNTERINIT"
     jml _ff6vwf_encounter_init
+
+.segment "PTEXTENCOUNTERDRAWCOMMANDNAME"        ; $c169de
+    jsl _ff6vwf_encounter_draw_command_name_from_display_list
+    rts
 
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
@@ -177,6 +183,13 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jsr ff6_encounter_schedule_dma
     rtl
 
+; FF6 function that runs whenever a submenu closes and returns to the main menu. We patch it
+; reupload any command names.
+.segment "PTEXTENCOUNTERCLOSESUBMENU"   ; $c150c2
+ff6vwf_encounter_close_submenu_patch:
+    jml _ff6vwf_encounter_close_submenu
+    stp     ; not reached
+
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
@@ -187,6 +200,176 @@ _ff6vwf_encounter_schedule_dma_trampoline:
     jsl $c00016         ; original code
     jml $c1102e
 .endproc
+
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_command_name_from_display_list(
+;   uint16 unused,
+;   uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_command_name_from_display_list
+begin_locals
+    decl_local dest_tilemap_offset, 2       ; uint16
+    decl_local command_slot, 1              ; uint8
+    decl_local text_line_slot, 1            ; uint8
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; uint8
+
+display_list_ptr          = $7e0048
+first_command_ptr         = $7e56d9     ; address of first command in the display list
+
+    enter __FRAME_SIZE__
+
+    ; Save dest tilemap offset.
+    sty dest_tilemap_offset
+
+    ; Calculate text line slot.
+    a16
+    lda f:display_list_ptr
+    sub #.loword(first_command_ptr)
+    a8
+    lsri 3                  ; 8 bytes between each command
+    sta command_slot
+    add #4                  ; Start at 4 so as to avoid conflicting with enemy names.
+    sta text_line_slot
+
+    ; Bump display list pointer.
+    a16
+    lda f:display_list_ptr
+    inc
+    sta f:display_list_ptr
+    a8
+
+    ; Render command.
+    ldx command_slot
+    jsr _ff6vwf_encounter_render_command_name
+
+    ; Was there a command (as opposed to an empty slot)?
+    cpx #0
+    bne @got_a_command
+
+    ; Fill with blanks.
+    lda #FF6_SHORT_COMMAND_NAME_LENGTH+1
+    sta tiles_to_draw
+    ldx dest_tilemap_offset
+:   txy                         ; dest_tilemap_offset
+    ldx #$ffff                  ; space
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    dec tiles_to_draw
+    bne :-
+    stx dest_tilemap_offset
+    bra @out
+
+@got_a_command:
+    ; Calculate first tile index.
+    ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta current_tile_index
+
+    ; Draw tiles.
+    lda #FF6_SHORT_COMMAND_NAME_LENGTH
+    sta tiles_to_draw
+    ldx dest_tilemap_offset
+:   txy                                 ; dest_tilemap_offset
+    ldx current_tile_index              ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    inc current_tile_index
+    dec tiles_to_draw
+    bne :-
+    stx dest_tilemap_offset
+
+@out:
+    leave __FRAME_SIZE__
+    txy                 ; Put dest_tilemap_offset in Y.
+    a16
+    lda #0
+    a8
+    ldx #0
+    rtl
+.endproc
+
+; nearproc bool _ff6vwf_encounter_render_command_name(uint8 command_slot)
+.proc _ff6vwf_encounter_render_command_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local command_slot, 1              ; uint8
+    decl_local text_line_slot, 1            ; uint8
+    decl_local command_id, 1                ; uint8
+    decl_local string_ptr, 2                ; char near *
+
+character_battle_commands = $7e202e
+
+    enter __FRAME_SIZE__
+
+    txa
+    sta command_slot
+
+    ; Calculate text line slot. Start at 4 so as to not conflict with enemy names.
+    add #4
+    sta text_line_slot
+
+    ; Look up command ID.
+    ;
+    ; We could use the display list pointer for this if we're drawing the main command list, but
+    ; for the sake of unifying this code with the "reupload on submenu close" code, let's look the
+    ; command ID up directly.
+    lda ff6_encounter_active_character
+    and #$03
+    tax
+    ldy #12
+    jsr std_mul8
+    txa
+    add command_slot
+    add command_slot
+    add command_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:character_battle_commands,x
+    sta command_id
+
+    ; If empty, don't display it.
+    cmp #$ff
+    bne @got_a_command
+    ldx #0          ; Return false.
+    bra @out
+
+@got_a_command:
+    ; Compute string pointer.
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_command_names,x
+    sta string_ptr
+    a8
+
+    ; Calculate first tile ID.
+    ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
+    ldy string_ptr
+    sty outgoing_args+2             ; string
+    lda #^ff6vwf_long_command_names
+    sta outgoing_args+4             ; string bank byte
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Return true, since we got a command.
+    ldx #1
+
+@out:
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.export _ff6vwf_encounter_render_command_name
 
 ; farproc void _ff6vwf_encounter_draw_enemy_name(uint16 unused, uint16 tilemap_offset)
 ;
@@ -1039,6 +1222,25 @@ ff6_dma_size_to_transfer = $10
     jml $c150fb
 .endproc
 
+.proc _ff6vwf_encounter_close_submenu
+    ; FIXME(tachiweasel): Ugly!
+    a16
+    pha
+    phx
+    phy
+    a8
+    jsr _ff6vwf_encounter_reupload_all_command_names
+    a16
+    ply
+    plx
+    pla
+    a8
+
+    ; Stuff the original function did
+    inc $7bee
+    jml $c14f8c
+.endproc
+
 .proc _ff6vwf_encounter_reupload_all_enemy_names
 begin_locals
     decl_local outgoing_args, 6
@@ -1091,6 +1293,26 @@ begin_locals
     lda enemy_slot
     cmp #4
     bne @render_next_enemy
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.proc _ff6vwf_encounter_reupload_all_command_names
+begin_locals
+    decl_local command_index, 1     ; uint8
+
+    enter __FRAME_SIZE__
+
+    lda #0
+    sta command_index
+:   tax
+    jsr _ff6vwf_encounter_render_command_name
+    lda command_index
+    inc
+    sta command_index
+    cmp #4
+    bne :-
 
     leave __FRAME_SIZE__
     rts
@@ -1232,8 +1454,6 @@ begin_locals
 
 ; patch _ff6vwf_encounter_build_menu_item_for_lore
 .proc _ff6vwf_encounter_build_menu_item_for_lore
-ff6_encounter_active_character = $7e62ca
-
     sta f:ff6vwf_encounter_current_skill_slot
 
     ; Stuff the original function did:

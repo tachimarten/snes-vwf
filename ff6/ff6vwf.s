@@ -452,6 +452,39 @@ ff6vwf_string_10_char_offsets:
 .endrepeat
 .endmacro
 
+ff6vwf_long_command_names: def_pointer_array ff6vwf_long_command_name, 30
+
+ff6vwf_long_command_name_0:  .asciiz "Attack"
+ff6vwf_long_command_name_1:  .asciiz "Items"
+ff6vwf_long_command_name_2:  .asciiz "Magic"
+ff6vwf_long_command_name_3:  .asciiz "Morph"
+ff6vwf_long_command_name_4:  .asciiz "Revert"
+ff6vwf_long_command_name_5:  .asciiz "Steal"
+ff6vwf_long_command_name_6:  .asciiz "Mug"
+ff6vwf_long_command_name_7:  .asciiz "Bushido"
+ff6vwf_long_command_name_8:  .asciiz "Throw"
+ff6vwf_long_command_name_9:  .asciiz "Tools"
+ff6vwf_long_command_name_10: .asciiz "Blitz"
+ff6vwf_long_command_name_11: .asciiz "Runic"
+ff6vwf_long_command_name_12: .asciiz "Lore"
+ff6vwf_long_command_name_13: .asciiz "Sketch"
+ff6vwf_long_command_name_14: .asciiz "Control"
+ff6vwf_long_command_name_15: .asciiz "Slot"
+ff6vwf_long_command_name_16: .asciiz "Rage"
+ff6vwf_long_command_name_17: .asciiz "Leap"
+ff6vwf_long_command_name_18: .asciiz "Mimic"
+ff6vwf_long_command_name_19: .asciiz "Dance"
+ff6vwf_long_command_name_20: .asciiz "Row"
+ff6vwf_long_command_name_21: .asciiz "Defend"
+ff6vwf_long_command_name_22: .asciiz "Jump"
+ff6vwf_long_command_name_23: .asciiz "Dualcast"
+ff6vwf_long_command_name_24: .asciiz "Gil Toss"
+ff6vwf_long_command_name_25: .asciiz "Summon"
+ff6vwf_long_command_name_26: .asciiz "Pray"
+ff6vwf_long_command_name_27: .asciiz "Shock"
+ff6vwf_long_command_name_28: .asciiz "Possess"
+ff6vwf_long_command_name_29: .asciiz "Magitek"
+
 ff6vwf_long_spell_names: def_pointer_array ff6vwf_long_spell_name, 54
 
 ff6vwf_long_spell_name_0:  .asciiz "Fire"
@@ -639,6 +672,7 @@ ff6vwf_long_class_name_34: .asciiz "Shogun"
 ff6vwf_long_class_name_35: .asciiz "Moogle"
 
 .export ff6vwf_long_spell_names: far
+.export ff6vwf_long_command_names: far
 .export ff6vwf_long_esper_names: far
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_lore_names: far
