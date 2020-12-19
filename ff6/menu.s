@@ -40,6 +40,10 @@ VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
 
 MAIN_MENU_STRING_COUNT = 10
+ITEM_MENU_STRING_COUNT = 4
+SKILLS_MENU_STRING_COUNT = 7
+EQUIP_MENU_STRING_COUNT = 8
+RELIC_MENU_STRING_COUNT = 3
 CONFIG_STRING_COUNT = 11
 
 ; FF6 globals
@@ -86,6 +90,11 @@ ff6_menu_draw_string        = $c37fd9
     .endrepeat
 .endmacro
 
+.macro def_static_text_tiles_z first_tile_id, count
+    def_static_text_tiles first_tile_id, count
+    .byte 0
+.endmacro
+
 .segment "BSS"
 
 ; Menu BSS
@@ -122,7 +131,6 @@ ff6_menu_trigger_nmi = $1368
 
     jsl _ff6vwf_menu_draw_equipment_name
     rts
-
 ; Let's put some trampolines here.
 _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
 _ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
@@ -395,6 +403,16 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 .segment "PTEXTMENUDRAWMAINMENU"        ; $c33221
     jsl _ff6vwf_menu_draw_main_menu
 
+.segment "PTEXTMENUDRAWITEMMENU"        ; $c37de5
+    jsl _ff6vwf_menu_draw_item_menu
+
+.segment "PTEXTMENUDRAWSKILLSMENU"      ; $c34cde
+    jsl _ff6vwf_menu_draw_skills_menu
+
+.segment "PTEXTMENUDRAWEQUIPMENU"       ; $c3903c
+    jsl _ff6vwf_menu_draw_equip_menu
+    nopx 2
+
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
     jsl _ff6vwf_menu_draw_config_menu
     nop
@@ -485,6 +503,7 @@ begin_locals
     and #$03
     tax                 ; For call below.
     a8
+    add #EQUIP_MENU_STRING_COUNT
     sta text_line_slot
 
     ; Calculate first tile ID.
@@ -1884,6 +1903,92 @@ begin_locals
     rtl
 .endproc
 
+.proc _ff6vwf_menu_draw_item_menu
+begin_locals
+    decl_local outgoing_args, 7
+
+    enter __FRAME_SIZE__
+
+    lda #10
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+2     ; base_addr
+    ldx #.loword(ff6vwf_item_menu_labels)
+    stx outgoing_args+4     ; string_list
+    lda #^ff6vwf_item_menu_labels
+    sta outgoing_args+6     ; string_list, bank byte
+    ldx #ITEM_MENU_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    lda #$20    ; Palette 0
+    sta f:ff6_menu_bg_attrs
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_skills_menu
+begin_locals
+    decl_local outgoing_args, 7
+
+espers_palette = $7e0079
+
+    enter __FRAME_SIZE__
+
+    lda #10
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+2     ; base_addr
+    ldx #.loword(ff6vwf_skills_menu_labels)
+    stx outgoing_args+4     ; string_list
+    lda #^ff6vwf_skills_menu_labels
+    sta outgoing_args+6     ; string_list, bank byte
+    ldx #SKILLS_MENU_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    lda f:espers_palette        ; Espers palette
+    sta f:ff6_menu_bg_attrs
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_equip_menu
+begin_locals
+    decl_local outgoing_args, 7
+
+    enter __FRAME_SIZE__
+
+    lda #10
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+2     ; base_addr
+    ldx #.loword(ff6vwf_equip_menu_labels)
+    stx outgoing_args+4     ; string_list
+    lda #^ff6vwf_equip_menu_labels
+    sta outgoing_args+6     ; string_list, bank byte
+    ldx #EQUIP_MENU_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    ldx #.loword(_equip_menu_positioned_text-12)    ; Text ptrs loc
+    ldy #4                                          ; Strings: 2
+    rtl
+.endproc
+
 .proc _ff6vwf_menu_draw_config_menu
 begin_locals
     decl_local outgoing_args, 7
@@ -2062,157 +2167,183 @@ out:
 .segment "PTEXTMENUMAINMENUPOSITIONEDTEXT"  ; $c337cb
 
 .word $7939
-    def_static_text_tiles 4*10+5*0, .strlen("Item")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*0, .strlen("Item")
 .word $79b9
     def_static_text_tiles 4*10+5*1, .strlen("Skill")
-    .byte $ff
-    .byte 0
+    .byte $ff, 0
 .word $7a39
-    def_static_text_tiles 4*10+5*2, .strlen("Equip")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*2, .strlen("Equip")
 .word $7ab9
-    def_static_text_tiles 4*10+5*3, .strlen("Relic")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*3, .strlen("Relic")
 .word $7b39
     def_static_text_tiles 4*10+5*4, .strlen("Statu")
-    .byte $ff
-    .byte 0
+    .byte $ff, 0
 .word $7bb9
     def_static_text_tiles 4*10+5*5, .strlen("Confi")
-    .byte $ff
-    .byte 0
+    .byte $ff, 0
 .word $7c39
-    def_static_text_tiles 4*10+5*6, .strlen("Save")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*6, .strlen("Save")
 .word $7cbb
-    def_static_text_tiles 4*10+5*7, .strlen("Time")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*7, .strlen("Time")
 .word $7cff
-    ff6_def_charset_string ':'
-    .byte 0
+    ff6_def_charset_string_z ":"
 .word $7db7
-    def_static_text_tiles 4*10+5*8, .strlen("Steps")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*8, .strlen("Steps")
 .word $7e77
-    def_static_text_tiles 4*10+5*9, .strlen("Gp")
-    .byte 0
+    def_static_text_tiles_z 4*10+5*9, .strlen("Gp")
+
+.segment "PTEXTMENUITEMMENUPOSITIONEDTEXT"      ; $c38d16
+
+.word $790d
+    def_static_text_tiles_z 0*10, .strlen("Item")
+.word $791d
+    def_static_text_tiles_z 1*10, .strlen("USE")
+.word $7927
+    def_static_text_tiles_z 2*10, .strlen("ARRANGE")
+.word $7939
+    def_static_text_tiles_z 3*10, .strlen("RARE")
+
+.segment "PTEXTMENUSKILLSMENUPOSITIONEDTEXT"    ; $c35c48
+
+.word $790d
+    def_static_text_tiles_z 0*10, .strlen("Espers")
+.word $798d
+    def_static_text_tiles_z 1*10, .strlen("Magic")
+.word $7a8d
+    def_static_text_tiles_z 2*10, .strlen("SwdTech")
+.word $7b0d
+    def_static_text_tiles_z 3*10, .strlen("Blitz")
+.word $7b8d
+    def_static_text_tiles_z 4*10, .strlen("Lore")
+.word $7c0d
+    def_static_text_tiles_z 5*10, .strlen("Rage")
+.word $7c8d
+    def_static_text_tiles_z 6*10, .strlen("Dance")
+
+.segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXT"     ; $c3a2ba
+_equip_menu_positioned_text:
+
+; Positioned text for Equip and Relic menus
+.word $7a0d
+    def_static_text_tiles_z 4*10, .strlen("R-hand")
+.word $7a8d
+    def_static_text_tiles_z 5*10, .strlen("L-hand")
+.word $7b0d
+    def_static_text_tiles_z 6*10, .strlen("Head")
+.word $7b8d
+    def_static_text_tiles_z 7*10, .strlen("Body")
+.word $7b0d
+    def_static_text_tiles_z 2*10, .strlen("Relic")
+.word $7b8d
+    def_static_text_tiles_z 2*10, .strlen("Relic")
+
+; Positioned spaces for blanking options and title in gear menus
+.word $790d
+    ff6_def_charset_string_z "                            "
+
+; Positioned text for title in Equip and Relic menus
+.word $7939
+    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+.word $7939
+    def_static_text_tiles_z 1*10, .strlen("REMOVE")
+
+; Positioned text for options in Equip menu
+.word $790d
+    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+.word $791b
+    def_static_text_tiles_z 2*10, .strlen("OPTIMUM")
+.word $792d
+    def_static_text_tiles_z 1*10, .strlen("RMOVE")
+.word $793b
+    def_static_text_tiles_z 3*10, .strlen("EMPTY")
+
+; Positioned text for options in Relic menu
+.word $7911
+    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+.word $791f
+    def_static_text_tiles_z 1*10, .strlen("REMOVE")
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
 
 ; Positioned text for Config page 1
 .word $3d8f
-    def_static_text_tiles 7*10, .strlen("Controller")
-    .byte 0
+    def_static_text_tiles_z 7*10, .strlen("Controller")
 .word $39b5
-    ff6_def_charset_string 'W' 'a' 'i' 't'
-    .byte 0
+    ff6_def_charset_string_z "Wait"
 .word $3a65
-    ff6_def_charset_string 'F' 'a' 's' 't'
-    .byte 0
+    ff6_def_charset_string_z "Fast"
 .word $3a75
-    ff6_def_charset_string 'S' 'l' 'o' 'w'
-    .byte 0
+    ff6_def_charset_string_z "Slow"
 .word $3b35
-    ff6_def_charset_string 'S' 'h' 'o' 'r' 't'
-    .byte 0
+    ff6_def_charset_string_z "Short"
 .word $3ba5
-    ff6_def_charset_string 'O' 'n'
-    .byte 0
+    ff6_def_charset_string_z "On"
 .word $3bb5
-    ff6_def_charset_string 'O' 'f' 'f'
-    .byte 0
+    ff6_def_charset_string_z "Off"
 .word $3c25
-    ff6_def_charset_string 'S' 't' 'e' 'r' 'e' 'o'
-    .byte 0
+    ff6_def_charset_string_z "Stereo"
 .word $3c35
-    ff6_def_charset_string 'M' 'o' 'n' 'o'
-    .byte 0
+    ff6_def_charset_string_z "Mono"
 .word $3cb5
-    ff6_def_charset_string 'M' 'e' 'm' 'o' 'r' 'y'
-    .byte 0
+    ff6_def_charset_string_z "Memory"
 .word $3d25
-    ff6_def_charset_string 'O' 'p' 't' 'i' 'm' 'u' 'm'
-    .byte 0
+    ff6_def_charset_string_z "Optimum"
 .word $3db5
-    ff6_def_charset_string 'M' 'u' 'l' 't' 'i' 'p' 'l' 'e'
-    .byte 0
+    ff6_def_charset_string_z "Multiple"
 .word $3a25
-    ff6_def_charset_string '1' ' ' '2' ' ' '3' ' ' '4' ' ' '5' ' ' '6'
-    .byte 0
+    ff6_def_charset_string_z "1 2 3 4 5 6"
 .word $3aa5
-    ff6_def_charset_string '1' ' ' '2' ' ' '3' ' ' '4' ' ' '5' ' ' '6'
-    .byte 0
+    ff6_def_charset_string_z "1 2 3 4 5 6"
 .word $3c8f
-    def_static_text_tiles 10*10, .strlen("Cursor")
-    .byte 0
+    def_static_text_tiles_z 10*10, .strlen("Cursor")
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
 
 .word $78f9
-    ff6_def_charset_string 'C' 'o' 'n' 'f' 'i' 'g'
-    .byte 0
+    ff6_def_charset_string_z "Config"
 .word $398f
-    def_static_text_tiles 0*10, .strlen("Bat.Mode")
-    .byte 0
+    def_static_text_tiles_z 0*10, .strlen("Bat.Mode")
 .word $3a0f
-    def_static_text_tiles 1*10, .strlen("Bat.Speed")
-    .byte 0
+    def_static_text_tiles_z 1*10, .strlen("Bat.Speed")
 .word $3a8f
-    def_static_text_tiles 2*10, .strlen("Msg.Speed")
-    .byte 0
+    def_static_text_tiles_z 2*10, .strlen("Msg.Speed")
 .word $3b0f
-    def_static_text_tiles 3*10, .strlen("Cmd.Set")
-    .byte 0
+    def_static_text_tiles_z 3*10, .strlen("Cmd.Set")
 .word $3b8f
-    def_static_text_tiles 4*10, .strlen("Gauge")
-    .byte 0
+    def_static_text_tiles_z 4*10, .strlen("Gauge")
 .word $3c0f
-    def_static_text_tiles 5*10, .strlen("Sound")
-    .byte 0
+    def_static_text_tiles_z 5*10, .strlen("Sound")
 .word $3d0f
-    def_static_text_tiles 6*10, .strlen("Reequip")
-    .byte 0
+    def_static_text_tiles_z 6*10, .strlen("Reequip")
 .word $39a5
-    ff6_def_charset_string 'A' 'c' 't' 'i' 'v' 'e'
-    .byte 0
+    ff6_def_charset_string_z "Active"
 .word $3b25
-    ff6_def_charset_string 'W' 'i' 'n' 'd' 'o' 'w'
-    .byte 0
+    ff6_def_charset_string_z "Window"
 .word $3ca5
-    ff6_def_charset_string 'R' 'e' 's' 'e' 't'
-    .byte 0
+    ff6_def_charset_string_z "Reset"
 .word $3d35
-    ff6_def_charset_string 'E' 'm' 'p' 't' 'y'
-    .byte 0
+    ff6_def_charset_string_z "Empty"
 .word $3da5
-    ff6_def_charset_string 'S' 'i' 'n' 'g' 'l' 'e'
-    .byte 0
+    ff6_def_charset_string_z "Single"
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTC"   ; $c34a34
 
 .word $418f
-    def_static_text_tiles 8*10, .strlen("Mag.Order")
-    .byte 0
+    def_static_text_tiles_z 8*10, .strlen("Mag.Order")
 .word $438f
-    def_static_text_tiles 9*10, .strlen("Window")
-    .byte 0
+    def_static_text_tiles_z 9*10, .strlen("Window")
 .word $440f
-    .byte $ff, $ff, $ff, $ff, $ff   ; "Color"
-    .byte 0
+    .byte $ff, $ff, $ff, $ff, $ff, 0    ; "Color"
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTD"   ; $c34afb
 
 .word $7b4d
-    def_static_text_tiles 7*10, .strlen("Controller")
-    .byte 0
+    def_static_text_tiles_z 7*10, .strlen("Controller")
 .repeat 4, i
-    .word $7c21+$80*i
-    ff6_def_charset_string 'C' 'n' 't' 'l' 'r' '1'
-    .byte 0
-    .word $7c33+$80*i
-    ff6_def_charset_string 'C' 'n' 't' 'l' 'r' '2'
-    .byte 0
+.word $7c21+$80*i
+    ff6_def_charset_string_z "Cntlr1"
+.word $7c33+$80*i
+    ff6_def_charset_string_z "Cntlr2"
 .endrepeat
 
 ; Constant data
@@ -2220,8 +2351,7 @@ out:
 .segment "DATA"
 
 ff6vwf_string_equipment:
-    ff6_def_charset_string 'E' 'q' 'u' 'i' 'p' 'm' 'e' 'n' 't' ' '
-    .byte 0
+    ff6_def_charset_string_z "Equipment "
 ff6vwf_string_equipment_end:
 
 ff6vwf_main_menu_labels: ff6vwf_def_pointer_array ff6vwf_main_menu_label, MAIN_MENU_STRING_COUNT
@@ -2237,13 +2367,51 @@ ff6vwf_main_menu_label_7:  .asciiz "Time"
 ff6vwf_main_menu_label_8:  .asciiz "Steps"
 ff6vwf_main_menu_label_9:  .asciiz "Gil"
 
+ff6vwf_item_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_item_menu_label, ITEM_MENU_STRING_COUNT
+
+ff6vwf_item_menu_label_0:  .asciiz "Items"
+ff6vwf_item_menu_label_1:  .asciiz "Use"
+ff6vwf_item_menu_label_2:  .asciiz "Sort"
+ff6vwf_item_menu_label_3:  .asciiz "Key"
+
+ff6vwf_skills_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_skills_menu_label, SKILLS_MENU_STRING_COUNT
+
+ff6vwf_skills_menu_label_0:  .asciiz "Espers"
+ff6vwf_skills_menu_label_1:  .asciiz "Magic"
+ff6vwf_skills_menu_label_2:  .asciiz "Bushido"
+ff6vwf_skills_menu_label_3:  .asciiz "Blitz"
+ff6vwf_skills_menu_label_4:  .asciiz "Lore"
+ff6vwf_skills_menu_label_5:  .asciiz "Rage"
+ff6vwf_skills_menu_label_6:  .asciiz "Dance"
+
+ff6vwf_equip_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_equip_menu_label, EQUIP_MENU_STRING_COUNT
+
+ff6vwf_equip_menu_label_0:  .asciiz "Equip"
+ff6vwf_equip_menu_label_1:  .asciiz "Remove"
+ff6vwf_equip_menu_label_2:  .asciiz "Auto-Equip"
+ff6vwf_equip_menu_label_3:  .asciiz "Empty"
+ff6vwf_equip_menu_label_4:  .asciiz "Right Hand"
+ff6vwf_equip_menu_label_5:  .asciiz "Left Hand"
+ff6vwf_equip_menu_label_6:  .asciiz "Head"
+ff6vwf_equip_menu_label_7:  .asciiz "Body"
+
+ff6vwf_relic_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_relic_menu_label, RELIC_MENU_STRING_COUNT
+
+ff6vwf_relic_menu_label_0:  .asciiz "Equip"
+ff6vwf_relic_menu_label_1:  .asciiz "Remove"
+ff6vwf_relic_menu_label_2:  .asciiz "Relic"
+
 ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
 
 ff6vwf_config_label_0:  .asciiz "ATB Mode"
 ff6vwf_config_label_1:  .asciiz "Battle Speed"
 ff6vwf_config_label_2:  .asciiz "Text Speed"
 ff6vwf_config_label_3:  .asciiz "Command Set"
-ff6vwf_config_label_4:  .asciiz "Gauge"
+ff6vwf_config_label_4:  .asciiz "ATB Gauge"
 ff6vwf_config_label_5:  .asciiz "Sound"
 ff6vwf_config_label_6:  .asciiz "Reequip"
 ff6vwf_config_label_7:  .asciiz "Controllers"

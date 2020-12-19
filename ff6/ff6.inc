@@ -15,6 +15,7 @@ FF6VWF_MENU_SLOT_COUNT = 20
 VWF_TILE_BYTE_SIZE_2BPP = 2 * 8
 ; The byte size of a tile (4bpp).
 VWF_TILE_BYTE_SIZE_4BPP = 2 * 8 * 2
+FF6VWF_FIRST_TILE = 8
 
 FF6VWF_DMA_STRUCT_SIZE = 6
 
@@ -37,23 +38,27 @@ ff6_short_spell_names   = $e6f567
 
 ; Macros
 
-.macro ff6_def_charset_string chars
-    .if !.blank(chars)
-        .if .left(1, chars) >= 'A' && .left(1, chars) <= 'Z'
-            .byte .left(1, chars) - 'A' + $80
-        .elseif .left(1, chars) >= 'a' && .left(1, chars) <= 'z'
-            .byte .left(1, chars) - 'a' + $9a
-        .elseif .left(1, chars) >= '0' && .left(1, chars) <= '9'
-            .byte .left(1, chars) - '0' + $b4
-        .elseif .left(1, chars) = ':'
+.macro ff6_def_charset_string __string
+    .repeat .strlen(__string), __index
+        .if .strat(__string, __index) >= 'A' && .strat(__string, __index) <= 'Z'
+            .byte .strat(__string, __index) - 'A' + $80
+        .elseif .strat(__string, __index) >= 'a' && .strat(__string, __index) <= 'z'
+            .byte .strat(__string, __index) - 'a' + $9a
+        .elseif .strat(__string, __index) >= '0' && .strat(__string, __index) <= '9'
+            .byte .strat(__string, __index) - '0' + $b4
+        .elseif .strat(__string, __index) = ':'
             .byte $c1
-        .elseif .left(1, chars) = ' '
+        .elseif .strat(__string, __index) = ' '
             .byte $ff
         .else
-            .warning "unknown character in `ff6_charset_string`"
+            .warning "unknown character in `ff6_def_charset_string`"
         .endif
-        ff6_def_charset_string .right(.tcount(chars) - 1, chars)
-    .endif
+    .endrepeat
+.endmacro
+
+.macro ff6_def_charset_string_z chars
+    ff6_def_charset_string chars
+    .byte 0
 .endmacro
 
 .macro ff6vwf_def_pointer_array prefix, count
