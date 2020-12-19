@@ -45,6 +45,8 @@ ff6_short_spell_names   = $e6f567
             .byte .left(1, chars) - 'a' + $9a
         .elseif .left(1, chars) >= '0' && .left(1, chars) <= '9'
             .byte .left(1, chars) - '0' + $b4
+        .elseif .left(1, chars) = ':'
+            .byte $c1
         .elseif .left(1, chars) = ' '
             .byte $ff
         .else

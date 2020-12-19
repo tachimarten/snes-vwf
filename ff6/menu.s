@@ -39,10 +39,14 @@ VWF_MENU_TILE_BG3_BASE_ADDR = $c000
 ; List item is a Key Item.
 FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
 
+MAIN_MENU_STRING_COUNT = 10
+CONFIG_STRING_COUNT = 11
+
 ; FF6 globals
 
 ff6_menu_null                       = $7e0000
 ff6_menu_current_state              = $7e0026
+ff6_menu_bg_attrs                   = $7e0029
 ff6_menu_bg2_hscroll                = $7e0039
 ff6_menu_bg3_hscroll                = $7e003d
 ff6_menu_list_scroll                = $7e004a
@@ -76,9 +80,9 @@ ff6_menu_draw_string        = $c37fd9
     rtl
 .endmacro
 
-.macro def_static_text_tiles slot, count
+.macro def_static_text_tiles first_tile_id, count
     .repeat count, i
-        .byte 8 + slot*10 + i
+        .byte 8 + first_tile_id + i
     .endrepeat
 .endmacro
 
@@ -233,8 +237,6 @@ FF6_MENU_STATE_RAGE = $1d
     rts
 
 .segment "PTEXTMENUDRAWRAGEROW"
-ff6_menu_bg_attrs = $7e0029
-
 ff6_menu_rage_define_source = $c35409
 ff6_menu_rage_draw          = $c35418
 
@@ -383,9 +385,15 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     jmp .loword(ff6_menu_draw_string)
 
+.segment "PTEXTMENUDRAWCOMMANDNAME"     ; $c35ee1
+    ; TODO(tachiweasel)
+
 .segment "PTEXTMENUDRAWKEYITEM"         ; $c38460
     jml _ff6vwf_menu_draw_key_item
     stp     ; should never be reached
+
+.segment "PTEXTMENUDRAWMAINMENU"        ; $c33221
+    jsl _ff6vwf_menu_draw_main_menu
 
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
     jsl _ff6vwf_menu_draw_config_menu
@@ -1782,40 +1790,54 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     .word $1578, $4578, $7578, $a578
 .endproc
 
-.proc _ff6vwf_menu_draw_config_menu
+; nearproc void _ff6vwf_menu_render_static_strings(uint8 string_count,
+;                                                  uint8 first_tile_id,
+;                                                  uint8 max_tile_count,
+;                                                  uint8 dma_flags,
+;                                                  vram near *base_addr,
+;                                                  const char near *far *string_list)
+.proc _ff6vwf_menu_render_static_strings
 begin_locals
     decl_local outgoing_args, 5
-    decl_local config_string_index, 1   ; uint8
-    decl_local current_tile_id, 1       ; uint8
+    decl_local string_index, 1      ; uint8
+    decl_local current_tile_id, 1   ; uint8
+    decl_local string_count, 1      ; uint8
+begin_args_nearcall
+    decl_arg max_tile_count, 1      ; uint8
+    decl_arg dma_flags, 1           ; uint8
+    decl_arg base_addr, 2           ; vram near *
+    decl_arg string_list, 3         ; const char near *far *
 
-CONFIG_STRING_COUNT = 12
 ff6_update_config_menu_arrow = $c33980
 
     enter __FRAME_SIZE__
 
-    lda #8
+    ; Initialize locals.
+    txa
+    sta string_count
+    tya
     sta current_tile_id
     lda #0
-    sta config_string_index
+    sta string_index
 
 @loop:
-    cmp #CONFIG_STRING_COUNT
+    cmp string_count
     beq @out
 
     a16
     and #$00ff
     asl
-    tax
-    lda f:ff6vwf_config_labels,x
+    tay
+    lda [string_list],y
     sta outgoing_args+2     ; string_ptr
     a8
-    lda #10
+    lda max_tile_count
     sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    lda dma_flags
     sta outgoing_args+1     ; 4bpp
-    lda #^ff6vwf_config_labels
+    lda string_list+2
     sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldy base_addr           ; base_addr
     ldx current_tile_id
     jsr ff6vwf_render_string
 
@@ -1823,13 +1845,67 @@ ff6_update_config_menu_arrow = $c33980
     jsr _ff6vwf_menu_force_nmi
 
     lda current_tile_id
-    add #10
+    add max_tile_count
     sta current_tile_id
-    inc config_string_index
-    lda config_string_index
+    inc string_index
+    lda string_index
     bra @loop
 
 @out:
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.proc _ff6vwf_menu_draw_main_menu
+begin_locals
+    decl_local outgoing_args, 7
+
+    enter __FRAME_SIZE__
+
+    lda #5
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+2     ; base_addr
+    ldx #.loword(ff6vwf_main_menu_labels)
+    stx outgoing_args+4     ; string_list
+    lda #^ff6vwf_main_menu_labels
+    sta outgoing_args+6     ; string_list, bank byte
+    ldx #MAIN_MENU_STRING_COUNT
+    ldy #8+10*4
+    jsr _ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    lda #$20    ; palette 0
+    sta f:ff6_menu_bg_attrs
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_config_menu
+begin_locals
+    decl_local outgoing_args, 7
+
+ff6_update_config_menu_arrow = $c33980
+
+    enter __FRAME_SIZE__
+
+    lda #10
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; dma_flags
+    ldx #VWF_MENU_TILE_BG1_BASE_ADDR
+    stx outgoing_args+2     ; base_addr
+    ldx #.loword(ff6vwf_config_labels)
+    stx outgoing_args+4     ; string_list
+    lda #^ff6vwf_config_labels
+    sta outgoing_args+6     ; string_list, bank byte
+    ldx #CONFIG_STRING_COUNT
+    ldy #8                  ; first_tile_id
+    jsr _ff6vwf_menu_render_static_strings
+
     leave __FRAME_SIZE__
 
     ; Stuff the original function did:
@@ -1983,11 +2059,50 @@ out:
 
 ; ROM data patches
 
+.segment "PTEXTMENUMAINMENUPOSITIONEDTEXT"  ; $c337cb
+
+.word $7939
+    def_static_text_tiles 4*10+5*0, .strlen("Item")
+    .byte 0
+.word $79b9
+    def_static_text_tiles 4*10+5*1, .strlen("Skill")
+    .byte $ff
+    .byte 0
+.word $7a39
+    def_static_text_tiles 4*10+5*2, .strlen("Equip")
+    .byte 0
+.word $7ab9
+    def_static_text_tiles 4*10+5*3, .strlen("Relic")
+    .byte 0
+.word $7b39
+    def_static_text_tiles 4*10+5*4, .strlen("Statu")
+    .byte $ff
+    .byte 0
+.word $7bb9
+    def_static_text_tiles 4*10+5*5, .strlen("Confi")
+    .byte $ff
+    .byte 0
+.word $7c39
+    def_static_text_tiles 4*10+5*6, .strlen("Save")
+    .byte 0
+.word $7cbb
+    def_static_text_tiles 4*10+5*7, .strlen("Time")
+    .byte 0
+.word $7cff
+    ff6_def_charset_string ':'
+    .byte 0
+.word $7db7
+    def_static_text_tiles 4*10+5*8, .strlen("Steps")
+    .byte 0
+.word $7e77
+    def_static_text_tiles 4*10+5*9, .strlen("Gp")
+    .byte 0
+
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
 
 ; Positioned text for Config page 1
 .word $3d8f
-    def_static_text_tiles 7, .strlen("Controller")
+    def_static_text_tiles 7*10, .strlen("Controller")
     .byte 0
 .word $39b5
     ff6_def_charset_string 'W' 'a' 'i' 't'
@@ -2029,7 +2144,7 @@ out:
     ff6_def_charset_string '1' ' ' '2' ' ' '3' ' ' '4' ' ' '5' ' ' '6'
     .byte 0
 .word $3c8f
-    def_static_text_tiles 10, .strlen("Cursor")
+    def_static_text_tiles 10*10, .strlen("Cursor")
     .byte 0
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
@@ -2038,25 +2153,25 @@ out:
     ff6_def_charset_string 'C' 'o' 'n' 'f' 'i' 'g'
     .byte 0
 .word $398f
-    def_static_text_tiles 0, .strlen("Bat.Mode")
+    def_static_text_tiles 0*10, .strlen("Bat.Mode")
     .byte 0
 .word $3a0f
-    def_static_text_tiles 1, .strlen("Bat.Speed")
+    def_static_text_tiles 1*10, .strlen("Bat.Speed")
     .byte 0
 .word $3a8f
-    def_static_text_tiles 2, .strlen("Msg.Speed")
+    def_static_text_tiles 2*10, .strlen("Msg.Speed")
     .byte 0
 .word $3b0f
-    def_static_text_tiles 3, .strlen("Cmd.Set")
+    def_static_text_tiles 3*10, .strlen("Cmd.Set")
     .byte 0
 .word $3b8f
-    def_static_text_tiles 4, .strlen("Gauge")
+    def_static_text_tiles 4*10, .strlen("Gauge")
     .byte 0
 .word $3c0f
-    def_static_text_tiles 5, .strlen("Sound")
+    def_static_text_tiles 5*10, .strlen("Sound")
     .byte 0
 .word $3d0f
-    def_static_text_tiles 6, .strlen("Reequip")
+    def_static_text_tiles 6*10, .strlen("Reequip")
     .byte 0
 .word $39a5
     ff6_def_charset_string 'A' 'c' 't' 'i' 'v' 'e'
@@ -2077,10 +2192,10 @@ out:
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTC"   ; $c34a34
 
 .word $418f
-    def_static_text_tiles 8, .strlen("Mag.Order")
+    def_static_text_tiles 8*10, .strlen("Mag.Order")
     .byte 0
 .word $438f
-    def_static_text_tiles 9, .strlen("Window")
+    def_static_text_tiles 9*10, .strlen("Window")
     .byte 0
 .word $440f
     .byte $ff, $ff, $ff, $ff, $ff   ; "Color"
@@ -2089,7 +2204,7 @@ out:
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTD"   ; $c34afb
 
 .word $7b4d
-    def_static_text_tiles 7, .strlen("Controller")
+    def_static_text_tiles 7*10, .strlen("Controller")
     .byte 0
 .repeat 4, i
     .word $7c21+$80*i
@@ -2109,7 +2224,20 @@ ff6vwf_string_equipment:
     .byte 0
 ff6vwf_string_equipment_end:
 
-ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, 11
+ff6vwf_main_menu_labels: ff6vwf_def_pointer_array ff6vwf_main_menu_label, MAIN_MENU_STRING_COUNT
+
+ff6vwf_main_menu_label_0:  .asciiz "Items"
+ff6vwf_main_menu_label_1:  .asciiz "Skills"
+ff6vwf_main_menu_label_2:  .asciiz "Equip"
+ff6vwf_main_menu_label_3:  .asciiz "Relics"
+ff6vwf_main_menu_label_4:  .asciiz "Status"
+ff6vwf_main_menu_label_5:  .asciiz "Config"
+ff6vwf_main_menu_label_6:  .asciiz "Save"
+ff6vwf_main_menu_label_7:  .asciiz "Time"
+ff6vwf_main_menu_label_8:  .asciiz "Steps"
+ff6vwf_main_menu_label_9:  .asciiz "Gil"
+
+ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
 
 ff6vwf_config_label_0:  .asciiz "ATB Mode"
 ff6vwf_config_label_1:  .asciiz "Battle Speed"
