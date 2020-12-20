@@ -46,8 +46,14 @@ ff6_short_spell_names   = $e6f567
             .byte .strat(__string, __index) - 'a' + $9a
         .elseif .strat(__string, __index) >= '0' && .strat(__string, __index) <= '9'
             .byte .strat(__string, __index) - '0' + $b4
+        .elseif .strat(__string, __index) = '/'
+            .byte $c0
         .elseif .strat(__string, __index) = ':'
             .byte $c1
+        .elseif .strat(__string, __index) = '.'
+            .byte $c5
+        .elseif .strat(__string, __index) = '%'
+            .byte $cd
         .elseif .strat(__string, __index) = ' '
             .byte $ff
         .else

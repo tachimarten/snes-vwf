@@ -43,8 +43,32 @@ MAIN_MENU_STRING_COUNT = 10
 ITEM_MENU_STRING_COUNT = 4
 SKILLS_MENU_STRING_COUNT = 7
 EQUIP_MENU_STRING_COUNT = 8
+STATS_STRING_COUNT = 9
 RELIC_MENU_STRING_COUNT = 3
 CONFIG_STRING_COUNT = 11
+
+EQUIP_MENU_FIRST_STATS_TILE = 36
+
+STATS_TILE_COUNT_STRENGTH = 5
+STATS_TILE_COUNT_STAMINA = 5
+STATS_TILE_COUNT_MAGIC = 3
+STATS_TILE_COUNT_EVASION = 5
+STATS_TILE_COUNT_MAGIC_EVASION = 7
+STATS_TILE_COUNT_SPEED = 4
+STATS_TILE_COUNT_ATTACK = 4
+STATS_TILE_COUNT_DEFENSE = 5
+STATS_TILE_COUNT_MAGIC_DEFENSE = 6
+
+STATS_TILE_INDEX_STRENGTH = 0
+STATS_TILE_INDEX_STAMINA = STATS_TILE_INDEX_STRENGTH + STATS_TILE_COUNT_STRENGTH
+STATS_TILE_INDEX_MAGIC = STATS_TILE_INDEX_STAMINA + STATS_TILE_COUNT_STAMINA
+STATS_TILE_INDEX_EVASION = STATS_TILE_INDEX_MAGIC + STATS_TILE_COUNT_MAGIC
+STATS_TILE_INDEX_MAGIC_EVASION = STATS_TILE_INDEX_EVASION + STATS_TILE_COUNT_EVASION
+STATS_TILE_INDEX_SPEED = STATS_TILE_INDEX_MAGIC_EVASION + STATS_TILE_COUNT_MAGIC_EVASION
+STATS_TILE_INDEX_ATTACK = STATS_TILE_INDEX_SPEED + STATS_TILE_COUNT_SPEED
+STATS_TILE_INDEX_DEFENSE = STATS_TILE_INDEX_ATTACK + STATS_TILE_COUNT_ATTACK
+STATS_TILE_INDEX_MAGIC_DEFENSE = STATS_TILE_INDEX_DEFENSE + STATS_TILE_COUNT_DEFENSE
+STATS_TOTAL_TILE_COUNT = STATS_TILE_INDEX_MAGIC_DEFENSE + STATS_TILE_COUNT_MAGIC_DEFENSE
 
 ; FF6 globals
 
@@ -63,6 +87,7 @@ ff6_menu_src_ptr                    = $7e00e7
 ff6_menu_dest_ptr                   = $7e00eb
 ff6_menu_horizontal_movement_speed  = $7e34ca
 ff6_menu_vertical_movement_speed    = $7e354a
+ff6_menu_bg1_data                   = $7e3849
 ff6_menu_list                       = $7e9d89
 ff6_menu_positioned_text_ptr        = $7e9e89
 ff6_menu_string_buffer              = $7e9e8b
@@ -94,6 +119,8 @@ ff6_menu_draw_string        = $c37fd9
     def_static_text_tiles first_tile_id, count
     .byte 0
 .endmacro
+
+.define bg1_position(col, row)  .loword(ff6_menu_bg1_data) + row * $40 + col * 2
 
 .segment "BSS"
 
@@ -386,6 +413,113 @@ _ff6vwf_menu_draw_item_name_in_stats_submenu_after:
 .segment "PTEXTMENUDRAWCOLOSSEUMENEMY"
     jsl _ff6vwf_menu_draw_colosseum_enemy   ; 4 bytes
     jmp .loword(ff6_menu_draw_string)       ; Draw enemy name.
+
+.segment "PTEXTMENUDRAWSTATUSSTATS"     ; $c35fc2
+ff6_menu_draw_attack_string     = $0486
+ff6_menu_draw_string_number     = $04c0
+ff6_menu_itoa                   = $04e0
+ff6_menu_make_attack_string     = $052e 
+ff6_menu_define_attack          = $9371 
+ff6_menu_set_attack_stats_mode  = $99e8
+ff6_load_actor_properties       = $c20006
+ff6_current_character_data      = $7e0067
+ff6_stats_magic                 = $7e11a0
+ff6_stats_stamina               = $7e11a2
+ff6_stats_speed                 = $7e11a4
+ff6_stats_strength              = $7e11a6
+ff6_stats_evasion               = $7e11a8
+ff6_stats_magic_evasion         = $7e11aa
+ff6_stats_defense               = $7e11ba
+ff6_stats_magic_defense         = $7e11bb
+
+    jsl ff6_load_actor_properties           ; Load properties
+    ldy <ff6_current_character_data         ; Actor's address
+    jsr ff6_menu_set_attack_stats_mode      ; Set Bat.Pwr mode
+    lda #$20                                ; Palette 0
+    sta <ff6_menu_bg_attrs                  ; Color: User's
+
+    lda .loword(ff6_stats_strength)     ; Vigor
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 12, 21            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    lda .loword(ff6_stats_speed)        ; Speed
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 26, 21            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    lda .loword(ff6_stats_stamina)      ; Stamina
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 12, 22            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    lda .loword(ff6_stats_magic)        ; Mag.Pwr
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 26, 22            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    jsr ff6_menu_define_attack          ; Define Bat.Pwr
+    /*
+    lda $11ac                           ; ...
+    add $11ad
+    sta $f3                             ; ...
+    tdc                                 ; ...
+    sta $f4                             ; ...
+    */
+    jsr ff6_menu_make_attack_string     ; Turn into text
+    ldx #bg1_position 12, 23            ; Text position
+    jsr ff6_menu_draw_attack_string     ; Draw 3 digits
+
+    lda .loword(ff6_stats_defense)      ; Defense
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 26, 23            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    lda .loword(ff6_stats_evasion)      ; Evade
+    jsr ff6_menu_itoa                   ; Turn into text
+    ldx #bg1_position 12, 24            ; Text position
+    jsr ff6_menu_draw_string_number     ; Draw 3 digits
+
+    lda .loword(ff6_stats_magic_defense)    ; Magic defense
+    jsr ff6_menu_itoa                       ; Turn into text
+    ldx #bg1_position 26, 24                ; Text position
+    jsr ff6_menu_draw_string_number         ; Draw 3 digits
+
+    lda .loword(ff6_stats_magic_evasion)    ; Magic evasion
+    jsr ff6_menu_itoa                       ; Turn into text
+    ldx #bg1_position 12, 25                ; Text position
+    jsr ff6_menu_draw_string_number         ; Draw 3 digits
+
+    LDY #$398F      ; Text position
+    JSR $34CF      ; Draw actor name
+    LDY #$399D      ; Text position
+    JSR $34E5      ; Actor class...
+    LDY #$39B1      ; Text position
+    JSR $34E6      ; Draw held esper
+    JSR $6102      ; Draw commands
+    LDA #$20        ; Palette 0
+    STA $29         ; Color: User's
+    LDX #$6096     ; Coords tbl ptr
+    JSR $0C6C      ; Draw LV, HP, MP
+    LDX $67         ; Actor's address
+    LDA $0011,X     ; Experience LB
+    STA $F1         ; Memorize it
+    LDA $0012,X     ; Experience MB
+    STA $F2         ; Memorize it
+    LDA $0013,X     ; Experience HB
+    STA $F3         ; Memorize it
+    JSR $0582      ; Turn into text
+    LDX #bg1_position 2, 16 ; Text position
+    JSR $04A3      ; Draw 8 digits
+    JSR $60A0      ; Get needed exp
+    JSR $0582      ; Turn into text
+    LDX #bg1_position 2, 19 ; Text position
+    JSR $04A3      ; Draw 8 digits
+    STZ $47         ; Ailments: Off
+    JSR $11B0      ; Hide ail. icons
+    jsr $625B      ; Display status
+    jsl _ff6vwf_menu_draw_status_menu
+    rts
 
 ; This displays the held Esper in the Skills menu and the Lineup menu.
 .segment "PTEXTMENUDRAWESPERNAMEINSTATUSPANEL"
@@ -1811,21 +1945,22 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
 
 ; nearproc void _ff6vwf_menu_render_static_strings(uint8 string_count,
 ;                                                  uint8 first_tile_id,
-;                                                  uint8 max_tile_count,
 ;                                                  uint8 dma_flags,
 ;                                                  vram near *base_addr,
-;                                                  const char near *far *string_list)
+;                                                  const char near *far *string_list,
+;                                                  const uint8 far *tile_counts)
 .proc _ff6vwf_menu_render_static_strings
 begin_locals
     decl_local outgoing_args, 5
-    decl_local string_index, 1      ; uint8
-    decl_local current_tile_id, 1   ; uint8
-    decl_local string_count, 1      ; uint8
+    decl_local string_index, 1          ; uint8
+    decl_local current_tile_id, 1       ; uint8
+    decl_local string_count, 1          ; uint8
+    decl_local current_tile_count, 1    ; uint8
 begin_args_nearcall
-    decl_arg max_tile_count, 1      ; uint8
     decl_arg dma_flags, 1           ; uint8
     decl_arg base_addr, 2           ; vram near *
     decl_arg string_list, 3         ; const char near *far *
+    decl_arg tile_counts, 3         ; const uint8 far *
 
 ff6_update_config_menu_arrow = $c33980
 
@@ -1845,12 +1980,15 @@ ff6_update_config_menu_arrow = $c33980
 
     a16
     and #$00ff
+    tax
     asl
     tay
     lda [string_list],y
     sta outgoing_args+2     ; string_ptr
+    txy
     a8
-    lda max_tile_count
+    lda [tile_counts],y
+    sta current_tile_count
     sta outgoing_args+0     ; max_tile_count
     lda dma_flags
     sta outgoing_args+1     ; 4bpp
@@ -1864,7 +2002,7 @@ ff6_update_config_menu_arrow = $c33980
     jsr _ff6vwf_menu_force_nmi
 
     lda current_tile_id
-    add max_tile_count
+    add current_tile_count
     sta current_tile_id
     inc string_index
     lda string_index
@@ -1877,20 +2015,22 @@ ff6_update_config_menu_arrow = $c33980
 
 .proc _ff6vwf_menu_draw_main_menu
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 9
 
     enter __FRAME_SIZE__
 
-    lda #5
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; dma_flags
+    sta outgoing_args+0     ; dma_flags
     ldx #VWF_MENU_TILE_BG3_BASE_ADDR
-    stx outgoing_args+2     ; base_addr
+    stx outgoing_args+1     ; base_addr
     ldx #.loword(ff6vwf_main_menu_labels)
-    stx outgoing_args+4     ; string_list
+    stx outgoing_args+3     ; string_list
     lda #^ff6vwf_main_menu_labels
-    sta outgoing_args+6     ; string_list, bank byte
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_main_menu_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_main_menu_tile_counts
+    sta outgoing_args+8     ; string_list, bank byte
     ldx #MAIN_MENU_STRING_COUNT
     ldy #8+10*4
     jsr _ff6vwf_menu_render_static_strings
@@ -1905,20 +2045,22 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_item_menu
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 9
 
     enter __FRAME_SIZE__
 
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; dma_flags
+    sta outgoing_args+0     ; dma_flags
     ldx #VWF_MENU_TILE_BG3_BASE_ADDR
-    stx outgoing_args+2     ; base_addr
+    stx outgoing_args+1     ; base_addr
     ldx #.loword(ff6vwf_item_menu_labels)
-    stx outgoing_args+4     ; string_list
+    stx outgoing_args+3     ; string_list
     lda #^ff6vwf_item_menu_labels
-    sta outgoing_args+6     ; string_list, bank byte
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_item_menu_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_item_menu_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
     ldx #ITEM_MENU_STRING_COUNT
     ldy #FF6VWF_FIRST_TILE
     jsr _ff6vwf_menu_render_static_strings
@@ -1933,22 +2075,24 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_skills_menu
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 9
 
 espers_palette = $7e0079
 
     enter __FRAME_SIZE__
 
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; dma_flags
+    sta outgoing_args+0     ; dma_flags
     ldx #VWF_MENU_TILE_BG3_BASE_ADDR
-    stx outgoing_args+2     ; base_addr
+    stx outgoing_args+1     ; base_addr
     ldx #.loword(ff6vwf_skills_menu_labels)
-    stx outgoing_args+4     ; string_list
+    stx outgoing_args+3     ; string_list
     lda #^ff6vwf_skills_menu_labels
-    sta outgoing_args+6     ; string_list, bank byte
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_skills_menu_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_skills_menu_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
     ldx #SKILLS_MENU_STRING_COUNT
     ldy #FF6VWF_FIRST_TILE
     jsr _ff6vwf_menu_render_static_strings
@@ -1963,50 +2107,99 @@ espers_palette = $7e0079
 
 .proc _ff6vwf_menu_draw_equip_menu
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 9
 
     enter __FRAME_SIZE__
 
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
+    ; Upload main labels.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; dma_flags
+    sta outgoing_args+0     ; dma_flags
     ldx #VWF_MENU_TILE_BG3_BASE_ADDR
-    stx outgoing_args+2     ; base_addr
+    stx outgoing_args+1     ; base_addr
     ldx #.loword(ff6vwf_equip_menu_labels)
-    stx outgoing_args+4     ; string_list
+    stx outgoing_args+3     ; string_list
     lda #^ff6vwf_equip_menu_labels
-    sta outgoing_args+6     ; string_list, bank byte
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_equip_menu_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_equip_menu_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
     ldx #EQUIP_MENU_STRING_COUNT
     ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    ; Upload stats labels.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_stats_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_stats_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_stats_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_stats_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #STATS_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE + EQUIP_MENU_FIRST_STATS_TILE
     jsr _ff6vwf_menu_render_static_strings
 
     leave __FRAME_SIZE__
 
     ; Stuff the original function did:
-    ldx #.loword(_equip_menu_positioned_text-12)    ; Text ptrs loc
+    ldx #.loword(_equip_menu_positioned_text_a-12)  ; Text ptrs loc
     ldy #4                                          ; Strings: 2
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_status_menu
+begin_locals
+    decl_local outgoing_args, 9
+
+    enter __FRAME_SIZE__
+
+    ; Upload stats labels.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG1_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_stats_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_stats_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_stats_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_stats_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #STATS_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    leave __FRAME_SIZE__
     rtl
 .endproc
 
 .proc _ff6vwf_menu_draw_config_menu
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 9
 
 ff6_update_config_menu_arrow = $c33980
 
     enter __FRAME_SIZE__
 
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; dma_flags
+    sta outgoing_args+0     ; dma_flags
     ldx #VWF_MENU_TILE_BG1_BASE_ADDR
-    stx outgoing_args+2     ; base_addr
+    stx outgoing_args+1     ; base_addr
     ldx #.loword(ff6vwf_config_labels)
-    stx outgoing_args+4     ; string_list
+    stx outgoing_args+3     ; string_list
     lda #^ff6vwf_config_labels
-    sta outgoing_args+6     ; string_list, bank byte
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_config_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_config_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
     ldx #CONFIG_STRING_COUNT
     ldy #8                  ; first_tile_id
     jsr _ff6vwf_menu_render_static_strings
@@ -2220,18 +2413,18 @@ out:
 .word $7c8d
     def_static_text_tiles_z 6*10, .strlen("Dance")
 
-.segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXT"     ; $c3a2ba
-_equip_menu_positioned_text:
+.segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTA"    ; $c3a2ba
+_equip_menu_positioned_text_a:
 
 ; Positioned text for Equip and Relic menus
 .word $7a0d
-    def_static_text_tiles_z 4*10, .strlen("R-hand")
+    .byte 26,  27,  28,  29,  30,  31,  0   ; "R-hand"
 .word $7a8d
-    def_static_text_tiles_z 5*10, .strlen("L-hand")
+    .byte 32,  33,  34,  35,  36,  37,  0   ; "L-hand"
 .word $7b0d
-    def_static_text_tiles_z 6*10, .strlen("Head")
+    .byte 38,  39,  40, $ff,  0             ; "Head"
 .word $7b8d
-    def_static_text_tiles_z 7*10, .strlen("Body")
+    .byte 41,  42,  43, $ff,  0             ; "Body"
 .word $7b0d
     def_static_text_tiles_z 2*10, .strlen("Relic")
 .word $7b8d
@@ -2243,25 +2436,141 @@ _equip_menu_positioned_text:
 
 ; Positioned text for title in Equip and Relic menus
 .word $7939
-    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+    .byte 8,   9,   10,  $ff, $ff, 0            ; "EQUIP"
 .word $7939
-    def_static_text_tiles_z 1*10, .strlen("REMOVE")
+    .byte 11,  12,  13,  14,  15,  $ff, 0       ; "REMOVE"
 
 ; Positioned text for options in Equip menu
 .word $790d
-    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+    .byte 8,   9,   10,  $ff, $ff, 0            ; "EQUIP"
 .word $791b
-    def_static_text_tiles_z 2*10, .strlen("OPTIMUM")
+    .byte 16,  17,  18,  19,  20,  21,  $ff, 0  ; "OPTIMUM"
 .word $792d
-    def_static_text_tiles_z 1*10, .strlen("RMOVE")
+    .byte 11,  12,  13,  14,  15,  0            ; "RMOVE"
 .word $793b
-    def_static_text_tiles_z 3*10, .strlen("EMPTY")
+    .byte 22,  23,  24,  25,  $ff, 0            ; "EMPTY"
 
 ; Positioned text for options in Relic menu
 .word $7911
-    def_static_text_tiles_z 0*10, .strlen("EQUIP")
+    .byte 8,   9,   10,  $ff, $ff, 0            ; "EQUIP"
 .word $791f
-    def_static_text_tiles_z 1*10, .strlen("REMOVE")
+    .byte 11,  12,  13,  14,  15,  $ff, 0       ; "REMOVE"
+
+.segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTB"    ; $c3a371
+_equip_menu_positioned_text_b:
+    .word $7ca9
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_STRENGTH, STATS_TILE_COUNT_STRENGTH
+        .byte 0                         ; "Vigor"
+    .word $7da9
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_STAMINA, STATS_TILE_COUNT_STAMINA
+        .byte $ff, $ff, 0               ; "Stamina"
+    .word $7e29
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_MAGIC, STATS_TILE_COUNT_MAGIC
+        .byte $ff, $ff, $ff, $ff, 0     ; "Mag.Pwr"
+    .word $7fa9
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_EVASION, STATS_TILE_COUNT_EVASION
+        .byte $ff, $ff, 0               ; "Evade %"
+    .word $80a9
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_MAGIC_EVASION, STATS_TILE_COUNT_MAGIC_EVASION
+        .byte 0                         ; "MBlock%"
+    .word $7cbd
+        .byte $d5, $00
+    .word $7d3d
+        .byte $d5, $00
+    .word $7dbd
+        .byte $d5, $00
+    .word $7e3d
+        .byte $d5, $00
+    .word $7f3d
+        .byte $d5, $00
+    .word $7fbd
+        .byte $d5, $00
+    .word $7ebd
+        .byte $d5, $00
+    .word $803d
+        .byte $d5, $00
+    .word $80bd
+        .byte $d5, $00
+    .word $7d29
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_SPEED, STATS_TILE_COUNT_SPEED
+        .byte $ff, 0                        ; "Speed"
+    .word $7ea9
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_ATTACK, STATS_TILE_COUNT_ATTACK
+        .byte $ff, $ff, $ff, 0              ; "Bat.Pwr"
+    .word $7f29
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_DEFENSE, STATS_TILE_COUNT_DEFENSE
+        .byte $ff, $ff, 0                   ; "Defense"
+    .word $8029
+        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+STATS_TILE_INDEX_MAGIC_DEFENSE, STATS_TILE_COUNT_MAGIC_DEFENSE
+        .byte 0                             ; "Mag.Def"
+
+.segment "PTEXTMENUSTATUSPOSITIONEDTEXT"    ; $c3646f
+.word $78cd
+    ff6_def_charset_string_z "Status"
+.word $3a6b
+    ff6_def_charset_string_z "/"
+.word $3aab
+    ff6_def_charset_string_z "/"
+.word $7f83
+    ff6_def_charset_string_z "%"
+.word $8883
+    ff6_def_charset_string_z "%"
+.word $3a1d
+    ff6_def_charset_string_z "LV"
+.word $3a5d
+    ff6_def_charset_string_z "HP"
+.word $3a9d
+    ff6_def_charset_string_z "MP"
+; Strength Speed Stamina Magic Attack Defense Evasion MagicDef. MagicEvade
+.word bg1_position 2,  21
+    def_static_text_tiles STATS_TILE_INDEX_STRENGTH, STATS_TILE_COUNT_STRENGTH
+    .byte 0
+.word bg1_position 2,  22
+    def_static_text_tiles STATS_TILE_INDEX_STAMINA, STATS_TILE_COUNT_STAMINA
+    .byte $ff, $ff, 0               ; "Stamina"
+.word bg1_position 16, 22
+    def_static_text_tiles STATS_TILE_INDEX_MAGIC, STATS_TILE_COUNT_MAGIC
+    .byte $ff, $ff, $ff, $ff, 0     ; "Mag.Pwr"
+.word bg1_position 2,  24
+    def_static_text_tiles STATS_TILE_INDEX_EVASION, STATS_TILE_COUNT_EVASION
+    .byte $ff, $ff, 0               ; "Evade %"
+.word bg1_position 2,  25
+    def_static_text_tiles STATS_TILE_INDEX_MAGIC_EVASION, STATS_TILE_COUNT_MAGIC_EVASION
+    .byte 0                         ; "MBlock%"
+.word $7edd - $4180
+    .byte $ff, 0
+.word $7f5d - $4180
+    .byte $ff, 0
+.word $7fdd - $4180
+    .byte $ff, 0
+.word $885d - $4180
+    .byte $ff, 0
+.word $7efb - $4180
+    .byte $ff, 0
+.word $7f7b - $4180
+    .byte $ff, 0
+.word $7e7b - $4180
+    .byte $ff, 0
+.word $7ffb - $4180
+    .byte $ff, 0
+.word $887b - $4180
+    .byte $ff, 0
+.word bg1_position 16, 21
+    def_static_text_tiles STATS_TILE_INDEX_SPEED, STATS_TILE_COUNT_SPEED
+    .byte $ff, 0                        ; "Speed"
+.word bg1_position 2,  23
+    def_static_text_tiles STATS_TILE_INDEX_ATTACK, STATS_TILE_COUNT_ATTACK
+    .byte $ff, $ff, $ff, 0              ; "Bat.Pwr"
+.word bg1_position 16, 23
+    def_static_text_tiles STATS_TILE_INDEX_DEFENSE, STATS_TILE_COUNT_DEFENSE
+    .byte $ff, $ff, 0                   ; "Defense"
+.word bg1_position 16, 24
+    def_static_text_tiles STATS_TILE_INDEX_MAGIC_DEFENSE, STATS_TILE_COUNT_MAGIC_DEFENSE
+    .byte $ff, 0                        ; "Mag.Def"
+.word bg1_position 2,  15
+    ff6_def_charset_string_z "Your Exp:"
+.word bg1_position 2,  18
+    ff6_def_charset_string_z "For level up:"
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
 
@@ -2356,6 +2665,11 @@ ff6vwf_string_equipment_end:
 
 ff6vwf_main_menu_labels: ff6vwf_def_pointer_array ff6vwf_main_menu_label, MAIN_MENU_STRING_COUNT
 
+ff6vwf_main_menu_tile_counts:
+.repeat MAIN_MENU_STRING_COUNT
+    .byte 5
+.endrepeat
+
 ff6vwf_main_menu_label_0:  .asciiz "Items"
 ff6vwf_main_menu_label_1:  .asciiz "Skills"
 ff6vwf_main_menu_label_2:  .asciiz "Equip"
@@ -2370,6 +2684,11 @@ ff6vwf_main_menu_label_9:  .asciiz "Gil"
 ff6vwf_item_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_item_menu_label, ITEM_MENU_STRING_COUNT
 
+ff6vwf_item_menu_tile_counts:
+.repeat ITEM_MENU_STRING_COUNT
+    .byte 10
+.endrepeat
+
 ff6vwf_item_menu_label_0:  .asciiz "Items"
 ff6vwf_item_menu_label_1:  .asciiz "Use"
 ff6vwf_item_menu_label_2:  .asciiz "Sort"
@@ -2377,6 +2696,11 @@ ff6vwf_item_menu_label_3:  .asciiz "Key"
 
 ff6vwf_skills_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_skills_menu_label, SKILLS_MENU_STRING_COUNT
+
+ff6vwf_skills_menu_label_tile_counts:
+.repeat SKILLS_MENU_STRING_COUNT
+    .byte 10
+.endrepeat
 
 ff6vwf_skills_menu_label_0:  .asciiz "Espers"
 ff6vwf_skills_menu_label_1:  .asciiz "Magic"
@@ -2389,23 +2713,54 @@ ff6vwf_skills_menu_label_6:  .asciiz "Dance"
 ff6vwf_equip_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_equip_menu_label, EQUIP_MENU_STRING_COUNT
 
-ff6vwf_equip_menu_label_0:  .asciiz "Equip"
-ff6vwf_equip_menu_label_1:  .asciiz "Remove"
-ff6vwf_equip_menu_label_2:  .asciiz "Auto-Equip"
-ff6vwf_equip_menu_label_3:  .asciiz "Empty"
-ff6vwf_equip_menu_label_4:  .asciiz "Right Hand"
-ff6vwf_equip_menu_label_5:  .asciiz "Left Hand"
-ff6vwf_equip_menu_label_6:  .asciiz "Head"
-ff6vwf_equip_menu_label_7:  .asciiz "Body"
+ff6vwf_equip_menu_label_tile_counts: .byte 3, 5, 6, 4, 6, 6, 3, 3
+
+ff6vwf_equip_menu_label_0:  .asciiz "Equip"         ; 3 tiles, 8-11
+ff6vwf_equip_menu_label_1:  .asciiz "Remove"        ; 5 tiles, 11-16
+ff6vwf_equip_menu_label_2:  .asciiz "Auto-Equip"    ; 6 tiles, 16-22
+ff6vwf_equip_menu_label_3:  .asciiz "Empty"         ; 4 tiles, 22-26
+ff6vwf_equip_menu_label_4:  .asciiz "Right Hand"    ; 6 tiles, 26-32
+ff6vwf_equip_menu_label_5:  .asciiz "Left Hand"     ; 6 tiles, 32-38
+ff6vwf_equip_menu_label_6:  .asciiz "Head"          ; 3 tiles, 38-41
+ff6vwf_equip_menu_label_7:  .asciiz "Body"          ; 3 tiles, 41-44
+
+ff6vwf_stats_labels:
+    ff6vwf_def_pointer_array ff6vwf_stats_label, STATS_STRING_COUNT
+
+ff6vwf_stats_label_tile_counts:
+    .byte 5, 5, 3, 5, 7, 4, 4, 5, 6
+
+; TODO(tachiweasel): Fix "Magic Evasion" and "Magic Defense" by drawing custom condensed text for
+; them.
+ff6vwf_stats_label_0: .asciiz "Strength"
+ff6vwf_stats_label_1: .asciiz "Stamina"
+ff6vwf_stats_label_2: .asciiz "Magic"
+ff6vwf_stats_label_3: .asciiz "Evasion"
+ff6vwf_stats_label_4: .asciiz "Magic Evade"
+ff6vwf_stats_label_5: .asciiz "Speed"
+ff6vwf_stats_label_6: .asciiz "Attack"
+ff6vwf_stats_label_7: .asciiz "Defense"
+ff6vwf_stats_label_8: .asciiz "Magic Def."
+
+ff6vwf_equip_menu_label_8:  .asciiz "Body"          ; 3 tiles, 41-44
 
 ff6vwf_relic_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_relic_menu_label, RELIC_MENU_STRING_COUNT
+
+.repeat RELIC_MENU_STRING_COUNT
+    .byte 10
+.endrepeat
 
 ff6vwf_relic_menu_label_0:  .asciiz "Equip"
 ff6vwf_relic_menu_label_1:  .asciiz "Remove"
 ff6vwf_relic_menu_label_2:  .asciiz "Relic"
 
 ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
+
+ff6vwf_config_label_tile_counts:
+.repeat CONFIG_STRING_COUNT
+    .byte 10
+.endrepeat
 
 ff6vwf_config_label_0:  .asciiz "ATB Mode"
 ff6vwf_config_label_1:  .asciiz "Battle Speed"
