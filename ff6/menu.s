@@ -2452,6 +2452,38 @@ ff6_update_config_menu_arrow = $c33980
 
 .export _ff6vwf_menu_draw_config_menu
 
+.proc _ff6vwf_menu_draw_shop
+begin_locals
+    decl_local outgoing_args, 9
+
+    enter __FRAME_SIZE__
+
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG1_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_shop_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_shop_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_shop_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_shop_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #SHOP_STRING_COUNT
+    ldy #8                  ; first_tile_id
+    jsr _ff6vwf_menu_render_static_strings
+
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    lda #$01
+    ldy #.loword(ff6_update_config_menu_arrow)
+    rtl
+.endproc
+
+.export _ff6vwf_menu_draw_config_menu
+
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
@@ -2899,6 +2931,56 @@ _equip_menu_positioned_text_b:
     ff6_def_charset_string_z "Cntlr2"
 .endrepeat
 
+.segment "PTEXTMENUSHOP"    ; $c3c2fc
+
+; Positioned text for shop menu
+ff6_menu_shop_positioned_text:
+.word $790d
+    def_static_text_tiles_z 6*10, .strlen("Weapon")
+.word $790f
+    def_static_text_tiles_z 6*10, .strlen("Armor")
+.word $790f
+    def_static_text_tiles_z 6*10, .strlen("Item")
+.word $790d
+    def_static_text_tiles_z 6*10, .strlen("Relics")
+.word $790d
+    def_static_text_tiles_z 6*10, .strlen("Vendor")
+.word $7a0f
+    ;     B  U  Y            S  E  L  L            E  X  I    T
+    .byte 0, 1, 2, $ff, $ff, 3, 4, 5, 6, $ff, $ff, 7, 8, 9, $ff, 0
+.word $7a41
+    def_static_text_tiles_z 1*10, .strlen("GP")
+.word $7b2b
+    def_static_text_tiles_z 1*10, .strlen("GP")
+.word $7ab3
+    def_static_text_tiles_z 2*10, .strlen("Owned:")
+.word $7bb3
+    def_static_text_tiles_z 3*10, .strlen("Equipped:")
+.word $7b8f
+    def_static_text_tiles_z 4*10, .strlen("Bat Pwr")
+.word $7b8f
+    def_static_text_tiles_z 5*10, .strlen("Defense")
+.word $7ba5
+    .byte $ff, 0
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("Hi! Can I help you?")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("Help yourself!")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("How many?")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("Whatcha got?")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("How many?")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("Bye!          ")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("You need more GP!")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("Too many!       ")
+.word $791f
+    def_static_text_tiles_z 7*10, .strlen("One's plenty! ")
+
 ; Constant data
 
 .segment "DATA"
@@ -3025,3 +3107,38 @@ ff6vwf_config_label_7:  .asciiz "Controllers"
 ff6vwf_config_label_8:  .asciiz "Magic Order"
 ff6vwf_config_label_9:  .asciiz "Window Color"
 ff6vwf_config_label_10: .asciiz "Cursor"
+
+ff6vwf_static_shop_labels:
+    ff6vwf_def_pointer_array ff6vwf_static_shop_label, SHOP_STATIC_STRING_COUNT
+
+ff6vwf_static_shop_label_tile_counts:
+    .byte 3, 4, 3, 10, 10, 10, 10
+
+ff6vwf_static_shop_label_0: .asciiz "Buy"           ; 0
+ff6vwf_static_shop_label_1: .asciiz "Sell"          ; 3
+ff6vwf_static_shop_label_2: .asciiz "Exit"          ; 7
+ff6vwf_static_shop_label_3: .asciiz "Gil"           ; 10
+ff6vwf_static_shop_label_4: .asciiz "Owned:"        ; 20
+ff6vwf_static_shop_label_5: .asciiz "Equipped:"     ; 30
+ff6vwf_static_shop_label_6: .asciiz "Attack"        ; 40
+ff6vwf_static_shop_label_7: .asciiz "Defense"       ; 50
+
+ff6vwf_shop_type_labels: ff6vwf_def_pointer_array ff6vwf_shop_type_label, SHOP_TYPE_STRING_COUNT
+
+ff6vwf_shop_type_label_0: .asciiz "Weapon Shop"
+ff6vwf_shop_type_label_1: .asciiz "Armor Shop"
+ff6vwf_shop_type_label_2: .asciiz "Item Shop"
+ff6vwf_shop_type_label_3: .asciiz "Relic Shop"
+ff6vwf_shop_type_label_4: .asciiz "Shop"
+
+ff6vwf_shop_messages: ff6vwf_def_pointer_array ff6vwf_shop_message_label, SHOP_MESSAGE_STRING_COUNT
+
+ff6vwf_shop_message_0: .asciiz "Welcome! May I help you?"
+ff6vwf_shop_message_1: .asciiz "What would you like to buy?"
+ff6vwf_shop_message_2: .asciiz "How many would you like to buy?"
+ff6vwf_shop_message_3: .asciiz "What would you like to sell?"
+ff6vwf_shop_message_4: .asciiz "How many would you like to sell?"
+ff6vwf_shop_message_5: .asciiz "Thanks!"
+ff6vwf_shop_message_6: .asciiz "You can't afford it."
+ff6vwf_shop_message_7: .asciiz "You can't carry any more of those."
+ff6vwf_shop_message_8: .asciiz "You already have one."
