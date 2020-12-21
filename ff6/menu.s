@@ -45,9 +45,12 @@ SKILLS_MENU_STRING_COUNT = 7
 EQUIP_MENU_STRING_COUNT = 8
 STATS_STRING_COUNT = 9
 RELIC_MENU_STRING_COUNT = 3
+STATUS_STRING_COUNT = 2
 CONFIG_STRING_COUNT = 11
 
 EQUIP_MENU_FIRST_STATS_TILE = 36
+
+STATUS_FIRST_LABEL_TILE = 50
 
 STATS_TILE_COUNT_STRENGTH = 5
 STATS_TILE_COUNT_STAMINA = 5
@@ -59,16 +62,16 @@ STATS_TILE_COUNT_ATTACK = 4
 STATS_TILE_COUNT_DEFENSE = 5
 STATS_TILE_COUNT_MAGIC_DEFENSE = 6
 
-STATS_TILE_INDEX_STRENGTH = 0
-STATS_TILE_INDEX_STAMINA = STATS_TILE_INDEX_STRENGTH + STATS_TILE_COUNT_STRENGTH
-STATS_TILE_INDEX_MAGIC = STATS_TILE_INDEX_STAMINA + STATS_TILE_COUNT_STAMINA
-STATS_TILE_INDEX_EVASION = STATS_TILE_INDEX_MAGIC + STATS_TILE_COUNT_MAGIC
-STATS_TILE_INDEX_MAGIC_EVASION = STATS_TILE_INDEX_EVASION + STATS_TILE_COUNT_EVASION
-STATS_TILE_INDEX_SPEED = STATS_TILE_INDEX_MAGIC_EVASION + STATS_TILE_COUNT_MAGIC_EVASION
-STATS_TILE_INDEX_ATTACK = STATS_TILE_INDEX_SPEED + STATS_TILE_COUNT_SPEED
-STATS_TILE_INDEX_DEFENSE = STATS_TILE_INDEX_ATTACK + STATS_TILE_COUNT_ATTACK
-STATS_TILE_INDEX_MAGIC_DEFENSE = STATS_TILE_INDEX_DEFENSE + STATS_TILE_COUNT_DEFENSE
-STATS_TOTAL_TILE_COUNT = STATS_TILE_INDEX_MAGIC_DEFENSE + STATS_TILE_COUNT_MAGIC_DEFENSE
+STATS_TILE_INDEX_STRENGTH      = 0
+STATS_TILE_INDEX_STAMINA       = STATS_TILE_INDEX_STRENGTH      + STATS_TILE_COUNT_STRENGTH
+STATS_TILE_INDEX_MAGIC         = STATS_TILE_INDEX_STAMINA       + STATS_TILE_COUNT_STAMINA
+STATS_TILE_INDEX_EVASION       = STATS_TILE_INDEX_MAGIC         + STATS_TILE_COUNT_MAGIC
+STATS_TILE_INDEX_MAGIC_EVASION = STATS_TILE_INDEX_EVASION       + STATS_TILE_COUNT_EVASION
+STATS_TILE_INDEX_SPEED         = STATS_TILE_INDEX_MAGIC_EVASION + STATS_TILE_COUNT_MAGIC_EVASION
+STATS_TILE_INDEX_ATTACK        = STATS_TILE_INDEX_SPEED         + STATS_TILE_COUNT_SPEED
+STATS_TILE_INDEX_DEFENSE       = STATS_TILE_INDEX_ATTACK        + STATS_TILE_COUNT_ATTACK
+STATS_TILE_INDEX_MAGIC_DEFENSE = STATS_TILE_INDEX_DEFENSE       + STATS_TILE_COUNT_DEFENSE
+STATS_TOTAL_TILE_COUNT         = STATS_TILE_INDEX_MAGIC_DEFENSE + STATS_TILE_COUNT_MAGIC_DEFENSE
 
 ; FF6 globals
 
@@ -77,6 +80,7 @@ ff6_menu_current_state              = $7e0026
 ff6_menu_bg_attrs                   = $7e0029
 ff6_menu_bg2_hscroll                = $7e0039
 ff6_menu_bg3_hscroll                = $7e003d
+ff6_menu_queued_hdma                = $7e0043
 ff6_menu_list_scroll                = $7e004a
 ff6_menu_page_height                = $7e005a
 ff6_menu_page_width                 = $7e005b
@@ -88,6 +92,7 @@ ff6_menu_dest_ptr                   = $7e00eb
 ff6_menu_horizontal_movement_speed  = $7e34ca
 ff6_menu_vertical_movement_speed    = $7e354a
 ff6_menu_bg1_data                   = $7e3849
+ff6_menu_bg3_data                   = $7e7849
 ff6_menu_list                       = $7e9d89
 ff6_menu_positioned_text_ptr        = $7e9e89
 ff6_menu_string_buffer              = $7e9e8b
@@ -121,6 +126,7 @@ ff6_menu_draw_string        = $c37fd9
 .endmacro
 
 .define bg1_position(col, row)  .loword(ff6_menu_bg1_data) + row * $40 + col * 2
+.define bg3_position(col, row)  .loword(ff6_menu_bg3_data) + row * $40 + col * 2
 
 .segment "BSS"
 
@@ -131,6 +137,9 @@ ff6_menu_draw_string        = $c37fd9
 ff6vwf_menu_text_dma_stack_size: .res 1
 ; Last party member drawn in Lineup. This avoids uploading every frame, which causes flicker.
 ff6vwf_last_lineup_party_member: .res 1
+ff6vwf_current_equipment_text_slot: .res 1
+; True if we're drawing current equipment to BG3, false if BG1.
+ff6vwf_current_equipment_bg3: .res 1
 ; Stack of DMA structures, just like the encounter ones.
 ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
 ; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
@@ -153,11 +162,12 @@ ff6vwf_menu_bss_end:
 .segment "PTEXTMENUINIT"
     jml _ff6vwf_menu_init
 
-.segment "PTEXTMENULOADEQUIPMENTNAME"
+.segment "PTEXTMENULOADEQUIPMENTNAME"       ; $c38fe1
 ff6_menu_trigger_nmi = $1368
 
     jsl _ff6vwf_menu_draw_equipment_name
     rts
+
 ; Let's put some trampolines here.
 _ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
 _ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
@@ -180,6 +190,50 @@ _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 ; string in memory yet.
 .segment "PTEXTMENUDRAWGEARINFOTEXT"
     jml _ff6vwf_menu_draw_gear_info_text
+
+.segment "PTEXTMENUDRAWRIGHTHANDEQUIPMENT"  ; $c39408
+    jsr ff6_menu_draw_equipped_item
+    nopx 3
+
+.segment "PTEXTMENUDRAWEQUIPPEDITEM"        ; $c39479
+ff6_menu_draw_equipped_item:
+    jml _ff6vwf_menu_draw_equipped_item
+
+.segment "PTEXTMENUINITGEAROVERVIEW"        ; $c31c32
+.proc ff6_menu_init_gear_overview
+    JSR $352F                                   ; Reset/Stop stuff
+    JSR $9497                                   ; Set to shift text
+    JSR .loword(ff6_menu_draw_gear_overview)    ; Draw menu
+    LDA #$01                                    ; C3/1D7E
+    STA $26                                     ; Next: Fade-in
+    LDA #$39                                    ; C3/2966
+    STA $27                                     ; Queue: Sustain menu
+    JMP $3541                                   ; BRT:1 + NMI
+.endproc
+
+.segment "PTEXTMENUDRAWGEAROVERVIEW"    ; $c38eed
+.proc ff6_menu_draw_gear_overview
+    jsl _ff6vwf_menu_draw_gear_overview
+    nop
+    JSR $6A28      ; Clear BG2 map A
+    LDY #$902E     ; C3/902E
+    JSR $0341      ; Draw window
+    JSR $0E52      ; Upload window
+    JSR $6A15      ; Clear BG1 map A
+    JSR $6A19      ; Clear BG1 map B
+    JSR $6A3C      ; Clear BG3 map A
+    JSR $8F1C      ; Handle member 1
+    JSR $8F36      ; Handle member 2
+    JSR $8F52      ; Handle member 3
+    JSR $8F6E      ; Handle member 4
+    JSR $0E28      ; Upload BG1 A+B
+    JSR $0E36      ; Upload BG1 C...
+    JMP $0E6E      ; Upload BG3 A+B
+.endproc
+
+.segment "PTEXTMENUDRAWMEMBERGEARINGEAROVERVIEW"    ; $c38f96
+    jsl _ff6vwf_menu_store_text_line_slot_for_gear_overview
+    nopx 16
 
 .segment "PTEXTMENUDRAWSPELLNAMEINMAGICMENU"    ; $c3504c
     jsl _ff6vwf_menu_draw_spell_name_in_magic_menu
@@ -509,11 +563,11 @@ ff6_stats_magic_defense         = $7e11bb
     LDA $0013,X     ; Experience HB
     STA $F3         ; Memorize it
     JSR $0582      ; Turn into text
-    LDX #bg1_position 2, 16 ; Text position
+    LDX #bg1_position 8, 16 ; Text position
     JSR $04A3      ; Draw 8 digits
     JSR $60A0      ; Get needed exp
     JSR $0582      ; Turn into text
-    LDX #bg1_position 2, 19 ; Text position
+    LDX #bg1_position 8, 19 ; Text position
     JSR $04A3      ; Draw 8 digits
     STZ $47         ; Ailments: Off
     JSR $11B0      ; Hide ail. icons
@@ -545,6 +599,10 @@ ff6_stats_magic_defense         = $7e11bb
 
 .segment "PTEXTMENUDRAWEQUIPMENU"       ; $c3903c
     jsl _ff6vwf_menu_draw_equip_menu
+    nopx 2
+
+.segment "PTEXTMENUDRAWRELICMENU"       ; $c39081
+    jsl _ff6vwf_menu_draw_relic_menu
     nopx 2
 
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
@@ -601,13 +659,15 @@ ff6_reset_vars = $d4cdf3
     jml $c368fe
 .endproc
 
+; farproc void _ff6vwf_menu_draw_equipment_name(inreg(A) uint8 item_id)
 .proc _ff6vwf_menu_draw_equipment_name
 begin_locals
     decl_local outgoing_args, 6
     decl_local item_id, 1
     decl_local string_ptr, 2
-    decl_local text_line_slot, 1
     decl_local first_tile_id, 1
+    decl_local base_addr, 2
+    decl_local dma_flags, 1
 
     tax             ; Put item ID in X.
 
@@ -626,41 +686,39 @@ begin_locals
     jsr ff6vwf_get_long_item_name
     stx string_ptr
 
-    ; Compute text line slot.
-    ;
-    ; Positioned text pointer -- L-Hand: $7a1b, R-Hand: $7a9b, Helmet: $7b1b, Armor: $7b9b.
-    ; So extract bits 7 and 8 to get a unique text slot.
-    a16
-    lda f:ff6_menu_positioned_text_ptr
-    asl
-    xba
-    and #$03
-    tax                 ; For call below.
-    a8
-    add #EQUIP_MENU_STRING_COUNT
-    sta text_line_slot
-
     ; Calculate first tile ID.
-    ldx text_line_slot
+    lda f:ff6vwf_current_equipment_text_slot
+    tax
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
     txa
     sta first_tile_id
 
+    ; Calculate base addr and DMA flags.
+    lda f:ff6vwf_current_equipment_bg3
+    bne :+
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    bra :++
+:   lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+:   sta dma_flags
+    sty base_addr
+
     ; Render string.
     lda #10
-    sta outgoing_args+0
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; max_tile_count
+    lda dma_flags
     sta outgoing_args+1     ; flags
     ldy string_ptr
     sty outgoing_args+2     ; string ptr
     lda #^ff6vwf_long_item_names
     sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    ldy base_addr
     jsr ff6vwf_render_string
 
     ; Upload it now.
-    jsl _ff6vwf_menu_force_nmi_trampoline
+    jsr _ff6vwf_menu_force_nmi
 
     ; Draw tiles.
     ldx first_tile_id
@@ -733,6 +791,122 @@ ff6_inventory_ids = $7e1869
     pea $856a+6-1
     jml $c385ad
 .endproc
+
+; patch _ff6vwf_menu_draw_equipped_item(inreg(A) uint8 item_id)
+.proc _ff6vwf_menu_draw_equipped_item
+RIGHT_HAND_POSITION = $7a1b
+LEFT_HAND_POSITION  = $7a9b
+HEAD_POSITION       = $7b1b
+BODY_POSITION       = $7b9b
+
+    tax                         ; Put item ID in X.
+
+    a16
+    lda f:ff6_menu_positioned_text_ptr
+    sub #RIGHT_HAND_POSITION
+    asl
+    xba
+    a8
+    and #$03                    ; ((position - 0x7a1b) >> 7) & 3
+    add #EQUIP_MENU_STRING_COUNT
+    sta f:ff6vwf_current_equipment_text_slot
+    lda #1
+    sta f:ff6vwf_current_equipment_bg3
+
+    txa
+    jsl _ff6vwf_menu_draw_equipment_name
+
+    jml ff6_menu_draw_string
+.endproc
+
+.proc _ff6vwf_menu_draw_gear_overview
+    ; Set up BG3 HDMA to match BG1.
+    LDA #$02        ; 1Rx2B to PPU
+    STA f:DMAP6     ; Set DMA mode
+    LDA #<BG3VOFS   ; $2112
+    STA f:BBAD6     ; To BG1 V-Scroll
+    a16
+    lda #$95D8      ; C3/95D8
+    sta f:A1T6L     ; Set src LBs
+    a8
+    LDA #$C3        ; Bank: C3
+    STA f:A1B6      ; Set src HB
+    LDA #$C3        ; ...
+    STA f:DASB6     ; Set indir HB
+    lda f:ff6_menu_queued_hdma
+    ora #$40        ; Channel: 6
+    sta f:ff6_menu_queued_hdma
+
+    ; Stuff the original function did:
+    lda #$02
+    sta f:BG1SC
+    rtl
+.endproc
+
+; farproc tiledata near *_ff6vwf_menu_store_text_line_slot_for_gear_overview(uint16 gear_slot)
+.proc _ff6vwf_menu_store_text_line_slot_for_gear_overview
+begin_locals
+    decl_local gear_slot, 1
+    decl_local x_pos, 1
+    decl_local y_pos, 1
+    decl_local base_addr, 2
+
+ff6_menu_current_selection          = $7e0028
+ff6_menu_gear_overview_base_y       = $7e00e2
+ff6_menu_gear_overview_x_positions  = $c38fd5
+ff6_menu_gear_overview_y_positions  = $c38fdb
+
+    enter __FRAME_SIZE__
+
+    txa
+    sta gear_slot
+
+    ; Calculate text slot.
+    lda f:ff6_menu_current_selection    ; Get party member index.
+    and #$01
+    beq :+
+    lda #6
+:   add gear_slot                       ; gear_slot + (party member % 2 == 1 ? 6 : 0)
+    sta f:ff6vwf_current_equipment_text_slot
+
+    ; Calculate which BG to use (BG1 for party members 0/1, BG3 for party members 2/3).
+    lda f:ff6_menu_current_selection
+    cmp #2
+    bge :+
+    lda #1
+    ldy #.loword(ff6_menu_bg3_data)
+    bra :++
+:   lda #0
+    ldy #.loword(ff6_menu_bg1_data)
+:   sta f:ff6vwf_current_equipment_bg3
+    sty base_addr
+
+    ; Look up X and Y positions.
+    lda f:ff6_menu_gear_overview_x_positions,x
+    sta x_pos
+    lda f:ff6_menu_gear_overview_y_positions,x
+    add f:ff6_menu_gear_overview_base_y
+    sta y_pos
+
+    ; Calculate map pointer.
+    lda y_pos
+    a16
+    and #$00ff
+    xba
+    lsri 3
+    a8
+    ora x_pos
+    a16
+    asl
+    add base_addr           ; base_addr + (x + y * 0x20) * 2
+    tax
+    a8
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.export _ff6vwf_menu_store_text_line_slot_for_gear_overview
 
 ; farproc void _ff6vwf_menu_draw_spell_name_in_magic_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_magic_menu
@@ -996,7 +1170,6 @@ begin_args_nearcall
 ; confuse FF6 and cause it to try to perform DMA with the screen on.
 .proc _ff6vwf_menu_force_nmi
 ff6_menu_nmi_requested    = $7e0024
-ff6_menu_queued_hdma      = $7e0043
 ff6_menu_mosaic           = $7e00b5
 ff6_menu_allow_sfx_repeat = $7e00ae
 
@@ -2153,11 +2326,76 @@ begin_locals
     rtl
 .endproc
 
+.proc _ff6vwf_menu_draw_relic_menu
+begin_locals
+    decl_local outgoing_args, 9
+
+    enter __FRAME_SIZE__
+
+    ; Upload main labels.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_relic_menu_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_relic_menu_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_relic_menu_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_relic_menu_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #RELIC_MENU_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    ; Upload stats labels.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG3_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_stats_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_stats_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_stats_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_stats_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #STATS_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE + EQUIP_MENU_FIRST_STATS_TILE
+    jsr _ff6vwf_menu_render_static_strings
+
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    ldx #.loword(_equip_menu_positioned_text_a-4)   ; Text ptrs loc
+    ldy #4                                          ; Strings: 2
+    rtl
+.endproc
+
 .proc _ff6vwf_menu_draw_status_menu
 begin_locals
     decl_local outgoing_args, 9
 
     enter __FRAME_SIZE__
+
+    ; Upload main labels.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+0     ; dma_flags
+    ldx #VWF_MENU_TILE_BG1_BASE_ADDR
+    stx outgoing_args+1     ; base_addr
+    ldx #.loword(ff6vwf_status_labels)
+    stx outgoing_args+3     ; string_list
+    lda #^ff6vwf_status_labels
+    sta outgoing_args+5     ; string_list, bank byte
+    ldx #.loword(ff6vwf_status_label_tile_counts)
+    stx outgoing_args+6     ; tile_counts
+    lda #^ff6vwf_status_label_tile_counts
+    sta outgoing_args+8     ; tile_counts, bank byte
+    ldx #STATUS_STRING_COUNT
+    ldy #FF6VWF_FIRST_TILE + STATUS_FIRST_LABEL_TILE
+    jsr _ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
@@ -2426,9 +2664,11 @@ _equip_menu_positioned_text_a:
 .word $7b8d
     .byte 41,  42,  43, $ff,  0             ; "Body"
 .word $7b0d
-    def_static_text_tiles_z 2*10, .strlen("Relic")
+    def_static_text_tiles 20, 5             ; "Relic"
+    .byte 0
 .word $7b8d
-    def_static_text_tiles_z 2*10, .strlen("Relic")
+    def_static_text_tiles 20, 5             ; "Relic"
+    .byte 0
 
 ; Positioned spaces for blanking options and title in gear menus
 .word $790d
@@ -2452,9 +2692,11 @@ _equip_menu_positioned_text_a:
 
 ; Positioned text for options in Relic menu
 .word $7911
-    .byte 8,   9,   10,  $ff, $ff, 0            ; "EQUIP"
+    def_static_text_tiles 0, 5      ; "EQUIP"
+    .byte 0
 .word $791f
-    .byte 11,  12,  13,  14,  15,  $ff, 0       ; "REMOVE"
+    def_static_text_tiles 10, 6     ; "REMOVE"
+    .byte 0
 
 .segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTB"    ; $c3a371
 _equip_menu_positioned_text_b:
@@ -2568,9 +2810,11 @@ _equip_menu_positioned_text_b:
     def_static_text_tiles STATS_TILE_INDEX_MAGIC_DEFENSE, STATS_TILE_COUNT_MAGIC_DEFENSE
     .byte $ff, 0                        ; "Mag.Def"
 .word bg1_position 2,  15
-    ff6_def_charset_string_z "Your Exp:"
+    def_static_text_tiles STATUS_FIRST_LABEL_TILE, .strlen("Your Exp:")
+    .byte 0
 .word bg1_position 2,  18
-    ff6_def_charset_string_z "For level up:"
+    def_static_text_tiles STATUS_FIRST_LABEL_TILE + 10*1, 10
+    .byte $ff, $ff, $ff, 0              ; "For level up:"
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
 
@@ -2724,6 +2968,15 @@ ff6vwf_equip_menu_label_5:  .asciiz "Left Hand"     ; 6 tiles, 32-38
 ff6vwf_equip_menu_label_6:  .asciiz "Head"          ; 3 tiles, 38-41
 ff6vwf_equip_menu_label_7:  .asciiz "Body"          ; 3 tiles, 41-44
 
+ff6vwf_relic_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_relic_menu_label, RELIC_MENU_STRING_COUNT
+
+ff6vwf_relic_menu_label_tile_counts: .byte 10, 10, 10
+
+ff6vwf_relic_menu_label_0:  .asciiz "Equip"         ; 10 tiles, 8-18
+ff6vwf_relic_menu_label_1:  .asciiz "Remove"        ; 10 tiles, 18-28
+ff6vwf_relic_menu_label_2:  .asciiz "Relic"         ; 10 tiles, 28-38
+
 ff6vwf_stats_labels:
     ff6vwf_def_pointer_array ff6vwf_stats_label, STATS_STRING_COUNT
 
@@ -2744,16 +2997,15 @@ ff6vwf_stats_label_8: .asciiz "Magic Def."
 
 ff6vwf_equip_menu_label_8:  .asciiz "Body"          ; 3 tiles, 41-44
 
-ff6vwf_relic_menu_labels:
-    ff6vwf_def_pointer_array ff6vwf_relic_menu_label, RELIC_MENU_STRING_COUNT
+ff6vwf_status_labels: ff6vwf_def_pointer_array ff6vwf_status_label, STATUS_STRING_COUNT
 
-.repeat RELIC_MENU_STRING_COUNT
+ff6vwf_status_label_tile_counts:
+.repeat STATUS_STRING_COUNT
     .byte 10
 .endrepeat
 
-ff6vwf_relic_menu_label_0:  .asciiz "Equip"
-ff6vwf_relic_menu_label_1:  .asciiz "Remove"
-ff6vwf_relic_menu_label_2:  .asciiz "Relic"
+ff6vwf_status_label_0:  .asciiz "Experience"
+ff6vwf_status_label_1:  .asciiz "EXP to Next Level"
 
 ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
 
