@@ -2145,9 +2145,9 @@ begin_locals
     jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
-    ldx #.loword(ff6vwf_stats_static_text_descriptor)
+    ldx #.loword(ff6vwf_stats_static_text_descriptor_bg3)
     stx outgoing_args+0
-    lda #^ff6vwf_stats_static_text_descriptor
+    lda #^ff6vwf_stats_static_text_descriptor_bg3
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE+EQUIP_MENU_FIRST_STATS_TILE
     jsr ff6vwf_menu_render_static_strings
@@ -2175,9 +2175,9 @@ begin_locals
     jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
-    ldx #.loword(ff6vwf_stats_static_text_descriptor)
+    ldx #.loword(ff6vwf_stats_static_text_descriptor_bg3)
     stx outgoing_args+0
-    lda #^ff6vwf_stats_static_text_descriptor
+    lda #^ff6vwf_stats_static_text_descriptor_bg3
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE + EQUIP_MENU_FIRST_STATS_TILE
     jsr ff6vwf_menu_render_static_strings
@@ -2205,9 +2205,9 @@ begin_locals
     jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
-    ldx #.loword(ff6vwf_stats_static_text_descriptor)
+    ldx #.loword(ff6vwf_stats_static_text_descriptor_bg1)
     stx outgoing_args+0
-    lda #^ff6vwf_stats_static_text_descriptor
+    lda #^ff6vwf_stats_static_text_descriptor_bg1
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
     jsr ff6vwf_menu_render_static_strings
@@ -2849,7 +2849,15 @@ ff6vwf_relic_menu_label_0:  .asciiz "Equip"         ; 10 tiles, 8-18
 ff6vwf_relic_menu_label_1:  .asciiz "Remove"        ; 10 tiles, 18-28
 ff6vwf_relic_menu_label_2:  .asciiz "Relic"         ; 10 tiles, 28-38
 
-ff6vwf_stats_static_text_descriptor:
+ff6vwf_stats_static_text_descriptor_bg1:
+    .byte STATS_STRING_COUNT                                                ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
+    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
+    .faraddr ff6vwf_stats_labels                                            ; strings
+    .faraddr ff6vwf_stats_tile_counts                                       ; tile counts
+    .faraddr ff6vwf_stats_start_tiles                                       ; start tiles
+
+ff6vwf_stats_static_text_descriptor_bg3:
     .byte STATS_STRING_COUNT                ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
     .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
