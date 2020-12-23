@@ -668,6 +668,39 @@ ff6vwf_long_magitek_name_5: .asciiz "Confuser"
 ff6vwf_long_magitek_name_6: .asciiz "Banisher"
 ff6vwf_long_magitek_name_7: .asciiz "Magitek Missile"
 
+ff6vwf_long_status_names: ff6vwf_def_pointer_array ff6vwf_long_status_name, 30
+
+ff6vwf_long_status_name_0:  .asciiz "Knocked Out"
+ff6vwf_long_status_name_1:  .asciiz "Petrify"
+ff6vwf_long_status_name_2:  .asciiz "Imp"
+ff6vwf_long_status_name_3:  .asciiz "Invisible"
+ff6vwf_long_status_name_4:  .asciiz ""
+ff6vwf_long_status_name_5:  .asciiz "Poison"
+ff6vwf_long_status_name_6:  .asciiz "Zombie"
+ff6vwf_long_status_name_7:  .asciiz "Blind"
+ff6vwf_long_status_name_8:  .asciiz "Sleep"
+ff6vwf_long_status_name_9:  .asciiz "Sap"
+ff6vwf_long_status_name_10: .asciiz "Confuse"
+ff6vwf_long_status_name_11: .asciiz "Berserk"
+ff6vwf_long_status_name_12: .asciiz "Silence"
+ff6vwf_long_status_name_13: .asciiz "Blink"
+ff6vwf_long_status_name_14: .asciiz "HP Critical"
+ff6vwf_long_status_name_15: .asciiz "Doom"
+ff6vwf_long_status_name_16: .asciiz "Reflect"
+ff6vwf_long_status_name_17: .asciiz "Protect"
+ff6vwf_long_status_name_18: .asciiz "Shell"
+ff6vwf_long_status_name_19: .asciiz "Stop"
+ff6vwf_long_status_name_20: .asciiz "Haste"
+ff6vwf_long_status_name_21: .asciiz "Slow"
+ff6vwf_long_status_name_22: .asciiz "Regen"
+ff6vwf_long_status_name_23: .asciiz "Float"
+ff6vwf_long_status_name_24: .asciiz ""
+ff6vwf_long_status_name_25: .asciiz ""
+ff6vwf_long_status_name_26: .asciiz ""
+ff6vwf_long_status_name_27: .asciiz ""
+ff6vwf_long_status_name_28: .asciiz "Reraise"
+ff6vwf_long_status_name_29: .asciiz ""
+
 ff6vwf_long_key_item_names: ff6vwf_def_pointer_array ff6vwf_long_key_item_name, 20
 
 ff6vwf_long_key_item_name_0:  .asciiz "Rum"
@@ -757,6 +790,7 @@ ff6vwf_char_to_ascii:
 .export ff6vwf_long_lore_names: far
 .export ff6vwf_long_dance_names: far
 .export ff6vwf_long_magitek_names: far
+.export ff6vwf_long_status_names: far
 .export ff6vwf_long_key_item_names: far
 .export ff6vwf_long_class_names: far
 .export ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove

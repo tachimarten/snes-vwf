@@ -10,6 +10,7 @@
 .include "ff6.inc"
 .include "../snes.inc"
 
+.import std_div16_8: near
 .import std_memset: near
 .import std_mod16_8: near
 .import std_mul16_8: near
@@ -26,6 +27,7 @@
 .import ff6vwf_long_esper_names: far
 .import ff6vwf_long_lore_names: far
 .import ff6vwf_long_magitek_names: far
+.import ff6vwf_long_status_names: far
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
 .import ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
@@ -47,7 +49,6 @@ PARTY_MEMBERS_FIRST_TILE = 82
 
 ; FF6 globals
 
-ff6_encounter_dest_tilemap_main  = $7e004c
 ff6_encounter_enemy_ids          = $7e200d
 ff6_encounter_display_list_left  = $7e575a
 ff6_encounter_display_list_right = $7e5760
@@ -190,6 +191,10 @@ ff6_encounter_build_menu_item_for_lore:
 
 .segment "PTEXTENCOUNTERDRAWCONTROLNAME"    ; $c16adb
     jsl _ff6vwf_encounter_draw_control_name
+    rts
+
+.segment "PTEXTENCOUNTERDRAWSTATUSNAME"     ; $c16a19
+    jsl _ff6vwf_encounter_draw_status_name
     rts
 
 ; Part of the FF6 encounter NMI/VBLANK handler. We patch it to upload our text if needed.
@@ -1266,6 +1271,7 @@ begin_locals
     decl_local ability_name_ptr, 2          ; const ff6char near *
     decl_local current_tile_index, 1        ; uint8
 
+ff6_dest_tilemap_main   = $7e004c
 ff6_enemy_ability_names = $e6f7b9
 
     tax                         ; Save enemy ability in X.
@@ -1279,7 +1285,7 @@ ff6_enemy_ability_names = $e6f7b9
 
     ; The dest tilemap pointers start at $5899 and increase by $80 for each row.
     a16
-    lda f:ff6_encounter_dest_tilemap_main
+    lda f:ff6_dest_tilemap_main
     sub #$5899
     asl
     xba
@@ -1456,11 +1462,12 @@ begin_locals
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e004a)
 
 ff6_dest_tilemap_extra   = $7e004a
+ff6_dest_tilemap_main    = $7e004c
 ff6_dest_tile_attributes = $7e004e
 
     enter __FRAME_SIZE__
     a16
-    lda ff6_encounter_dest_tilemap_main
+    lda ff6_dest_tilemap_main
     sta dest_tilemap_main
     lda ff6_dest_tilemap_extra
     sta dest_tilemap_extra
@@ -1724,6 +1731,47 @@ begin_args_nearcall
     rts
 .endproc
 
+; nearproc uint16 _ff6vwf_encounter_draw_tile_data_for_enemy_name(uint16 dest_tilemap_offset,
+;                                                                 uint8 text_line_slot,
+;                                                                 uint8 text_tiles_to_draw,
+;                                                                 uint8 blank_tiles_at_end)
+.proc _ff6vwf_encounter_draw_tile_data_for_enemy_name
+begin_locals
+    decl_local dest_tilemap_offset, 2       ; uint16
+    decl_local current_tile_index, 1        ; char
+begin_args_nearcall
+    decl_arg text_tiles_to_draw, 1          ; uint8
+    decl_arg blank_tiles_at_end, 1          ; uint8
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    stx dest_tilemap_offset
+    tya
+    sta current_tile_index
+
+    ; Draw tile data.
+    ldx dest_tilemap_offset
+    lda text_tiles_to_draw
+    cmp #0
+:   beq :+
+    txy                     ; dest_tilemap_offset
+    lda current_tile_index
+    inc current_tile_index
+    tax                     ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    dec text_tiles_to_draw
+    bra :-
+:
+
+    ; Add blank tiles on the end, if necessary. (X should still contain dest tilemap offset.)
+    ldy blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_blank_tile_data
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
 ; nearproc uint16 _ff6vwf_encounter_draw_blank_tile_data(uint16 dest_tilemap_offset, uint8 count)
 .proc _ff6vwf_encounter_draw_blank_tile_data
 begin_locals
@@ -1821,6 +1869,80 @@ begin_locals
     lda f:ff6_encounter_active_character
     jml ff6_encounter_build_menu_item_for_lore+6
 .endproc
+
+.proc _ff6vwf_encounter_draw_status_name
+begin_locals
+    decl_local outgoing_args, 7
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local status_id, 1                 ; uint8
+    decl_local string_ptr, 2                ; char near *
+    decl_local first_tile_id, 1             ; uint8
+
+ff6_dest_tilemap_main   = $7e004c
+ff6_display_list_ptr    = $7e004f
+
+    tax                             ; Put status ID in X.
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    txa
+    sta status_id
+
+    ; Figure out what text line slot we're going to use.
+    ; 5ecd/5ee1 5ef5/5f09 5f1d/5f31  5f45/5f59
+    ; $7e004c starts at $5ee1 and increments by 40 each row.
+    ; So we want: (slot-$5ee1)/40*10 == (slot-$5ee1)/4
+    a16
+    lda f:ff6_dest_tilemap_main
+    sub #$5ee1
+    lsri 2
+    a8
+    add #FF6VWF_FIRST_TILE
+    sta first_tile_id
+
+    ; Compute string pointer.
+    lda status_id
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_status_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
+    ldy string_ptr
+    sty outgoing_args+2             ; string
+    lda #^ff6vwf_long_status_names
+    sta outgoing_args+4             ; string bank byte
+    ldx first_tile_id
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Draw tile data.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy first_tile_id           ; first_tile_id
+    lda #10
+    sta outgoing_args+0         ; text_tiles_to_draw
+    stz outgoing_args+1         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data_for_enemy_name
+
+@out:
+    leave __FRAME_SIZE__
+    a16
+    lda #0
+    txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    a8
+    rtl
+.endproc
+
+.export _ff6vwf_encounter_draw_status_name
 
 ; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage(near *skill_id_ptr)
 ;
