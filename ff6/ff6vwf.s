@@ -688,6 +688,26 @@ ff6vwf_long_class_name_33: .asciiz "Imperial Soldier"
 ff6vwf_long_class_name_34: .asciiz "Shogun"
 ff6vwf_long_class_name_35: .asciiz "Moogle"
 
+ff6vwf_char_to_ascii:
+.repeat 128
+    .byte ' '
+.endrepeat
+.repeat 26, i
+    .byte 'A'+i
+.endrepeat
+.repeat 26, i
+    .byte 'a'+i
+.endrepeat
+.repeat 10, i
+    .byte '0'+i
+.endrepeat
+.byte '!', '?'
+.byte '/', ':', '"',  39, '-', '.', ',', ' ', ';', '#', '+', '(', ')', '%', '~', '*'
+.byte ' ', ' ', '=', ' ', ' ', ' ', ' ', ' '
+.repeat 128-88
+    .byte ' '
+.endrepeat
+
 .export ff6vwf_long_spell_names: far
 .export ff6vwf_long_command_names: far
 .export ff6vwf_long_esper_names: far
@@ -697,3 +717,5 @@ ff6vwf_long_class_name_35: .asciiz "Moogle"
 .export ff6vwf_long_magitek_names: far
 .export ff6vwf_long_key_item_names: far
 .export ff6vwf_long_class_names: far
+.export ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
+.export ff6vwf_char_to_ascii: far

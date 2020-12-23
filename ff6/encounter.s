@@ -26,6 +26,8 @@
 .import ff6vwf_long_magitek_names: far
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
+.import ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
+.import ff6vwf_char_to_ascii: far
 
 ; Constants
 
@@ -35,6 +37,12 @@ VWF_ENCOUNTER_TILE_BASE_ADDR = $b000
 FF6VWF_ITEM_TYPE_INVENTORY      = 0
 FF6VWF_ITEM_TYPE_ITEM_IN_HAND   = 1
 FF6VWF_ITEM_TYPE_TOOL           = 2
+
+COMMAND_FIRST_TILE = 40
+COMMAND_TILE_COUNT = 6
+COMMAND_SLOT_ROW = 4
+COMMAND_SLOT_DEFEND = 5
+PARTY_MEMBERS_FIRST_TILE = 82
 
 ; FF6 globals
 
@@ -47,7 +55,7 @@ ff6_encounter_current_menu_state = $7e7bf0
 .segment "BSS"
 
 ; Encounter BSS
-.org $7ec800
+.org $7eed00
 
 ; Current of the stack *in bytes*.
 ff6vwf_encounter_text_dma_stack_size: .res 1
@@ -100,8 +108,12 @@ ff6vwf_encounter_bss_end:
 
 ; FF6 routine that draws an enemy name during encounters. We patch it to support variable-width
 ; fonts.
-.segment "PTEXTENCOUNTERDRAWENEMYNAME"
+.segment "PTEXTENCOUNTERDRAWENEMYNAME"          ; $c16993
     jsl _ff6vwf_encounter_draw_enemy_name
+    rts
+
+.segment "PTEXTENCOUNTERDRAWPCNAME"             ; $c1682f
+    jsl _ff6vwf_encounter_draw_pc_name
     rts
 
 ; FF6 routine that builds a menu item for an item in inventory during encounters. We patch it to
@@ -200,8 +212,12 @@ ff6vwf_encounter_close_submenu_patch:
     stp     ; not reached
 
 .segment "PTEXTENCOUNTERROWDEFTILEMAP" ; $c2e165
-    .byte $ff, $ff, 80+8, 81+8, 82+8, 0         ; "Row"
-    .byte $ff, $ff, 90+8, 91+8, 92+8, 93+8, 0   ; "Def."
+COMMAND_ROW_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_ROW*COMMAND_TILE_COUNT
+COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TILE_COUNT
+    .byte $ff, $ff
+    def_static_text_tiles_z COMMAND_ROW_START_TILE, .strlen("Row"), -1
+    .byte $ff, $ff
+    def_static_text_tiles_z COMMAND_DEFEND_START_TILE, .strlen("Def."), -1
 
 ; Our own functions, in a separate bank
 .segment "TEXT"
@@ -221,7 +237,6 @@ ff6vwf_encounter_close_submenu_patch:
 begin_locals
     decl_local dest_tilemap_offset, 2       ; uint16
     decl_local command_slot, 1              ; uint8
-    decl_local text_line_slot, 1            ; uint8
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; uint8
 
@@ -240,8 +255,6 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     a8
     lsri 3                  ; 8 bytes between each command
     sta command_slot
-    add #4                  ; Start at 4 so as to avoid conflicting with enemy names.
-    sta text_line_slot
 
     ; Bump display list pointer.
     a16
@@ -272,10 +285,11 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
 
 @got_a_command:
     ; Calculate first tile index.
-    ldx text_line_slot
-    ldy #10
+    ldx command_slot
+    ldy #COMMAND_TILE_COUNT
     jsr ff6vwf_calculate_first_tile_id_simple
     txa
+    add #COMMAND_FIRST_TILE
     sta current_tile_index
 
     ; Draw tiles.
@@ -306,7 +320,7 @@ MENU_ITEM_ROW = 20
 MENU_STATE_ROW_SUSTAIN = $17
 
     ldx #MENU_ITEM_ROW
-    ldy #8
+    ldy #COMMAND_SLOT_ROW
     jsr _ff6vwf_encounter_render_command_name
 
     ; Stuff the original function did:
@@ -326,7 +340,7 @@ MENU_ITEM_DEFEND = 21
 MENU_STATE_DEFEND_SUSTAIN = $19
 
     ldx #MENU_ITEM_DEFEND
-    ldy #9
+    ldy #COMMAND_SLOT_DEFEND
     jsr _ff6vwf_encounter_render_command_name
 
     ; Stuff the original function did:
@@ -353,10 +367,6 @@ character_battle_commands = $7e202e
 
     txa
     sta command_slot
-
-    ; Calculate text line slot. Start at 4 so as to not conflict with enemy names.
-    add #4
-    sta text_line_slot
 
     ; Look up command ID.
     ;
@@ -387,7 +397,7 @@ character_battle_commands = $7e202e
 
 @got_a_command:
     tax
-    ldy text_line_slot
+    ldy command_slot
     jsr _ff6vwf_encounter_render_command_name
 
     ldx #1          ; Return true.
@@ -424,11 +434,14 @@ begin_locals
 
     ; Calculate first tile ID.
     ldx text_line_slot
-    ldy #10
+    ldy #COMMAND_TILE_COUNT
     jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    add #COMMAND_FIRST_TILE
+    tax
 
     ; Render string.
-    lda #10
+    lda #COMMAND_TILE_COUNT
     sta outgoing_args+0
     lda #0
     sta outgoing_args+1             ; 2bpp
@@ -561,6 +574,101 @@ ff6_enemy_name_table  = $cfc050
     a8
     rtl
 .endproc
+
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_pc_name(uint8 unused, uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_pc_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local dest_tilemap_offset, 2       ; uint16
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local current_tile_index, 1        ; uint8
+    decl_local name_buffer, 7               ; char[7]
+    decl_local src_ptr, 3                   ; ff6char far *
+
+name_pointer    = $7e0010
+
+    enter __FRAME_SIZE__
+
+    ; Init locals.
+    sty dest_tilemap_offset
+    lda #0
+    sta $7e0014
+
+    ; Look up party member ID.
+    a16
+    lda f:name_pointer
+    sub #$2eae
+    asli 3
+    xba
+    a8
+    and #$03                ; (name_pointer - $2eae) / $20
+    tax
+    ldy #FF6_SHORT_PC_NAME_LENGTH
+    jsr ff6vwf_calculate_first_tile_id_simple
+    add #PARTY_MEMBERS_FIRST_TILE
+    sta current_tile_index
+
+    ; Copy name buffer.
+    lda #$7e
+    sta src_ptr+2   ; bank byte
+    a16
+    lda f:name_pointer
+    inc
+    sta src_ptr+0   ; src name address
+    lda #0
+    a8
+    ldy #0
+    ldx #0
+:   lda [src_ptr],y
+    tax
+    lda f:ff6vwf_char_to_ascii,x
+    ;lda #'A'
+    tyx
+    sta z:name_buffer,x
+    iny
+    cpy #6
+    bne :-
+    stz name_buffer+6
+
+    ; Render string.
+    lda #FF6_SHORT_PC_NAME_LENGTH
+    sta outgoing_args+0
+    lda #0
+    sta outgoing_args+1             ; 2bpp
+    a16
+    tdc
+    add #name_buffer
+    sta outgoing_args+2             ; string
+    a8
+    lda #$7e
+    sta outgoing_args+4             ; string bank byte
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    ldx current_tile_index
+    jsr ff6vwf_render_string
+
+    ; Draw tiles.
+    lda #FF6_SHORT_PC_NAME_LENGTH
+    sta tiles_to_draw
+    ldx dest_tilemap_offset
+:   txy                                 ; dest_tilemap_offset
+    ldx current_tile_index              ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    inc current_tile_index
+    dec tiles_to_draw
+    bne :-
+    stx dest_tilemap_offset
+
+@out:
+    leave __FRAME_SIZE__
+    txy
+    a16
+    lda #0
+    ldx #0
+    a8
+    rtl
+.endproc
+
+.export _ff6vwf_encounter_draw_pc_name
 
 .proc _ff6vwf_encounter_build_menu_item_for_item
     sta f:ff6vwf_encounter_current_item_slot

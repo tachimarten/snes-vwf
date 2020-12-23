@@ -8,7 +8,7 @@
 ; Constants
 
 ; Number of text lines we can queue up in VRAM at one time, for encounters.
-FF6VWF_ENCOUNTER_SLOT_COUNT = 10
+FF6VWF_ENCOUNTER_SLOT_COUNT = 14
 ; Number of text lines we can queue up in VRAM at one time, for the menu.
 FF6VWF_MENU_SLOT_COUNT = 20
 ; The byte size of a tile (2bpp).
@@ -35,6 +35,7 @@ FF6_SHORT_ESPER_NAME_LENGTH = 8
 FF6_SHORT_LORE_NAME_LENGTH = 10
 FF6_SHORT_BLITZ_NAME_LENGTH = 10
 FF6_SHORT_KEY_ITEM_NAME_LENGTH = 13
+FF6_SHORT_PC_NAME_LENGTH = 6
 
 ; Globals
 
