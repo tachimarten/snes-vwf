@@ -638,6 +638,11 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_shop
     nopx 2
 
+.segment "PTEXTMENUSHOPTITLETEXT"               ; $c3c00c
+.repeat 6
+    .addr .loword(ff6_menu_shop_positioned_text)
+.endrepeat
+
 .segment "PTEXTMENURETURNTOSHOPMENU"            ; $c3b781
     jsl _ff6vwf_menu_draw_shop
     nopx 2
@@ -1973,8 +1978,9 @@ begin_locals
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy #FF6_SHORT_ITEM_LENGTH
-    stz outgoing_args+0                 ; blanks_count
+    ldy #10                             ; tile count
+    lda #3
+    sta outgoing_args+0                 ; blanks_count
     lda #1
     sta outgoing_args+1                 ; initial_offset
     jsr _ff6vwf_menu_draw_vwf_tiles
@@ -2518,7 +2524,7 @@ ff6_shop_id = $7e0201
     a8
 
     ; Upload title.
-    lda #6
+    lda #7
     sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+1     ; flags
@@ -2533,9 +2539,9 @@ ff6_shop_id = $7e0201
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c36f                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw greeting
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw greeting
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_buy
@@ -2581,9 +2587,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c396                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw question
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw question
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_shop_attack_defense(uint16 item_properties_index)
@@ -2651,9 +2657,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3e2                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw greeting
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_dupe_tool
@@ -2680,9 +2686,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3f5                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw greeting
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_cant_afford
@@ -2709,9 +2715,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3ce                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw greeting
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_sell_thanks
@@ -2738,9 +2744,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3bd                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw "Bye!"
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_sell
@@ -2762,9 +2768,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3a2                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw question
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_sell_quantity
@@ -2786,9 +2792,9 @@ begin_locals
     ; Stuff the original function did:
     ply
     pla
-    phy                             ; Remove bank byte
-    ldy #$c3b1                      ; Text pointer
-    jml ff6_menu_draw_shop_message  ; Draw question
+    phy                                         ; Remove bank byte
+    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
+    jml ff6_menu_draw_shop_message              ; Draw message
 .endproc
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
@@ -3230,15 +3236,10 @@ _equip_menu_positioned_text_b:
 ; Positioned text for shop menu
 ff6_menu_shop_positioned_text:
 .word $790d
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, .strlen("Weapon"), -1
-.word $790f
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, .strlen("Armor"), -1
-.word $790f
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, .strlen("Item"), -1
-.word $790d
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, .strlen("Relics"), -1
-.word $790d
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, .strlen("Vendor"), -1
+    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, 7, -1
+.repeat $c326-$c305-1
+    .byte 0
+.endrepeat
 .word $7a0f
     def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+0, .strlen("BUY  "), 2
     def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+2, .strlen("SELL  "), 2
@@ -3250,17 +3251,18 @@ ff6_menu_shop_positioned_text:
 .word $7b2b
     def_static_text_tiles_z SHOP_FIRST_GIL_TILE, .strlen("GP"), -1
 .word $7ab3
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+0, .strlen("Owned:"), -1
+    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+0, .strlen("Owned:"), 4
 .word $7bb3
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("Equipped:"), -1
+    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("Equipped:"), 5
 .word $7b8f
     def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Bat Pwr"), -1
 .word $7b8f
     def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Defense"), -1
 .word $7ba5
     .byte $ff, 0
+ff6_menu_shop_greeting_text:
 .word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Hi! Can I help you?"), -1
+    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Hi! Can I help you?"), 15
 .word $791f
     def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Help yourself!"), -1
 .word $791f
@@ -3520,7 +3522,7 @@ ff6vwf_static_buy_quantity_start_tiles:
 
 ff6vwf_static_buy_quantity_label_0: .asciiz "Owned:"
 ff6vwf_static_buy_quantity_label_1: .asciiz "Equipped:"
-ff6vwf_static_buy_quantity_label_2: .asciiz "How many would you like to buy?"
+ff6vwf_static_buy_quantity_label_2: .asciiz "How many are you buying?"
 
 ; Sell menu
 
@@ -3565,7 +3567,7 @@ ff6vwf_static_sell_quantity_start_tiles:
 
 ff6vwf_static_sell_quantity_label_0: .asciiz "Owned:"
 ff6vwf_static_sell_quantity_label_1: .asciiz "Equipped:"
-ff6vwf_static_sell_quantity_label_2: .asciiz "How many would you like to sell?"
+ff6vwf_static_sell_quantity_label_2: .asciiz "How many are you selling?"
 
 ; Shop titles
 
