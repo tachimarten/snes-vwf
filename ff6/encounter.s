@@ -23,6 +23,7 @@
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_command_names: far
 .import ff6vwf_long_dance_names: far
+.import ff6vwf_long_esper_names: far
 .import ff6vwf_long_lore_names: far
 .import ff6vwf_long_magitek_names: far
 .import ff6vwf_long_enemy_names: far
@@ -160,8 +161,12 @@ ff6_encounter_build_menu_item_for_lore:
     nopx 2
 
 ; FF6 routine to draw the name of a spell during encounters.
-.segment "PTEXTENCOUNTERDRAWSPELLNAME"
+.segment "PTEXTENCOUNTERDRAWSPELLNAME"          ; $c16598
     jsl _ff6vwf_encounter_draw_spell_name
+    rts
+
+.segment "PTEXTENCOUNTERDRAWESPERNAME"          ; $c1667d
+    jsl _ff6vwf_encounter_draw_esper_name
     rts
 
 ; FF6 routine to draw the name of one of Gau's Rages during encounters.
@@ -739,6 +744,7 @@ begin_locals
     decl_local item_id_ptr, 2               ; uint8 near *
     decl_local item_id, 1                   ; uint8
     decl_local string_ptr, 2                ; char near *
+    decl_local first_tile_id, 1             ; uint8
 
 ff6_display_list_ptr        = $7e004f
 ff6_item_in_hand_left       = $7e575a
@@ -818,6 +824,8 @@ ff6_tool_display_list_right = $7e5760
     ldx item_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -833,7 +841,7 @@ ff6_tool_display_list_right = $7e5760
 
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy item_slot               ; text_line_slot
+    ldy first_tile_id           ; first_tile_id
     lda #FF6_SHORT_ITEM_LENGTH
     sta outgoing_args+0         ; text_tiles_to_draw
     lda #2
@@ -853,6 +861,7 @@ begin_locals
     decl_local spell_id_ptr, 2              ; uint8 near *
     decl_local spell_id, 1                  ; uint8
     decl_local string_ptr, 2                ; char near *
+    decl_local first_tile_id, 1             ; uint8
 
 ff6_display_list_ptr         = $7e004f
 ff6_spell_display_list_left  = $7e575a
@@ -910,6 +919,8 @@ ff6_spell_name_length = $c1601b
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -935,7 +946,7 @@ ff6_spell_name_length = $c1601b
 
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy text_line_slot          ; text_line_slot
+    ldy first_tile_id           ; first_tile_id
     lda f:ff6_spell_name_length
     sta outgoing_args+0         ; text_tiles_to_draw
     stz outgoing_args+1         ; blank_tiles_at_end
@@ -944,6 +955,75 @@ ff6_spell_name_length = $c1601b
 @out:
     leave __FRAME_SIZE__
     txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    rtl
+.endproc
+
+; farproc void _ff6vwf_encounter_draw_esper_name(uint8 unused,
+;                                                uint16 dest_tilemap_offset,
+;                                                inreg(A) esper_id)
+.proc _ff6vwf_encounter_draw_esper_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local string_ptr, 2                ; char near *
+    decl_local esper_id_ptr, 2              ; uint8 near *
+    decl_local esper_id, 1                  ; uint8
+
+FIRST_TILE_ID = 90
+
+display_list_ptr = $7e004f
+
+    tax                         ; Save Esper ID in X.
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    sty dest_tilemap_offset
+    a16
+    lda f:display_list_ptr
+    inc
+    sta f:display_list_ptr
+    sta esper_id_ptr
+    a8
+
+    ; Look up Esper ID and long name.
+    lda (esper_id_ptr)
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_esper_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #10
+    sta outgoing_args+0                 ; tile_count
+    lda #0
+    sta outgoing_args+1                 ; 2bpp
+    ldy string_ptr
+    sty outgoing_args+2                 ; string
+    lda #^ff6vwf_long_esper_names
+    sta outgoing_args+4                 ; string bank byte
+    ldx #FIRST_TILE_ID                  ; first_tile_id
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Draw tile data.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy #FIRST_TILE_ID          ; text_line_slot
+    lda #10
+    sta outgoing_args+0         ; text_tiles_to_draw
+    lda #1
+    sta outgoing_args+1         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data
+
+    leave __FRAME_SIZE__
+    a16
+    txy
+    lda #0
+    ldx #0
+    a8
     rtl
 .endproc
 
@@ -1052,6 +1132,7 @@ begin_locals
     decl_local text_line_slot, 1            ; uint8
     decl_local enemy_id, 1                  ; uint8
     decl_local string_ptr, 2                ; char near *
+    decl_local first_tile_id, 1             ; uint8
 begin_args_nearcall
     decl_arg dest_tilemap_offset, 2         ; uint16
     decl_arg name_list, 3                   ; const char near *far *
@@ -1088,6 +1169,8 @@ begin_args_nearcall
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1103,7 +1186,7 @@ begin_args_nearcall
 
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy text_line_slot          ; text_line_slot
+    ldy first_tile_id           ; first_tile_id
     lda #10
     sta outgoing_args+0         ; text_tiles_to_draw
     lda #1
@@ -1180,6 +1263,7 @@ begin_locals
     decl_local dance_id, 1                  ; uint8
     decl_local string_ptr, 2                ; const char near *
     decl_local name_length, 1               ; uint8
+    decl_local first_tile_id, 1             ; uint8
 begin_args_nearcall
     decl_arg name_list, 3                   ; const char far *
 
@@ -1224,6 +1308,8 @@ ff6_display_list_ptr    = $7e004f
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    sta first_tile_id
 
     ; Render string.
     lda #10
@@ -1239,7 +1325,7 @@ ff6_display_list_ptr    = $7e004f
 
     ; Draw tile data.
     ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy text_line_slot          ; text_line_slot
+    ldy first_tile_id           ; text_line_slot
     lda #10
     sta outgoing_args+0         ; text_tiles_to_draw
     lda name_length
@@ -1500,7 +1586,6 @@ begin_locals
 .proc _ff6vwf_encounter_draw_tile_data
 begin_locals
     decl_local dest_tilemap_offset, 2       ; uint16
-    decl_local text_line_slot, 1            ; uint8
     decl_local current_tile_index, 1        ; char
 begin_args_nearcall
     decl_arg text_tiles_to_draw, 1          ; uint8
@@ -1511,14 +1596,9 @@ begin_args_nearcall
     ; Initialize locals.
     stx dest_tilemap_offset
     tya
-    sta text_line_slot
+    sta current_tile_index
 
     ; Draw tile data.
-    ldx text_line_slot
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
-    txa
-    sta current_tile_index
     ldx dest_tilemap_offset
     lda text_tiles_to_draw
     cmp #0
