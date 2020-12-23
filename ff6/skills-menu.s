@@ -75,6 +75,10 @@ ff6_menu_set_string_pos     = $c33519
     jsl _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp
     nopx 2
 
+.segment "PTEXTMENUDRAWSPELLNAMEINSPELLUSAGEMENU"   ; $c35871
+    jsl _ff6vwf_menu_draw_spell_name_in_spell_usage_menu
+    nopx 2
+
 .segment "PTEXTMENUINITESPERSMENU"      ; $c320b3
 ff6_menu_create_blinker                 = $c32eeb
 ff6_menu_espers_load_navigation_data    = $c34c18
@@ -368,15 +372,20 @@ begin_args_nearcall
 
 ; nearproc void _ff6vwf_menu_draw_spell_name_in_magic_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_magic_menu
+begin_locals
+    decl_local outgoing_args, 1
+
+    enter __FRAME_SIZE__
+
     ; Compute text line slot.
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
     tax
     a8
-    ldy #18             ; 8 visible rows plus one off-screen row, 2 columns
+    ldy #18                 ; 8 visible rows plus one off-screen row, 2 columns
     jsr std_mod16_8
-    tay                 ; spell slot
+    tay                     ; spell slot
 
     ; Fetch spell ID.
     lda f:ff6_menu_list_slot
@@ -385,9 +394,12 @@ begin_args_nearcall
     tax
     a8
     lda f:ff6_menu_list,x
-    tax                 ; spell ID
+    tax                     ; spell ID
 
-    jsl _ff6vwf_menu_draw_spell_name
+    stz outgoing_args+0     ; bg3
+    jsr _ff6vwf_menu_draw_spell_name
+
+    leave __FRAME_SIZE__
     rts
 .endproc
 
@@ -402,11 +414,38 @@ begin_args_nearcall
 .proc _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp
     jsr _ff6vwf_menu_draw_spell_name_in_magic_menu
 
-    ldx #$9e92
     ply
     pla
     phy                             ; Remove bank byte
     jml $c3510d
+.endproc
+
+; farproc void _ff6vwf_menu_draw_spell_name_in_spell_usage_menu()
+.proc _ff6vwf_menu_draw_spell_name_in_spell_usage_menu
+begin_locals
+    decl_local outgoing_args, 1
+
+    enter __FRAME_SIZE__
+
+    ; Fetch spell ID.
+    lda f:ff6_menu_list_slot
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_menu_list,x
+    tax                     ; spell ID
+
+    ldy #0                  ; spell slot
+    lda #1
+    sta outgoing_args+0     ; bg3
+    jsr _ff6vwf_menu_draw_spell_name
+
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                             ; Remove bank byte
+    jml $c37fd9
 .endproc
 
 .proc _ff6vwf_menu_setup_espers_menu
@@ -550,10 +589,15 @@ FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
 
 ; farproc void _ff6vwf_menu_draw_spell_name_in_esper_info_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_esper_info_menu
+begin_locals
+    decl_local outgoing_args, 1
+
 ff6_current_spell_id    = $7e00e1
 ff6_current_row         = $7e00f5
 
 FIRST_SPELL_ROW = $11
+
+    enter __FRAME_SIZE__
 
     ; Calculate text slot.
     a16
@@ -565,12 +609,15 @@ FIRST_SPELL_ROW = $11
 
     lda f:ff6_current_spell_id
     tax
-    jsl _ff6vwf_menu_draw_spell_name
+    stz outgoing_args+0             ; bg3
+    jsr _ff6vwf_menu_draw_spell_name
+
     ldx #$9e92          ; The original function did this...
+    leave __FRAME_SIZE__
     rtl
 .endproc
 
-; farproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 text_slot)
+; nearproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 text_slot, bool bg3)
 .proc _ff6vwf_menu_draw_spell_name
 begin_locals
     decl_local outgoing_args, 6
@@ -578,6 +625,10 @@ begin_locals
     decl_local string_ptr, 2
     decl_local text_line_slot, 1
     decl_local first_tile_id, 1
+    decl_local dma_flags, 1         ; uint8
+    decl_local base_addr, 2         ; vram near *
+begin_args_nearcall
+    decl_local bg3, 1
 
     enter __FRAME_SIZE__
 
@@ -604,20 +655,35 @@ begin_locals
     txa
     sta first_tile_id
 
+    ; Determine the appropriate DMA flags and base address.
+    lda bg3
+    bne :+
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta dma_flags
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sty base_addr
+    bra :++
+:   lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta dma_flags
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    sty base_addr
+:
+
     ; Render string.
     lda #5
-    sta outgoing_args+0     ; 4bpp
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; max_tile_count
+    lda dma_flags
+    sta outgoing_args+1     ; DMA flags
     ldy string_ptr
     sty outgoing_args+2     ; string ptr
     lda #^ff6vwf_long_spell_names
     sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx first_tile_id
+    ldy base_addr
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
-    jsl ff6vwf_menu_force_nmi_trampoline
+    jsr ff6vwf_menu_force_nmi
 
     ; Draw spell icon.
     ldx spell_id
@@ -636,7 +702,7 @@ begin_locals
     jsr ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
-    rtl
+    rts
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_rage_name()
