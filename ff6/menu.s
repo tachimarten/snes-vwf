@@ -18,6 +18,7 @@
 .import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple: near
+.import ff6vwf_copy_pc_name: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_long_command_names: far
@@ -93,6 +94,7 @@ ff6_menu_list_scroll                = $7e004a
 ff6_menu_page_height                = $7e005a
 ff6_menu_page_width                 = $7e005b
 ff6_menu_max_page_scroll_pos        = $7e005c
+ff6_actor_address                   = $7e0067
 ff6_menu_list_slot                  = $7e00e5
 ff6_menu_bg1_write_row              = $7e00e6
 ff6_menu_src_ptr                    = $7e00e7
@@ -157,6 +159,11 @@ ff6vwf_menu_bss_end:
 .segment "PTEXTMENUINIT"
     jml _ff6vwf_menu_init
 
+; FIXME(tachiweasel): This is necessary to preserve Y but breaks the Kefka lineup!
+.segment "PTEXTMENUDRAWPCNAME"              ; $c334cf
+    jsl _ff6vwf_menu_draw_pc_name
+    rts
+
 .segment "PTEXTMENULOADEQUIPMENTNAME"       ; $c38fe1
 ff6_menu_trigger_nmi = $1368
 
@@ -164,7 +171,7 @@ ff6_menu_trigger_nmi = $1368
     rts
 
 ; Let's put some trampolines here.
-_ff6vwf_menu_force_nmi_trampoline:  def_trampoline ff6_menu_trigger_nmi
+_ff6vwf_menu_force_nmi_trampoline:          def_trampoline ff6_menu_trigger_nmi
 _ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 _ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 
@@ -637,6 +644,152 @@ ff6_reset_vars = $d4cdf3
     ; Return.
     jml $c368fe
 .endproc
+
+; farproc void _ff6vwf_menu_draw_pc_name(uint8 unused, tiledata near *tilemap_addr)
+.proc _ff6vwf_menu_draw_pc_name
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local first_tile_id, 1
+    decl_local base_addr, 2
+    decl_local dma_flags, 1
+    decl_local tilemap_addr, 2
+    decl_local name_buffer, 7       ; char[7]
+
+    enter __FRAME_SIZE__
+
+    ; Save tilemap address.
+    a16
+    tya
+    sta f:ff6_menu_positioned_text_ptr
+
+    ; Copy PC name.
+    lda f:ff6_actor_address
+    add #2                  ; Move to name.
+    sta outgoing_args+3     ; src_ptr
+    tdc
+    add #name_buffer
+    sta outgoing_args+0     ; dest_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+2     ; dest_ptr, bank byte
+    sta outgoing_args+5     ; src_ptr, bank byte
+    jsr ff6vwf_copy_pc_name
+
+    ; Find the tile ID.
+    a16
+    ldx #0
+:   a16
+    lda f:_ff6vwf_menu_pc_name_address_table,x
+    cmp f:ff6_menu_positioned_text_ptr
+    a8
+    beq @found_tile_id
+    inx
+    inx
+    inx
+    cpx #_ff6vwf_menu_pc_name_address_table_end-_ff6vwf_menu_pc_name_address_table
+    bne :-
+    lda 0       ; fallback
+    bra @store_tile_id
+@found_tile_id:
+    lda f:_ff6vwf_menu_pc_name_address_table+2,x
+@store_tile_id:
+    sta first_tile_id
+
+    ; Calculate base address and DMA flags.
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta dma_flags
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sty base_addr
+
+    ; Render string.
+    lda #FF6_SHORT_PC_NAME_LENGTH
+    sta outgoing_args+0     ; max_tile_count
+    lda dma_flags
+    sta outgoing_args+1     ; flags
+    a16
+    tdc
+    add #name_buffer
+    sta outgoing_args+2     ; string ptr
+    a8
+    lda #$7e
+    sta outgoing_args+4     ; string ptr bank
+    ldx first_tile_id
+    ldy base_addr
+    jsr ff6vwf_render_string
+
+    ; Upload it now.
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx first_tile_id
+    ldy #FF6_SHORT_PC_NAME_LENGTH
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    jml ff6_menu_draw_string            ; Draw item name.
+.endproc
+
+; Table of addresses
+
+_ff6vwf_menu_pc_name_address_table:
+.word $3a4f
+    .byte 10+6*0     ; $c3174d -- Leader info over save file 1
+.word $3c0f
+    .byte 10+6*1     ; $c317fa -- Leader info over save file 2
+.word $3dcf
+    .byte 10+6*2     ; $c3185d -- Leader info over save file 3
+.word $3919
+    .byte 60+6*0     ; $c332f1 -- Party member info 1
+.word $3a99
+    .byte 60+6*1     ; $c3333d -- Party member info 2
+.word $3c19
+    .byte 60+6*2     ; $c33389 -- Party member info 3
+.word $3d99
+    .byte 60+6*3     ; $c333d5 -- Party member info 3
+.word $798f
+    .byte 60+6*0     ; $c344b4 -- Command Set menu text, member 1
+.word $7b4f
+    .byte 60+6*1     ; $c344ed -- Command Set menu text, member 2
+.word $7d0f
+    .byte 60+6*2     ; $c34526 -- Command Set menu text, member 3
+.word $7ecf
+    .byte 60+6*3     ; $c3455f -- Command Set menu text, member 4
+.word $7bcf
+    .byte 60+6*0     ; $c347b4 -- Controller menu text, member 1
+.word $7c4f
+    .byte 60+6*1     ; $c347f1 -- Controller menu text, member 2
+.word $7ccf
+    .byte 60+6*2     ; $c3482e -- Controller menu text, member 3
+.word $7d4f
+    .byte 60+6*3     ; $c3486b -- Controller menu text, member 4
+.word $398f
+    .byte 60         ; $c35fbb -- Status menu
+.word $4229
+    .byte 60         ; $c3675b -- Naming menu
+.word $3adb
+    .byte 60         ; $c37953 -- Lineup menu
+.word $390d
+    .byte 80+6*0     ; $c38f1c -- Party gear overview, member 1
+.word $3b0d
+    .byte 80+6*1     ; $c38f36 -- Party gear overview, member 2
+.word $3d0d
+    .byte 80+6*2     ; $c38f52 -- Party gear overview, member 3
+.word $3f0d
+    .byte 80+6*3     ; $c38f6e -- Party gear overview, member 3
+.word $7bb7
+    .byte 80         ; $c393e5 -- Equip or Relic menu
+.word $7c11
+    .byte 80         ; $c3aed9 -- Shadow at Colosseum
+.word $7c75
+    .byte 60         ; $c3b2a5 -- Colosseum challenger
+; TODO(tachiweasel): Kefka menu
+; TODO(tachiweasel): Colosseum members
+_ff6vwf_menu_pc_name_address_table_end:
 
 ; farproc void _ff6vwf_menu_draw_equipment_name(inreg(A) uint8 item_id)
 .proc _ff6vwf_menu_draw_equipment_name
@@ -2225,7 +2378,6 @@ begin_locals
     decl_local string_ptr, 2        ; const char near *
     decl_local first_tile, 1        ; uint8
 
-ff6_actor_address = $7e0067
 command_name = $7e00e2
 
     enter __FRAME_SIZE__

@@ -16,6 +16,7 @@
 .import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple: near
+.import ff6vwf_copy_pc_name: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_schedule_text_dma: near
@@ -578,12 +579,11 @@ ff6_enemy_name_table  = $cfc050
 ; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_pc_name(uint8 unused, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_pc_name
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 6
     decl_local dest_tilemap_offset, 2       ; uint16
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; uint8
     decl_local name_buffer, 7               ; char[7]
-    decl_local src_ptr, 3                   ; ff6char far *
 
 name_pointer    = $7e0010
 
@@ -609,26 +609,18 @@ name_pointer    = $7e0010
     sta current_tile_index
 
     ; Copy name buffer.
-    lda #$7e
-    sta src_ptr+2   ; bank byte
     a16
     lda f:name_pointer
     inc
-    sta src_ptr+0   ; src name address
-    lda #0
+    sta outgoing_args+3     ; src_ptr
+    tdc
+    add #name_buffer
+    sta outgoing_args+0     ; dest_ptr
     a8
-    ldy #0
-    ldx #0
-:   lda [src_ptr],y
-    tax
-    lda f:ff6vwf_char_to_ascii,x
-    ;lda #'A'
-    tyx
-    sta z:name_buffer,x
-    iny
-    cpy #6
-    bne :-
-    stz name_buffer+6
+    stz outgoing_args+2     ; dest_ptr, bank byte
+    lda #$7e
+    sta outgoing_args+5     ; src_ptr, bank byte
+    jsr ff6vwf_copy_pc_name
 
     ; Render string.
     lda #FF6_SHORT_PC_NAME_LENGTH

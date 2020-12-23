@@ -45,6 +45,39 @@
 
 .export ff6vwf_get_long_item_name
 
+; nearproc void ff6vwf_copy_pc_name(char far *dest_ptr, const ff6char far *src_ptr)
+.proc ff6vwf_copy_pc_name
+begin_locals
+begin_args_nearcall
+    decl_arg dest_ptr, 3    ; char far *
+    decl_arg src_ptr, 3     ; const ff6char far *
+
+    enter __FRAME_SIZE__
+
+    a16
+    lda #0
+    ldx #0
+    ldy #0
+    a8
+
+:   lda [src_ptr],y
+    tax
+    lda f:ff6vwf_char_to_ascii,x
+    sta [dest_ptr],y
+    iny
+    cpy #FF6_SHORT_PC_NAME_LENGTH
+    bne :-
+
+    ; Null-terminate.
+    lda #0
+    sta [dest_ptr],y
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.export ff6vwf_copy_pc_name
+
 ; nearproc void ff6vwf_render_string(uint8 first_tile_id,
 ;                                    vram near *tile_base_addr,
 ;                                    uint8 max_tile_count,
