@@ -11,6 +11,33 @@
 
 .segment "TEXT"
 
+; nearproc void std_memcpy(uint16 count, void far *dest, void far *src)
+;
+; TODO(tachiweasel): Use self-modifying code with `mvn`!
+.proc std_memcpy
+begin_locals
+begin_args_nearcall
+    decl_arg dest, 3
+    decl_arg src, 3
+
+    enter __FRAME_SIZE__
+
+    ldy #0
+    cpx #0
+:   beq @out
+    lda [src],y
+    sta [dest],y
+    iny
+    dex
+    bra :-
+
+@out:
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.export std_memcpy
+
 ; nearproc void std_memset(uint8 value, uint16 count, far void *ptr)
 .proc std_memset
 begin_locals
