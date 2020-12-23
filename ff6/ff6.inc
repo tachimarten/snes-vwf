@@ -41,8 +41,12 @@ FF6_SHORT_ENEMY_ABILITY_NAME_LENGTH = 10
 
 ; Globals
 
-ff6_short_item_names    = $d2b300
-ff6_short_spell_names   = $e6f567
+ff6_menu_bg_attrs               = $7e0029
+ff6_menu_list_slot              = $7e00e5
+ff6_menu_positioned_text_ptr    = $7e9e89
+ff6_menu_string_buffer          = $7e9e8b
+ff6_short_item_names            = $d2b300
+ff6_short_spell_names           = $e6f567
 
 ; FF6 functions
 

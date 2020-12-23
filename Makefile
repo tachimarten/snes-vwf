@@ -7,6 +7,7 @@ FF6VWF_OBJS=\
 	ff6/encounter.o \
 	ff6/menu.o \
 	ff6/shop.o \
+	ff6/skills-menu.o \
 	ff6/enemy-names.o \
 	ff6/item-names.o \
 	vwf.o \
@@ -35,6 +36,8 @@ ff6/encounter.o:	snes.inc ff6/ff6.inc
 ff6/menu.o:	snes.inc ff6/ff6.inc
 
 ff6/shop.o:	snes.inc ff6/ff6.inc
+
+ff6/skills-menu.o:	snes.inc ff6/ff6.inc
 
 font.inc:	gen-font.rb font.tga
 	./gen-font.rb font.tga > $@
