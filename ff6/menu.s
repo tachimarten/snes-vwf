@@ -43,11 +43,6 @@
 
 ; Constants
 
-; Address in VRAM where characters begin, for BG1 on the menu.
-VWF_MENU_TILE_BG1_BASE_ADDR = $a000
-; Address in VRAM where characters begin, for BG3 on the menu.
-VWF_MENU_TILE_BG3_BASE_ADDR = $c000
-
 ; List item is a Key Item.
 FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
 
@@ -59,20 +54,9 @@ STATS_STRING_COUNT = 9
 RELIC_MENU_STRING_COUNT = 3
 STATUS_STRING_COUNT = 2
 CONFIG_STRING_COUNT = 11
-SHOP_STATIC_STRING_COUNT = 5
-SHOP_TITLE_STRING_COUNT = 5
-SHOP_MESSAGE_STRING_COUNT = 7
-BUY_STATIC_STRING_COUNT = 3
-BUY_QUANTITY_STATIC_STRING_COUNT = 3
-SELL_STATIC_STRING_COUNT = 4
-SELL_QUANTITY_STATIC_STRING_COUNT = 3
 
 EQUIP_MENU_FIRST_STATS_TILE = 36
 STATUS_FIRST_LABEL_TILE     = 50
-SHOP_FIRST_GIL_TILE         = 80
-SHOP_FIRST_TITLE_TILE       = 82
-SHOP_FIRST_MESSAGE_TILE     = 89
-SHOP_FIRST_SPECIFIC_TILE    = 104
 
 STATS_TILE_COUNT_STRENGTH = 5
 STATS_TILE_COUNT_STAMINA = 5
@@ -83,7 +67,6 @@ STATS_TILE_COUNT_SPEED = 4
 STATS_TILE_COUNT_ATTACK = 4
 STATS_TILE_COUNT_DEFENSE = 5
 STATS_TILE_COUNT_MAGIC_DEFENSE = 6
-SHOP_MESSAGE_TILE_COUNT = 15
 
 STATS_TILE_INDEX_STRENGTH      = 0
 STATS_TILE_INDEX_STAMINA       = STATS_TILE_INDEX_STRENGTH      + STATS_TILE_COUNT_STRENGTH
@@ -122,10 +105,7 @@ ff6_menu_positioned_text_ptr        = $7e9e89
 ff6_menu_string_buffer              = $7e9e8b
 
 ; FF6 functions
-
-ff6_menu_draw_shop_message  = $c302f9
 ff6_menu_create_scrollbar   = $c3091f
-ff6_menu_draw_string        = $c37fd9
 
 ; FF6-specific macros
 
@@ -137,21 +117,6 @@ ff6_menu_draw_string        = $c37fd9
     jsr target
     pld
     rtl
-.endmacro
-
-.macro def_static_text_tiles first_tile_id, total_tiles, string_tiles
-    .repeat total_tiles, i
-        .if string_tiles < 0 || i < string_tiles
-            .byte FF6VWF_FIRST_TILE + first_tile_id + i
-        .else
-            .byte $ff
-        .endif
-    .endrepeat
-.endmacro
-
-.macro def_static_text_tiles_z first_tile_id, total_tiles, string_tiles
-    def_static_text_tiles first_tile_id, total_tiles, string_tiles
-    .byte 0
 .endmacro
 
 .define bg1_position(col, row)  .loword(ff6_menu_bg1_data) + row * $40 + col * 2
@@ -476,19 +441,6 @@ ff6vwf_menu_draw_blitz:
     jsl _ff6vwf_menu_draw_item_to_be_used
     nopx 7
 
-.segment "PTEXTMENUDRAWITEMTOBUY"           ; $c3b9bd
-    jsl _ff6vwf_menu_draw_item_to_buy       ; 4 bytes
-    nopx 2
-
-.segment "PTEXTMENUDRAWITEMTOSELL"          ; $c3badf
-    jsl _ff6vwf_menu_draw_item_to_sell      ; 4 bytes
-    nopx 2
-
-.segment "PTEXTMENUDRAWITEMNAMEINSTATSSUBMENU"          ; $c3b9bd
-    jml _ff6vwf_menu_draw_item_name_in_stats_submenu    ; 4 bytes
-    nopx 2
-_ff6vwf_menu_draw_item_name_in_stats_submenu_after:
-
 .segment "PTEXTMENUBUILDCOLOSSEUMITEMS"
     jml _ff6vwf_menu_build_colosseum_items  ; 4 bytes
 
@@ -633,57 +585,6 @@ ff6_stats_magic_defense         = $7e11bb
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
     jsl _ff6vwf_menu_draw_config_menu
     nop
-
-.segment "PTEXTMENUDRAWSHOPMENU"                ; $c3b93f
-    jsl _ff6vwf_menu_draw_shop
-    nopx 2
-
-.segment "PTEXTMENUSHOPTITLETEXT"               ; $c3c00c
-.repeat 6
-    .addr .loword(ff6_menu_shop_positioned_text)
-.endrepeat
-
-.segment "PTEXTMENURETURNTOSHOPMENU"            ; $c3b781
-    jsl _ff6vwf_menu_draw_shop
-    nopx 2
-
-.segment "PTEXTMENUDRAWSHOPBUYMENU"             ; $c3b992
-    jsl _ff6vwf_menu_draw_shop_buy
-
-.segment "PTEXTMENUDRAWSHOPBUYQUANTITYMENU"     ; $c3b867
-    jsl _ff6vwf_menu_draw_shop_buy_quantity
-    nopx 2
-
-.segment "PTEXTMENUDRAWSHOPATTACKDEFENSE"       ; $c3bafe
-    jsl _ff6vwf_menu_draw_shop_attack_defense
-
-.segment "PTEXTMENUBUYHAVETOOMANY"              ; $c3b847
-    jsl _ff6vwf_menu_buy_have_too_many
-    nopx 2
-
-.segment "PTEXTMENUBUYDUPETOOL"                 ; $c3b801
-    jsl _ff6vwf_menu_buy_dupe_tool
-    nopx 2
-
-.segment "PTEXTMENUBUYCANTAFFORD"               ; $c3b826
-    jsl _ff6vwf_menu_buy_cant_afford
-    nopx 2
-
-.segment "PTEXTMENUBUYTHANKS"                   ; $c3b605
-    jsl _ff6vwf_menu_buy_sell_thanks
-    nopx 2
-
-.segment "PTEXTMENUDRAWSHOPSELLMENU"            ; $c3b7db
-    jsl _ff6vwf_menu_draw_shop_sell
-    nopx 2
-
-.segment "PTEXTMENUDRAWSHOPSELLQUANTITYMENU"    ; $c3b665
-    jsl _ff6vwf_menu_draw_shop_sell_quantity
-    nopx 2
-
-.segment "PTEXTMENUSELLTHANKS"                  ; $c3b743
-    jsl _ff6vwf_menu_buy_sell_thanks
-    nopx 2
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -1824,7 +1725,7 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
     jsr _ff6vwf_menu_get_inventory_item_id
 
     ldy #TEXT_LINE_SLOT
-    jsr _ff6vwf_menu_draw_item_name_bg3
+    jsr ff6vwf_menu_draw_item_name_bg3
 
     ; For some reason we have to do this to prevent the cursor from disappearing...
     a16
@@ -1834,159 +1735,6 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
     ldy #0
 
     rtl
-.endproc
-
-; farproc void _ff6vwf_menu_draw_item_to_buy()
-;
-; Draws an item for sale, in the "buy" menu in shops.
-.proc _ff6vwf_menu_draw_item_to_buy
-begin_locals
-    decl_local item_id, 1
-
-ff6_menu_item_for_sale = $7e00f1
-
-    tax     ; Save item ID in X.
-    enter __FRAME_SIZE__
-
-    ; Save item ID.
-    txa
-    sta item_id
-
-    ; Compute the actual text line slot by modding the one we were given by 9.
-    lda f:ff6_menu_item_for_sale
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #9                  ; 8 slots, plus one.
-    jsr std_mod16_8
-
-    ; Draw item.
-    txy                 ; text_line_slot
-    ldx item_id
-    jsr _ff6vwf_menu_draw_item_name_bg3
-
-    leave __FRAME_SIZE__
-    ply
-    pla
-    phy                             ; Remove bank byte
-    jml ff6_menu_draw_string
-.endproc
-
-; farproc void _ff6vwf_menu_draw_item_to_sell()
-;
-; Draws an item the PCs want to sell, in the "sell" menu in shops.
-.proc _ff6vwf_menu_draw_item_to_sell
-begin_locals
-    decl_local item_id, 1
-
-ff6_menu_item_for_sale = $7e00f1
-
-    tax     ; Save item ID in X.
-    enter __FRAME_SIZE__
-
-    ; Save item ID.
-    txa
-    sta item_id
-
-    ; Compute the actual text line slot by modding the one we were given by 9.
-    lda f:ff6_menu_item_for_sale
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #9                  ; 8 slots, plus one.
-    jsr std_mod16_8
-
-    ; Draw item.
-    txy                 ; text_line_slot
-    ldx item_id
-    jsr _ff6vwf_menu_draw_item_name_bg3
-
-    ; Stuff the original function did:
-    leave __FRAME_SIZE__
-    ply
-    pla
-    phy                                 ; Remove bank byte
-    jml ff6_menu_draw_string
-.endproc
-
-; Draws the item name in the statistics subscreen of the "buy" menu in shops.
-;
-; This doesn't really follow a calling convention, since it's more of a patch than a function.
-.proc _ff6vwf_menu_draw_item_name_in_stats_submenu
-ff6_menu_item_for_sale = $7e00f1
-
-    tax     ; Save item ID in X.
-
-    ; Draw item.
-    ldy #0
-    jsr _ff6vwf_menu_draw_item_name_bg3
-
-    ; Return back to the caller.
-    pea .loword(_ff6vwf_menu_draw_item_name_in_stats_submenu_after)-1
-    jml ff6_menu_draw_string
-.endproc
-
-; nearproc void _ff6vwf_menu_draw_item_name_bg3(uint8 item_id, uint8 text_line_slot)
-.proc _ff6vwf_menu_draw_item_name_bg3
-begin_locals
-    decl_local outgoing_args, 6
-    decl_local item_id, 1
-    decl_local string_ptr, 2
-    decl_local text_line_slot, 1
-    decl_local first_tile_id, 1
-
-    enter __FRAME_SIZE__
-
-    ; Initialize locals.
-    txa
-    sta item_id
-    tya
-    sta text_line_slot
-
-    ; Draw item icon.
-    ldx item_id
-    jsr _ff6vwf_menu_draw_item_icon
-
-    ; Compute string pointer.
-    ldx item_id
-    jsr ff6vwf_get_long_item_name
-    stx string_ptr
-
-    ; Calculate first tile ID.
-    ldx text_line_slot
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
-    txa
-    sta first_tile_id
-
-    ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldy string_ptr
-    sty outgoing_args+2
-    lda #^ff6vwf_long_item_names
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    jsr ff6vwf_render_string
-
-    ; Upload it now. (We won't get a chance later...)
-    jsr _ff6vwf_menu_force_nmi
-
-    ; Draw tiles.
-    ldx first_tile_id
-    ldy #10                             ; tile count
-    lda #3
-    sta outgoing_args+0                 ; blanks_count
-    lda #1
-    sta outgoing_args+1                 ; initial_offset
-    jsr _ff6vwf_menu_draw_vwf_tiles
-
-    leave __FRAME_SIZE__
-    rts
 .endproc
 
 .proc _ff6vwf_menu_build_colosseum_items
@@ -2241,9 +1989,9 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
 ;       const uint8 far *start_tiles;
 ;   };
 
-; nearproc void _ff6vwf_menu_render_static_strings(uint8 tile_offset,
-;                                                  const struct static_text far *text_ptr)
-.proc _ff6vwf_menu_render_static_strings
+; nearproc void ff6vwf_menu_render_static_strings(uint8 tile_offset,
+;                                                 const struct static_text far *text_ptr)
+.proc ff6vwf_menu_render_static_strings
 begin_locals
     decl_local outgoing_args, 6
     decl_local string_index, 1          ; uint8
@@ -2315,6 +2063,8 @@ ff6_update_config_menu_arrow = $c33980
     rts
 .endproc
 
+.export ff6vwf_menu_render_static_strings
+
 .proc _ff6vwf_menu_draw_main_menu
 begin_locals
     decl_local outgoing_args, 3
@@ -2326,7 +2076,7 @@ begin_locals
     lda #^ff6vwf_main_menu_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE+10*4 ; tile_offset
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Stuff the original function did:
     lda #$20    ; palette 0
@@ -2347,7 +2097,7 @@ begin_locals
     lda #^ff6vwf_item_menu_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Stuff the original function did:
     lda #$20    ; Palette 0
@@ -2370,7 +2120,7 @@ espers_palette = $7e0079
     lda #^ff6vwf_skills_menu_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Stuff the original function did:
     lda f:espers_palette        ; Espers palette
@@ -2392,7 +2142,7 @@ begin_locals
     lda #^ff6vwf_equip_menu_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
     ldx #.loword(ff6vwf_stats_static_text_descriptor)
@@ -2400,7 +2150,7 @@ begin_locals
     lda #^ff6vwf_stats_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE+EQUIP_MENU_FIRST_STATS_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     leave __FRAME_SIZE__
 
@@ -2422,7 +2172,7 @@ begin_locals
     lda #^ff6vwf_relic_menu_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
     ldx #.loword(ff6vwf_stats_static_text_descriptor)
@@ -2430,7 +2180,7 @@ begin_locals
     lda #^ff6vwf_stats_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE + EQUIP_MENU_FIRST_STATS_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     leave __FRAME_SIZE__
 
@@ -2452,7 +2202,7 @@ begin_locals
     lda #^ff6vwf_status_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE + STATUS_FIRST_LABEL_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
     ldx #.loword(ff6vwf_stats_static_text_descriptor)
@@ -2460,7 +2210,7 @@ begin_locals
     lda #^ff6vwf_stats_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     leave __FRAME_SIZE__
     rtl
@@ -2479,7 +2229,7 @@ ff6_update_config_menu_arrow = $c33980
     lda #^ff6vwf_config_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE  ; first_tile_id
-    jsr _ff6vwf_menu_render_static_strings
+    jsr ff6vwf_menu_render_static_strings
 
     leave __FRAME_SIZE__
 
@@ -2491,311 +2241,68 @@ ff6_update_config_menu_arrow = $c33980
 
 .export _ff6vwf_menu_draw_config_menu
 
-.proc _ff6vwf_menu_draw_shop
+; nearproc void ff6vwf_menu_draw_item_name_bg3(uint8 item_id, uint8 text_line_slot)
+.proc ff6vwf_menu_draw_item_name_bg3
 begin_locals
-    decl_local outgoing_args, 5
-
-ff6_shop_id = $7e0201
+    decl_local outgoing_args, 6
+    decl_local item_id, 1
+    decl_local string_ptr, 2
+    decl_local text_line_slot, 1
+    decl_local first_tile_id, 1
 
     enter __FRAME_SIZE__
 
-    ; Upload static strings.
-    ldx #.loword(ff6vwf_shop_static_text_descriptor)
-    stx outgoing_args+0
-    lda #^ff6vwf_shop_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
-    jsr _ff6vwf_menu_render_static_strings
+    ; Initialize locals.
+    txa
+    sta item_id
+    tya
+    sta text_line_slot
 
-    ; Compute title pointer.
-    lda f:ff6_shop_id   ; Shop ID
-    tax
-    ldy #9              ; Size of a shop structure
-    jsr std_mul8
-    lda f:$c47ac0,x     ; Look up shop flags
-    and #$07            ; Get shop type
-    a16
-    and #$00ff
-    dec                 ; Valid shop IDs start at 1...
-    asl
-    tax
-    lda f:ff6vwf_shop_title_labels,x
-    sta outgoing_args+2     ; string ptr
-    a8
+    ; Draw item icon.
+    ldx item_id
+    jsr _ff6vwf_menu_draw_item_icon
 
-    ; Upload title.
-    lda #7
+    ; Compute string pointer.
+    ldx item_id
+    jsr ff6vwf_get_long_item_name
+    stx string_ptr
+
+    ; Calculate first tile ID.
+    ldx text_line_slot
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa
+    sta first_tile_id
+
+    ; Render string.
+    lda #10
     sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+1     ; flags
-    lda #^ff6vwf_shop_title_labels
+    ldy string_ptr
+    sty outgoing_args+2
+    lda #^ff6vwf_long_item_names
     sta outgoing_args+4
     ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_TITLE_TILE
     jsr ff6vwf_render_string
 
-    leave __FRAME_SIZE__
+    ; Upload it now. (We won't get a chance later...)
+    jsr _ff6vwf_menu_force_nmi
 
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw greeting
-.endproc
-
-.proc _ff6vwf_menu_draw_shop_buy
-begin_locals
-    decl_local outgoing_args, 3
-
-    enter __FRAME_SIZE__
-
-    ; Upload static strings.
-    ldx #.loword(ff6vwf_buy_static_text_descriptor)
-    stx outgoing_args+0
-    lda #^ff6vwf_buy_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
-    jsr _ff6vwf_menu_render_static_strings
-
-    ; Stuff the original function did:
-    a16
-    lda #0
-    sta $7e00f1
-    a8
+    ; Draw tiles.
+    ldx first_tile_id
+    ldy #10                             ; tile count
+    lda #3
+    sta outgoing_args+0                 ; blanks_count
+    lda #1
+    sta outgoing_args+1                 ; initial_offset
+    jsr _ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
-    rtl
+    rts
 .endproc
 
-.proc _ff6vwf_menu_draw_shop_buy_quantity
-begin_locals
-    decl_local outgoing_args, 3
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    ldx #.loword(ff6vwf_buy_quantity_static_text_descriptor)
-    stx outgoing_args+0
-    lda #^ff6vwf_buy_quantity_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw question
-.endproc
-
-; farproc void _ff6vwf_menu_draw_shop_attack_defense(uint16 item_properties_index)
-.proc _ff6vwf_menu_draw_shop_attack_defense
-begin_locals
-    decl_local outgoing_args, 5
-    decl_local item_properties_index, 2
-
-ff6_item_properties = $d85000
-
-    enter __FRAME_SIZE__
-
-    stx item_properties_index
-
-    ; Determine which string to display.
-    lda f:ff6_item_properties,x
-    and #$07
-    cmp #1                      ; Is it a weapon?
-    beq :+
-    ldx #.loword(ff6vwf_shop_defense_string)
-    bra :++
-:   ldx #.loword(ff6vwf_shop_attack_string)
-:
-
-    ; Upload title.
-    lda #5
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    stx outgoing_args+2     ; string_ptr
-    lda #^ff6vwf_shop_attack_string
-    sta outgoing_args+4     ; string_ptr, bank byte
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE+SHOP_FIRST_SPECIFIC_TILE+9   ; first tile
-    jsr ff6vwf_render_string
-
-    ; Stuff the original function did:
-    ldx item_properties_index
-    leave __FRAME_SIZE__
-    lda f:ff6_item_properties,x
-    rtl
-.endproc
-
-.proc _ff6vwf_menu_buy_have_too_many
-begin_locals
-    decl_local outgoing_args, 5
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldx #.loword(ff6vwf_shop_buy_have_99_string)
-    stx outgoing_args+2
-    lda #^ff6vwf_shop_buy_have_99_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
-    jsr ff6vwf_render_string
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
-
-.proc _ff6vwf_menu_buy_dupe_tool
-begin_locals
-    decl_local outgoing_args, 5
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldx #.loword(ff6vwf_shop_buy_dupe_tool_string)
-    stx outgoing_args+2
-    lda #^ff6vwf_shop_buy_dupe_tool_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
-    jsr ff6vwf_render_string
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
-
-.proc _ff6vwf_menu_buy_cant_afford
-begin_locals
-    decl_local outgoing_args, 5
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldx #.loword(ff6vwf_shop_buy_cant_afford_string)
-    stx outgoing_args+2
-    lda #^ff6vwf_shop_buy_cant_afford_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
-    jsr ff6vwf_render_string
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
-
-.proc _ff6vwf_menu_buy_sell_thanks
-begin_locals
-    decl_local outgoing_args, 5
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldx #.loword(ff6vwf_shop_buy_sell_thanks_string)
-    stx outgoing_args+2
-    lda #^ff6vwf_shop_buy_sell_thanks_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
-    jsr ff6vwf_render_string
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
-
-.proc _ff6vwf_menu_draw_shop_sell
-begin_locals
-    decl_local outgoing_args, 3
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    ldx #.loword(ff6vwf_sell_static_text_descriptor)
-    stx outgoing_args+0
-    lda #^ff6vwf_sell_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
-
-.proc _ff6vwf_menu_draw_shop_sell_quantity
-begin_locals
-    decl_local outgoing_args, 3
-
-    enter __FRAME_SIZE__
-
-    ; Upload title.
-    ldx #.loword(ff6vwf_sell_quantity_static_text_descriptor)
-    stx outgoing_args+0
-    lda #^ff6vwf_sell_quantity_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE
-    jsr _ff6vwf_menu_render_static_strings
-
-    leave __FRAME_SIZE__
-
-    ; Stuff the original function did:
-    ply
-    pla
-    phy                                         ; Remove bank byte
-    ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
-.endproc
+.export ff6vwf_menu_draw_item_name_bg3
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
@@ -3231,55 +2738,6 @@ _equip_menu_positioned_text_b:
     ff6_def_charset_string_z "Cntlr2"
 .endrepeat
 
-.segment "PTEXTMENUSHOPPOSITIONEDTEXT"  ; $c3c2fc
-
-; Positioned text for shop menu
-ff6_menu_shop_positioned_text:
-.word $790d
-    def_static_text_tiles_z SHOP_FIRST_TITLE_TILE, 7, -1
-.repeat $c326-$c305-1
-    .byte 0
-.endrepeat
-.word $7a0f
-    def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+0, .strlen("BUY  "), 2
-    def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+2, .strlen("SELL  "), 2
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("EXIT"), 2
-    ;;     B  U    Y             S   E    L    L             E   X   I    T
-    ;.byte 8, 9, $ff, $ff, $ff, 10, 11, $ff, $ff, $ff, $ff, 12, 13, 14, $ff, 0
-.word $7a41
-    def_static_text_tiles_z SHOP_FIRST_GIL_TILE, .strlen("GP"), -1
-.word $7b2b
-    def_static_text_tiles_z SHOP_FIRST_GIL_TILE, .strlen("GP"), -1
-.word $7ab3
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+0, .strlen("Owned:"), 4
-.word $7bb3
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("Equipped:"), 5
-.word $7b8f
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Bat Pwr"), -1
-.word $7b8f
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Defense"), -1
-.word $7ba5
-    .byte $ff, 0
-ff6_menu_shop_greeting_text:
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Hi! Can I help you?"), 15
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Help yourself!"), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("How many?"), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Whatcha got?"), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("How many?"), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Bye!          "), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("You need more GP!"), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Too many!       "), -1
-.word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("One's plenty! "), -1
-
 ; Constant data
 
 .segment "DATA"
@@ -3456,137 +2914,3 @@ ff6vwf_config_label_7:  .asciiz "Controllers"
 ff6vwf_config_label_8:  .asciiz "Magic Order"
 ff6vwf_config_label_9:  .asciiz "Window Color"
 ff6vwf_config_label_10: .asciiz "Cursor"
-
-; Main shop menu
-
-ff6vwf_shop_static_text_descriptor:
-    .byte SHOP_STATIC_STRING_COUNT              ; count
-    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
-    .faraddr ff6vwf_static_shop_labels          ; strings
-    .faraddr ff6vwf_static_shop_tile_counts     ; tile counts
-    .faraddr ff6vwf_static_shop_start_tiles     ; start tiles
-
-ff6vwf_static_shop_labels:
-    ff6vwf_def_pointer_array ff6vwf_static_shop_label, SHOP_STATIC_STRING_COUNT
-
-ff6vwf_static_shop_tile_counts:
-    .byte 2, 2, 3
-    .byte SHOP_MESSAGE_TILE_COUNT, 2
-ff6vwf_static_shop_start_tiles:
-    .byte SHOP_FIRST_SPECIFIC_TILE+0, SHOP_FIRST_SPECIFIC_TILE+2, SHOP_FIRST_SPECIFIC_TILE+4
-    .byte SHOP_FIRST_MESSAGE_TILE, SHOP_FIRST_GIL_TILE
-
-ff6vwf_static_shop_label_0: .asciiz "Buy"
-ff6vwf_static_shop_label_1: .asciiz "Sell"
-ff6vwf_static_shop_label_2: .asciiz "Exit"
-ff6vwf_static_shop_label_3: .asciiz "Welcome! May I help you?"
-ff6vwf_static_shop_label_4: .asciiz "Gil"
-
-; Buy menu
-
-ff6vwf_buy_static_text_descriptor:
-    .byte BUY_STATIC_STRING_COUNT               ; count
-    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
-    .faraddr ff6vwf_static_buy_labels           ; strings
-    .faraddr ff6vwf_static_buy_tile_counts      ; tile counts
-    .faraddr ff6vwf_static_buy_start_tiles      ; start tiles
-
-ff6vwf_static_buy_labels: ff6vwf_def_pointer_array ff6vwf_static_buy_label, BUY_STATIC_STRING_COUNT
-ff6vwf_static_buy_tile_counts:
-    .byte 4,                        5,                          SHOP_MESSAGE_TILE_COUNT
-ff6vwf_static_buy_start_tiles:
-    .byte SHOP_FIRST_SPECIFIC_TILE, SHOP_FIRST_SPECIFIC_TILE+4, SHOP_FIRST_MESSAGE_TILE
-
-ff6vwf_static_buy_label_0: .asciiz "Owned:"
-ff6vwf_static_buy_label_1: .asciiz "Equipped:"
-ff6vwf_static_buy_label_2: .asciiz "What would you like to buy?"
-
-; Buy quantity menu
-
-ff6vwf_buy_quantity_static_text_descriptor:
-    .byte BUY_QUANTITY_STATIC_STRING_COUNT              ; count
-    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU                ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR                   ; base address
-    .faraddr ff6vwf_static_buy_quantity_labels          ; strings
-    .faraddr ff6vwf_static_buy_quantity_tile_counts     ; tile counts
-    .faraddr ff6vwf_static_buy_quantity_start_tiles     ; start tiles
-
-ff6vwf_static_buy_quantity_labels:
-    ff6vwf_def_pointer_array ff6vwf_static_buy_quantity_label, BUY_QUANTITY_STATIC_STRING_COUNT
-ff6vwf_static_buy_quantity_tile_counts:
-    .byte 4, 5, SHOP_MESSAGE_TILE_COUNT
-ff6vwf_static_buy_quantity_start_tiles:
-    .byte SHOP_FIRST_SPECIFIC_TILE+0, SHOP_FIRST_SPECIFIC_TILE+4, SHOP_FIRST_MESSAGE_TILE
-
-ff6vwf_static_buy_quantity_label_0: .asciiz "Owned:"
-ff6vwf_static_buy_quantity_label_1: .asciiz "Equipped:"
-ff6vwf_static_buy_quantity_label_2: .asciiz "How many are you buying?"
-
-; Sell menu
-
-ff6vwf_sell_static_text_descriptor:
-    .byte SELL_STATIC_STRING_COUNT              ; count
-    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
-    .faraddr ff6vwf_static_sell_labels          ; strings
-    .faraddr ff6vwf_static_sell_tile_counts     ; tile counts
-    .faraddr ff6vwf_static_sell_start_tiles     ; start tiles
-
-ff6vwf_static_sell_labels:
-    ff6vwf_def_pointer_array ff6vwf_static_sell_label, SELL_STATIC_STRING_COUNT
-ff6vwf_static_sell_tile_counts:
-    .byte 2, 2, 3
-    .byte SHOP_MESSAGE_TILE_COUNT
-ff6vwf_static_sell_start_tiles:
-    .byte SHOP_FIRST_SPECIFIC_TILE+0, SHOP_FIRST_SPECIFIC_TILE+2, SHOP_FIRST_SPECIFIC_TILE+4
-    .byte SHOP_FIRST_MESSAGE_TILE
-
-ff6vwf_static_sell_label_0: .asciiz "Buy"
-ff6vwf_static_sell_label_1: .asciiz "Sell"
-ff6vwf_static_sell_label_2: .asciiz "Exit"
-ff6vwf_static_sell_label_3: .asciiz "What would you like to sell?"
-
-; Sell quantity menu
-
-ff6vwf_sell_quantity_static_text_descriptor:
-    .byte SELL_QUANTITY_STATIC_STRING_COUNT             ; count
-    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU                ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR                   ; base address
-    .faraddr ff6vwf_static_sell_quantity_labels         ; strings
-    .faraddr ff6vwf_static_sell_quantity_tile_counts    ; tile counts
-    .faraddr ff6vwf_static_sell_quantity_start_tiles    ; start tiles
-
-ff6vwf_static_sell_quantity_labels:
-    ff6vwf_def_pointer_array ff6vwf_static_sell_quantity_label, SELL_QUANTITY_STATIC_STRING_COUNT
-ff6vwf_static_sell_quantity_tile_counts:
-    .byte 4, 5, SHOP_MESSAGE_TILE_COUNT
-ff6vwf_static_sell_quantity_start_tiles:
-    .byte SHOP_FIRST_SPECIFIC_TILE+0, SHOP_FIRST_SPECIFIC_TILE+4, SHOP_FIRST_MESSAGE_TILE
-
-ff6vwf_static_sell_quantity_label_0: .asciiz "Owned:"
-ff6vwf_static_sell_quantity_label_1: .asciiz "Equipped:"
-ff6vwf_static_sell_quantity_label_2: .asciiz "How many are you selling?"
-
-; Shop titles
-
-ff6vwf_shop_title_labels: ff6vwf_def_pointer_array ff6vwf_shop_title_label, SHOP_TITLE_STRING_COUNT
-
-ff6vwf_shop_title_label_0: .asciiz "Weapon Shop"
-ff6vwf_shop_title_label_1: .asciiz "Armor Shop"
-ff6vwf_shop_title_label_2: .asciiz "Item Shop"
-ff6vwf_shop_title_label_3: .asciiz "Relic Shop"
-ff6vwf_shop_title_label_4: .asciiz "Shop"
-
-; Shop messages
-
-ff6vwf_shop_buy_have_99_string:     .asciiz "You can't carry any more."
-ff6vwf_shop_buy_dupe_tool_string:   .asciiz "You already have one."
-ff6vwf_shop_buy_cant_afford_string: .asciiz "Sorry, you can't afford that."
-ff6vwf_shop_buy_sell_thanks_string: .asciiz "Thanks!"
-
-; Other shop strings
-
-ff6vwf_shop_attack_string:  .asciiz "Attack"
-ff6vwf_shop_defense_string: .asciiz "Defense"

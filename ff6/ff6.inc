@@ -17,6 +17,11 @@ VWF_TILE_BYTE_SIZE_2BPP = 2 * 8
 VWF_TILE_BYTE_SIZE_4BPP = 2 * 8 * 2
 FF6VWF_FIRST_TILE = 8
 
+; Address in VRAM where characters begin, for BG1 on the menu.
+VWF_MENU_TILE_BG1_BASE_ADDR = $a000
+; Address in VRAM where characters begin, for BG3 on the menu.
+VWF_MENU_TILE_BG3_BASE_ADDR = $c000
+
 FF6VWF_DMA_STRUCT_SIZE = 6
 
 FF6VWF_DMA_SCHEDULE_FLAGS_4BPP  = $01   ; Set if 4bpp. Otherwise, 2bpp.
@@ -35,6 +40,10 @@ FF6_SHORT_KEY_ITEM_NAME_LENGTH = 13
 
 ff6_short_item_names    = $d2b300
 ff6_short_spell_names   = $e6f567
+
+; FF6 functions
+
+ff6_menu_draw_string        = $c37fd9
 
 ; Macros
 
@@ -64,6 +73,21 @@ ff6_short_spell_names   = $e6f567
 
 .macro ff6_def_charset_string_z chars
     ff6_def_charset_string chars
+    .byte 0
+.endmacro
+
+.macro def_static_text_tiles first_tile_id, total_tiles, string_tiles
+    .repeat total_tiles, i
+        .if string_tiles < 0 || i < string_tiles
+            .byte FF6VWF_FIRST_TILE + first_tile_id + i
+        .else
+            .byte $ff
+        .endif
+    .endrepeat
+.endmacro
+
+.macro def_static_text_tiles_z first_tile_id, total_tiles, string_tiles
+    def_static_text_tiles first_tile_id, total_tiles, string_tiles
     .byte 0
 .endmacro
 
