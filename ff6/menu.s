@@ -56,7 +56,7 @@ ff6_actor_address       = $7e0067
 
 ; Menu BSS
 
-.org $7eb000
+.org $7f0000
 
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_size: .res 1
