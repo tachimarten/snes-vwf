@@ -3021,6 +3021,33 @@ ff6vwf_skills_menu_label_4:  .asciiz "Lore"
 ff6vwf_skills_menu_label_5:  .asciiz "Rage"
 ff6vwf_skills_menu_label_6:  .asciiz "Dance"
 
+; Esper bonuses
+
+ff6vwf_esper_bonus_descriptions: ff6vwf_def_pointer_array ff6vwf_esper_bonus_description, 20
+
+ff6vwf_esper_bonus_description_0:  .asciiz "Max HP +10%"
+ff6vwf_esper_bonus_description_1:  .asciiz "Max HP +30%"
+ff6vwf_esper_bonus_description_2:  .asciiz "Max HP +50%"
+ff6vwf_esper_bonus_description_3:  .asciiz "Max MP +10%"
+ff6vwf_esper_bonus_description_4:  .asciiz "Max MP +30%"
+ff6vwf_esper_bonus_description_5:  .asciiz "Max MP +50%"
+ff6vwf_esper_bonus_description_6:  .asciiz "Max HP +100%"
+ff6vwf_esper_bonus_description_7:  .asciiz "Level +30%"
+ff6vwf_esper_bonus_description_8:  .asciiz "Level +50%"
+ff6vwf_esper_bonus_description_9:  .asciiz "Strength +1"
+ff6vwf_esper_bonus_description_10: .asciiz "Strength +2"
+ff6vwf_esper_bonus_description_11: .asciiz "Strength +2"
+ff6vwf_esper_bonus_description_12: .asciiz "Speed +1"
+ff6vwf_esper_bonus_description_13: .asciiz "Speed +2"
+ff6vwf_esper_bonus_description_14: .asciiz "Stamina +1"
+ff6vwf_esper_bonus_description_15: .asciiz "Stamina +2"
+ff6vwf_esper_bonus_description_16: .asciiz "Strength +1"
+ff6vwf_esper_bonus_description_17: .asciiz "Strength +2"
+ff6vwf_esper_bonus_description_18: .asciiz "Magic +1"
+ff6vwf_esper_bonus_description_19: .asciiz "Magic +2"
+
+; Equip menu labels
+
 ff6vwf_equip_menu_static_text_descriptor:
     .byte EQUIP_MENU_STRING_COUNT               ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
