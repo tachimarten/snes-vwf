@@ -68,7 +68,11 @@ ff6_menu_set_string_pos     = $c33519
     jsl _ff6vwf_menu_draw_skills_menu
 
 .segment "PTEXTMENUDRAWSPELLNAMEINMAGICMENU"    ; $c3504c
-    jsl _ff6vwf_menu_draw_spell_name_in_magic_menu
+    jsl _ff6vwf_menu_draw_spell_name_in_magic_menu_without_mp
+    nopx 2
+
+.segment "PTEXTMENUDRAWSPELLNAMEINMAGICMENUWITHMP"  ; $c34feb
+    jsl _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp
     nopx 2
 
 .segment "PTEXTMENUINITESPERSMENU"      ; $c320b3
@@ -362,7 +366,7 @@ begin_args_nearcall
     rts
 .endproc
 
-; farproc void _ff6vwf_menu_draw_spell_name_in_magic_menu()
+; nearproc void _ff6vwf_menu_draw_spell_name_in_magic_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_magic_menu
     ; Compute text line slot.
     lda f:ff6_menu_list_slot
@@ -374,6 +378,7 @@ begin_args_nearcall
     jsr std_mod16_8
     tay                 ; spell slot
 
+    ; Fetch spell ID.
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -382,7 +387,33 @@ begin_args_nearcall
     lda f:ff6_menu_list,x
     tax                 ; spell ID
 
-    jmp _ff6vwf_menu_draw_spell_name
+    jsl _ff6vwf_menu_draw_spell_name
+    rts
+.endproc
+
+; farproc void _ff6vwf_menu_draw_spell_name_in_magic_menu_without_mp()
+.proc _ff6vwf_menu_draw_spell_name_in_magic_menu_without_mp
+    jsr _ff6vwf_menu_draw_spell_name_in_magic_menu
+    ldx #$9e92          ; The original function did this...
+    rtl
+.endproc
+
+; farproc void _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp()
+.proc _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp
+    jsr _ff6vwf_menu_draw_spell_name_in_magic_menu
+
+    /*
+    a16
+    lda #$9e92+0
+    sta f:WMADDL
+    a8
+    */
+
+    ldx #$9e92
+    ply
+    pla
+    phy                             ; Remove bank byte
+    jml $c3510d
 .endproc
 
 .proc _ff6vwf_menu_setup_espers_menu
@@ -541,7 +572,9 @@ FIRST_SPELL_ROW = $11
 
     lda f:ff6_current_spell_id
     tax
-    jmp _ff6vwf_menu_draw_spell_name
+    jsl _ff6vwf_menu_draw_spell_name
+    ldx #$9e92          ; The original function did this...
+    rtl
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 text_slot)
@@ -602,13 +635,13 @@ begin_locals
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy #5
-    stz outgoing_args+0
+    ldy #5                              ; tile count
+    lda #3
+    sta outgoing_args+0                 ; blanks
     lda #1
     sta outgoing_args+1                 ; initial_offset
     jsr ff6vwf_menu_draw_vwf_tiles
 
-    ldx #$9e92      ; The original function did this...
     leave __FRAME_SIZE__
     rtl
 .endproc

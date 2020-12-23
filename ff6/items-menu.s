@@ -90,8 +90,7 @@ ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
     nopx 3
 
 .segment "PTEXTMENUDRAWITEMTYPENAME"                ; $c38004
-    jsl _ff6vwf_menu_draw_item_type_name
-    jmp ff6_menu_draw_string
+    rts
 
 ; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
@@ -275,62 +274,6 @@ begin_locals
 
     pea $7fd6-1                 ; Return to $c37fd6.
     jml ff6_menu_draw_string
-.endproc
-
-; farproc void _ff6vwf_menu_draw_item_type_name(inreg(A) item_type)
-.proc _ff6vwf_menu_draw_item_type_name
-begin_locals
-    decl_local outgoing_args, 5
-    decl_local string_ptr, 2        ; char near *
-    decl_local first_tile_id, 1     ; uint8
-
-    tax                     ; Put item type in X.
-
-    enter __FRAME_SIZE__
-
-    ; Fetch string pointer.
-    a16
-    txa
-    asl
-    tax
-    lda f:ff6vwf_long_item_type_names,x
-    sta string_ptr
-    a8
-
-    ; Calculate first tile ID.
-    lda f:ff6_menu_list_slot
-    tax
-    ldy #5
-    jsr _ff6vwf_menu_first_tile_id_for_list_item
-    txa
-    add #120-8
-    sta first_tile_id
-
-    ; Render string.
-    lda #5
-    sta outgoing_args+0     ; max_tile_count
-    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU+FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
-    ldx string_ptr
-    stx outgoing_args+2     ; string_ptr
-    lda #^ff6vwf_long_item_type_names
-    sta outgoing_args+4     ; string_ptr bank byte
-    ldx first_tile_id
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
-    jsr ff6vwf_render_string
-
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
-
-    ; Draw tiles.
-    ldx first_tile_id                   ; first_tile_id
-    ldy #5                              ; max_tile_count
-    stz outgoing_args+0                 ; blanks_count
-    stz outgoing_args+1                 ; initial_offset
-    jsr ff6vwf_menu_draw_vwf_tiles
-
-    leave __FRAME_SIZE__
-    rtl
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()

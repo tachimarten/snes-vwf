@@ -763,25 +763,6 @@ ff6vwf_long_class_name_33: .asciiz "Imperial Soldier"
 ff6vwf_long_class_name_34: .asciiz "Shogun"
 ff6vwf_long_class_name_35: .asciiz "Moogle"
 
-ff6vwf_long_item_type_names: ff6vwf_def_pointer_array ff6vwf_long_item_type_name, 16
-
-ff6vwf_long_item_type_name_0:  .asciiz "dagger"
-ff6vwf_long_item_type_name_1:  .asciiz "sword"
-ff6vwf_long_item_type_name_2:  .asciiz "lance"
-ff6vwf_long_item_type_name_3:  .asciiz "knife"
-ff6vwf_long_item_type_name_4:  .asciiz "rod"
-ff6vwf_long_item_type_name_5:  .asciiz "brush"
-ff6vwf_long_item_type_name_6:  .asciiz "star"
-ff6vwf_long_item_type_name_7:  .asciiz "special weapon"
-ff6vwf_long_item_type_name_8:  .asciiz "gambling equipment"
-ff6vwf_long_item_type_name_9:  .asciiz "claw"
-ff6vwf_long_item_type_name_10: .asciiz "shield"
-ff6vwf_long_item_type_name_11: .asciiz "helmet"
-ff6vwf_long_item_type_name_12: .asciiz "armor"
-ff6vwf_long_item_type_name_13: .asciiz "tool"
-ff6vwf_long_item_type_name_14: .asciiz "scroll"
-ff6vwf_long_item_type_name_15: .asciiz "relic"
-
 ff6vwf_char_to_ascii:
 .repeat 128
     .byte ' '
@@ -812,6 +793,5 @@ ff6vwf_char_to_ascii:
 .export ff6vwf_long_status_names: far
 .export ff6vwf_long_key_item_names: far
 .export ff6vwf_long_class_names: far
-.export ff6vwf_long_item_type_names: far
 .export ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
 .export ff6vwf_char_to_ascii: far
