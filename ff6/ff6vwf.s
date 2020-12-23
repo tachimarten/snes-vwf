@@ -45,14 +45,23 @@
 
 .export ff6vwf_get_long_item_name
 
-; nearproc void ff6vwf_copy_pc_name(char far *dest_ptr, const ff6char far *src_ptr)
-.proc ff6vwf_copy_pc_name
+; nearproc void ff6vwf_transcode_string(uint16 length,
+;                                       char far *dest_ptr,
+;                                       const ff6char far *src_ptr)
+;
+; Copies and transcodes a string from Final Fantasy 6's character set to ASCII.
+;
+; The length does not include the null terminator.
+.proc ff6vwf_transcode_string
 begin_locals
+    decl_local length, 2    ; uint16
 begin_args_nearcall
     decl_arg dest_ptr, 3    ; char far *
     decl_arg src_ptr, 3     ; const ff6char far *
 
     enter __FRAME_SIZE__
+
+    stx length
 
     a16
     lda #0
@@ -65,7 +74,7 @@ begin_args_nearcall
     lda f:ff6vwf_char_to_ascii,x
     sta [dest_ptr],y
     iny
-    cpy #FF6_SHORT_PC_NAME_LENGTH
+    cpy length
     bne :-
 
     ; Null-terminate.
@@ -76,7 +85,7 @@ begin_args_nearcall
     rts
 .endproc
 
-.export ff6vwf_copy_pc_name
+.export ff6vwf_transcode_string
 
 ; nearproc void ff6vwf_render_string(uint8 first_tile_id,
 ;                                    vram near *tile_base_addr,

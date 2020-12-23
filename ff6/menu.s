@@ -18,9 +18,9 @@
 .import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple: near
-.import ff6vwf_copy_pc_name: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
+.import ff6vwf_transcode_string: near
 .import ff6vwf_long_command_names: far
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_esper_names: far
@@ -673,7 +673,8 @@ begin_locals
     lda #$7e
     sta outgoing_args+2     ; dest_ptr, bank byte
     sta outgoing_args+5     ; src_ptr, bank byte
-    jsr ff6vwf_copy_pc_name
+    ldx #FF6_SHORT_PC_NAME_LENGTH
+    jsr ff6vwf_transcode_string
 
     ; Find the tile ID.
     a16

@@ -16,10 +16,10 @@
 .import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple: near
-.import ff6vwf_copy_pc_name: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
 .import ff6vwf_schedule_text_dma: near
+.import ff6vwf_transcode_string: near
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_command_names: far
 .import ff6vwf_long_dance_names: far
@@ -29,7 +29,6 @@
 .import ff6vwf_long_enemy_names: far
 .import ff6vwf_long_item_names: far
 .import ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
-.import ff6vwf_char_to_ascii: far
 
 ; Constants
 
@@ -48,6 +47,7 @@ PARTY_MEMBERS_FIRST_TILE = 82
 
 ; FF6 globals
 
+ff6_encounter_dest_tilemap_main  = $7e004c
 ff6_encounter_enemy_ids          = $7e200d
 ff6_encounter_display_list_left  = $7e575a
 ff6_encounter_display_list_right = $7e5760
@@ -179,13 +179,17 @@ ff6_encounter_build_menu_item_for_lore:
     jsl _ff6vwf_encounter_draw_lore_name
     rts
 
-.segment "PTEXTENCOUNTERDRAWDANCENAME"
+.segment "PTEXTENCOUNTERDRAWDANCENAME"      ; $c14d08
     jsl _ff6vwf_encounter_draw_dance_name
     rts
 
 ; FF6 routine to draw the name of a Magitek Armor attack.
 .segment "PTEXTENCOUNTERDRAWMAGITEKNAME"
     jsl _ff6vwf_encounter_draw_magitek_name
+    rts
+
+.segment "PTEXTENCOUNTERDRAWCONTROLNAME"    ; $c16adb
+    jsl _ff6vwf_encounter_draw_control_name
     rts
 
 ; Part of the FF6 encounter NMI/VBLANK handler. We patch it to upload our text if needed.
@@ -625,7 +629,8 @@ name_pointer    = $7e0010
     stz outgoing_args+2     ; dest_ptr, bank byte
     lda #$7e
     sta outgoing_args+5     ; src_ptr, bank byte
-    jsr ff6vwf_copy_pc_name
+    ldx #FF6_SHORT_PC_NAME_LENGTH
+    jsr ff6vwf_transcode_string
 
     ; Render string.
     lda #FF6_SHORT_PC_NAME_LENGTH
@@ -1251,6 +1256,106 @@ ff6_magitek_name_length = $c16500
     rtl
 .endproc
 
+.proc _ff6vwf_encounter_draw_control_name
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
+    decl_local tiles_to_draw, 1             ; uint8
+    decl_local ability_name_buffer, 11      ; char[11]
+    decl_local ability_id, 1                ; uint8
+    decl_local ability_name_ptr, 2          ; const ff6char near *
+    decl_local current_tile_index, 1        ; uint8
+
+ff6_enemy_ability_names = $e6f7b9
+
+    tax                         ; Save enemy ability in X.
+
+    enter __FRAME_SIZE__
+
+    ; Initialize locals.
+    txa
+    sta ability_id
+    sty dest_tilemap_offset
+
+    ; The dest tilemap pointers start at $5899 and increase by $80 for each row.
+    a16
+    lda f:ff6_encounter_dest_tilemap_main
+    sub #$5899
+    asl
+    xba
+    a8
+    tax
+    ldy #10
+    jsr std_mul8                ; ((dest_tilemap_ptr - $5899) >> 7) * 10
+    add #FF6VWF_FIRST_TILE
+    sta current_tile_index
+
+    ; Look up ability ID and pointer into the ability name table.
+    ldx ability_id
+    ldy #FF6_SHORT_ENEMY_ABILITY_NAME_LENGTH
+    jsr std_mul8
+    a16
+    txa
+    add #.loword(ff6_enemy_ability_names)
+    sta ability_name_ptr
+    a8
+
+    ; Copy ability name.
+    ;
+    ; TODO(tachiweasel): Can these have magic icons?
+    a16
+    tdc
+    add #ability_name_buffer
+    sta outgoing_args+0         ; dest_ptr
+    lda ability_name_ptr
+    sta outgoing_args+3         ; src_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+2         ; dest_ptr, bank byte
+    lda #^ff6_enemy_ability_names
+    sta outgoing_args+5         ; src_ptr, bank byte
+    ldx #FF6_SHORT_ENEMY_ABILITY_NAME_LENGTH
+    jsr ff6vwf_transcode_string
+
+    ; Render string.
+    a16
+    tdc
+    add #ability_name_buffer
+    sta outgoing_args+2                 ; string_ptr+0
+    a8
+    lda #$7e
+    sta outgoing_args+4                 ; string_ptr+2
+    lda #10
+    sta outgoing_args+0                 ; max_tile_count
+    lda #0
+    sta outgoing_args+1                 ; flags = 2bpp
+    ldx current_tile_index              ; first_tile_id
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Draw tiles.
+    lda #FF6_SHORT_ENEMY_ABILITY_NAME_LENGTH
+    sta tiles_to_draw
+    ldx dest_tilemap_offset
+:   txy                                 ; dest_tilemap_offset
+    ldx current_tile_index              ; tile_to_draw
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    inc current_tile_index
+    dec tiles_to_draw
+    bne :-
+    stx dest_tilemap_offset
+
+    ldy dest_tilemap_offset
+    leave __FRAME_SIZE__
+    ; NB: It is important that the high byte of A be 0 upon return! FF6 will glitch otherwise.
+    a16
+    lda #0
+    a8
+    rtl
+.endproc
+
+.export _ff6vwf_encounter_draw_control_name
+
 ; nearproc uint16 _ff6vwf_encounter_draw_dance_or_magitek_name(uint16 dest_tilemap_offset,
 ;                                                              uint8 name_length,
 ;                                                              const char far *name_list)
@@ -1350,13 +1455,12 @@ begin_locals
     decl_local dest_tilemap_main, 2     ; tiledata near * ($7e004c)
     decl_local dest_tilemap_extra, 2    ; tiledata near * ($7e004a)
 
-ff6_dest_tilemap_main    = $7e004c
 ff6_dest_tilemap_extra   = $7e004a
 ff6_dest_tile_attributes = $7e004e
 
     enter __FRAME_SIZE__
     a16
-    lda ff6_dest_tilemap_main
+    lda ff6_encounter_dest_tilemap_main
     sta dest_tilemap_main
     lda ff6_dest_tilemap_extra
     sta dest_tilemap_extra
