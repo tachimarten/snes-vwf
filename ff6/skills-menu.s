@@ -20,6 +20,8 @@
 .import ff6vwf_long_lore_names:  far
 .import ff6vwf_long_spell_names: far
 
+.import ff6vwf_menu_redraw_needed: far
+
 .import ff6vwf_calculate_first_tile_id_simple:     near
 .import ff6vwf_menu_compute_map_ptr_trampoline:    far
 .import ff6vwf_menu_draw_list_item:                near
@@ -78,6 +80,13 @@ ff6_menu_set_string_pos     = $c33519
 .segment "PTEXTMENUDRAWSPELLNAMEINSPELLUSAGEMENU"   ; $c35871
     jsl _ff6vwf_menu_draw_spell_name_in_spell_usage_menu
     nopx 2
+
+.segment "PTEXTMENUCLOSEDSPELLUSAGEMENU"            ; $c32b05
+    jsl _ff6vwf_menu_schedule_redraw_after_spell_usage_menu
+
+; Part of the FF6 routine called every frame while the Magic menu is open.
+.segment "PTEXTMENUSUSTAINMAGICMENU"                ; $c32809
+    jml _ff6vwf_menu_redraw_magic_menu_if_needed
 
 .segment "PTEXTMENUINITESPERSMENU"      ; $c320b3
 ff6_menu_create_blinker                 = $c32eeb
@@ -448,6 +457,32 @@ begin_locals
     jml $c37fd9
 .endproc
 
+.proc _ff6vwf_menu_schedule_redraw_after_spell_usage_menu
+    lda #1
+    sta f:ff6vwf_menu_redraw_needed
+
+    ; Stuff the original function did:
+    lda #$3c        ; Sustain Magic menu
+    sta $7e0027     ; Store next state.
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_redraw_magic_menu_if_needed
+    lda f:ff6vwf_menu_redraw_needed
+    beq :+
+    lda #0
+    sta f:ff6vwf_menu_redraw_needed
+    jml $c32818         ; Redraw spell list.
+:
+
+    ; Stuff the original function did:
+    lda $7e0009         ; No-autofire keys
+    bit #$40            ; Pushing Y?
+    beq :+
+    jml $c3280f         ; Branch not taken.
+:   jml $c32822         ; Branch taken.
+.endproc
+
 .proc _ff6vwf_menu_setup_espers_menu
     lda #18                                             ; Top row: Midgardsormr (Terrato)
     sta f:ff6_menu_max_page_scroll_pos                  ; Set scroll limit
@@ -628,7 +663,7 @@ begin_locals
     decl_local dma_flags, 1         ; uint8
     decl_local base_addr, 2         ; vram near *
 begin_args_nearcall
-    decl_local bg3, 1
+    decl_arg bg3, 1
 
     enter __FRAME_SIZE__
 

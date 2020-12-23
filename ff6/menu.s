@@ -71,12 +71,15 @@ ff6vwf_menu_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
 ff6vwf_current_equipment_text_slot: .res 1
 ; True if we're drawing current equipment to BG3, false if BG1.
 ff6vwf_current_equipment_bg3: .res 1
+; True if we need to redraw the current menu, false otherwise.
+ff6vwf_menu_redraw_needed: .res 1
 
 .export ff6vwf_menu_text_dma_stack_base:    far
 .export ff6vwf_menu_text_tiles:             far
 .export ff6vwf_menu_text_dma_stack_size:    far
 .export ff6vwf_current_equipment_text_slot: far
 .export ff6vwf_current_equipment_bg3:       far
+.export ff6vwf_menu_redraw_needed:          far
 
 .reloc 
 
@@ -259,6 +262,8 @@ ff6_reset_vars = $d4cdf3
     sta f:ff6vwf_menu_text_dma_stack_size
     lda #$ff
     sta f:ff6vwf_last_lineup_party_member
+    lda #0
+    sta f:ff6vwf_menu_redraw_needed
 
     ; Return.
     jml $c368fe
