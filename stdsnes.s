@@ -65,7 +65,36 @@ begin_args_nearcall
 
 .export std_memset
 
-; nearproc uint16 _ff6vwf_mul8(uint8 a, uint8 b)
+; nearproc char near *std_stpcpy(char far *dest_ptr, const char far *src_ptr)
+.proc std_stpcpy
+begin_locals
+begin_args_nearcall
+    decl_arg dest_ptr, 3    ; char far *
+    decl_arg src_ptr, 3     ; const char far *
+
+    enter __FRAME_SIZE__
+
+    ldy #0
+:   lda [src_ptr],y
+    sta [dest_ptr],y
+    beq @done
+    iny
+    bra :-
+
+@done:
+    a16
+    tya
+    add dest_ptr
+    tax
+    a8
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+.export std_stpcpy
+
+; nearproc uint16 std_mul8(uint8 a, uint8 b)
 .proc std_mul8
     txa
     sta f:WRMPYA

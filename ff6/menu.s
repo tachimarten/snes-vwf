@@ -1182,7 +1182,6 @@ ff6_menu_bg3_ypos = $3f
     ff6_def_charset_string_z "HP"
 .word $3a9d
     ff6_def_charset_string_z "MP"
-; Strength Speed Stamina Magic Attack Defense Evasion MagicDef. MagicEvade
 .word bg1_position 2,  21
     def_static_text_tiles_z FF6VWF_STATS_TILE_INDEX_STRENGTH, FF6VWF_STATS_TILE_COUNT_STRENGTH, -1
 .word bg1_position 2,  22
@@ -1232,7 +1231,7 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles STATUS_FIRST_LABEL_TILE + 10*1, 10, -1
     .byte $ff, $ff, $ff, 0              ; "For level up:"
 
-.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"   ; $c3490b
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"           ; $c3490b
 
 ; Positioned text for Config page 1
 .word $3d8f

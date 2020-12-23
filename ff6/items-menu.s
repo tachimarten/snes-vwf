@@ -13,12 +13,14 @@
 .import std_memset:     near
 .import std_mod16_8:    near
 .import std_mul8:       near
+.import std_stpcpy:     near
 
 .import ff6vwf_calculate_first_tile_id_simple:  near
 .import ff6vwf_current_equipment_bg3:           far
 .import ff6vwf_current_equipment_text_slot:     far
 .import ff6vwf_get_long_item_name:              near
 .import ff6vwf_long_item_names:                 far
+.import ff6vwf_long_item_type_names:            far
 .import ff6vwf_long_key_item_names:             far
 .import ff6vwf_menu_draw_list_item:             near
 .import ff6vwf_menu_draw_vwf_tiles:             near
@@ -44,10 +46,15 @@
 ; Constants
 
 ITEM_MENU_STRING_COUNT  = 4
+ITEM_MENU_OFFENSE_STRING_COUNT = 3
+ITEM_MENU_DEFENSE_STRING_COUNT = 4
 EQUIP_MENU_STRING_COUNT = 8
 RELIC_MENU_STRING_COUNT = 3
 
 EQUIP_MENU_FIRST_STATS_TILE = 36
+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE = 32
+ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT = 20
+ITEM_MENU_FIRST_STATS_TILE = ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE + ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
 
 ; FF6 globals
 
@@ -78,9 +85,13 @@ ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 .export ff6vwf_menu_compute_map_ptr_trampoline:     far
 
 ; FF6 routine to draw an item in the Item menu.
-.segment "PTEXTMENUDRAWITEMNAME"
+.segment "PTEXTMENUDRAWITEMNAME"                    ; $c37fcd
     jml _ff6vwf_menu_draw_inventory_item_name_for_item_menu   ; 4 bytes
     nopx 3
+
+.segment "PTEXTMENUDRAWITEMTYPENAME"                ; $c38004
+    jsl _ff6vwf_menu_draw_item_type_name
+    jmp ff6_menu_draw_string
 
 ; FF6 routine to draw an item available to equip, in the Equip or Relic menus.
 .segment "PTEXTMENUDRAWITEMTOEQUIPNAME"
@@ -90,8 +101,9 @@ ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 ; Part of the FF6 routine to draw "<item name> can be used by:". We currently display "Equipment"
 ; in a fixed-width font instead of the item name because we don't have enough space to display that
 ; string in memory yet.
-.segment "PTEXTMENUDRAWGEARINFOTEXT"
-    jml _ff6vwf_menu_draw_gear_info_text
+.segment "PTEXTMENUDRAWGEARINFOTEXT"        ; $c3856a
+    jsl _ff6vwf_menu_draw_gear_info_text
+    nopx 2
 
 .segment "PTEXTMENUDRAWRIGHTHANDEQUIPMENT"  ; $c39408
     jsr ff6_menu_draw_equipped_item
@@ -181,7 +193,7 @@ begin_locals
     tax
     jsr ff6vwf_menu_draw_item_icon
 
-    ; Compute string pointer.
+    ; Fetch string pointer.
     ldx item_id
     jsr ff6vwf_get_long_item_name
     stx string_ptr
@@ -265,6 +277,62 @@ begin_locals
     jml ff6_menu_draw_string
 .endproc
 
+; farproc void _ff6vwf_menu_draw_item_type_name(inreg(A) item_type)
+.proc _ff6vwf_menu_draw_item_type_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2        ; char near *
+    decl_local first_tile_id, 1     ; uint8
+
+    tax                     ; Put item type in X.
+
+    enter __FRAME_SIZE__
+
+    ; Fetch string pointer.
+    a16
+    txa
+    asl
+    tax
+    lda f:ff6vwf_long_item_type_names,x
+    sta string_ptr
+    a8
+
+    ; Calculate first tile ID.
+    lda f:ff6_menu_list_slot
+    tax
+    ldy #5
+    jsr _ff6vwf_menu_first_tile_id_for_list_item
+    txa
+    add #120-8
+    sta first_tile_id
+
+    ; Render string.
+    lda #5
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU+FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    ldx string_ptr
+    stx outgoing_args+2     ; string_ptr
+    lda #^ff6vwf_long_item_type_names
+    sta outgoing_args+4     ; string_ptr bank byte
+    ldx first_tile_id
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx first_tile_id                   ; first_tile_id
+    ldy #5                              ; max_tile_count
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
+    jsr ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 ; farproc void _ff6vwf_menu_draw_item_to_equip_name()
 .proc _ff6vwf_menu_draw_item_to_equip_name
 ff6_item_list = $7e9d8a
@@ -301,17 +369,96 @@ ff6_inventory_ids = $7e1869
     rts
 .endproc
 
+; farproc void _ff6vwf_menu_draw_gear_info_text(uint8 unused, uint8 item_id)
 .proc _ff6vwf_menu_draw_gear_info_text
-    ldx #0
-:   lda f:ff6vwf_string_equipment,x
-    sta f:ff6_menu_string_buffer,x
-    inx
-    cpx #ff6vwf_string_equipment_end-ff6vwf_string_equipment
-    bne :-
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local item_id, 1           ; uint8
+    decl_local buffer, 64
 
-    pea $856a+6-1
-    jml $c385ad
+    enter __FRAME_SIZE__
+
+    ; Save item ID.
+    tya
+    sta item_id
+
+    ; Draw item icon.
+    ldx item_id
+    jsr ff6vwf_menu_draw_item_icon
+
+    ; Initialize our buffer with the item name.
+    ldx item_id
+    jsr ff6vwf_get_long_item_name
+    stx outgoing_args+3             ; src_ptr
+    lda #^ff6vwf_long_item_names
+    sta outgoing_args+5             ; src_ptr bank
+    a16
+    tdc
+    add #buffer
+    sta outgoing_args+0             ; dest_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+2             ; dest_ptr bank
+    jsr std_stpcpy
+
+    ; Append " can be used by:"
+    stx outgoing_args+0             ; dest_ptr
+    lda #$7e
+    sta outgoing_args+2             ; dest_ptr bank
+    ldx #.loword(ff6vwf_item_menu_can_be_used_by)
+    stx outgoing_args+3             ; src_ptr
+    lda #^ff6vwf_item_menu_can_be_used_by
+    sta outgoing_args+5             ; src_ptr bank
+    jsr std_stpcpy
+
+    ; Render string.
+    lda #ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; flags
+    a16
+    tdc
+    add #buffer
+    sta outgoing_args+2     ; string_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+4     ; string_ptr bank byte
+    ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE
+    ldy #ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
+    stz outgoing_args+0                 ; blanks_count
+    lda #1
+    sta outgoing_args+1                 ; initial_offset
+    jsr ff6vwf_menu_draw_vwf_tiles
+
+    ; Upload stats labels.
+    ldx #.loword(ff6vwf_stats_static_text_descriptor_bg3)
+    stx outgoing_args+0
+    lda #^ff6vwf_stats_static_text_descriptor_bg3
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_STATS_TILE
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Upload attack/defense labels.
+    ldx #.loword(ff6vwf_item_menu_defense_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_item_menu_defense_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE
+    jsr ff6vwf_menu_render_static_strings
+
+    leave __FRAME_SIZE__
+    rtl
 .endproc
+
+.export _ff6vwf_menu_draw_gear_info_text
 
 ; patch _ff6vwf_menu_draw_equipped_item(inreg(A) uint8 item_id)
 .proc _ff6vwf_menu_draw_equipped_item
@@ -428,6 +575,34 @@ ff6_menu_gear_overview_y_positions  = $c38fdb
 
 .export _ff6vwf_menu_store_text_line_slot_for_gear_overview
 
+; nearproc uint8 _ff6vwf_menu_first_tile_id_for_list_item(uint8 text_line_slot,
+;                                                         uint8 max_tile_count)
+.proc _ff6vwf_menu_first_tile_id_for_list_item
+begin_locals
+    decl_local max_tile_count, 1
+
+    enter __FRAME_SIZE__
+
+    tya
+    sta max_tile_count
+
+    ; Compute the actual text line slot by modding the one we were given by 11.
+    txa
+    a16
+    and #$00ff
+    tax
+    a8
+    ldy #11
+    jsr std_mod16_8
+
+    ; Calculate first tile ID.
+    ldy max_tile_count
+    jsr ff6vwf_calculate_first_tile_id_simple
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
 ; nearproc void _ff6vwf_menu_draw_item_name_bg1(uint8 item_id, uint8 menu_item_index)
 ;
 ; This function will automatically mod the menu item index by 11 to get the text string index.
@@ -475,21 +650,10 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     jsr ff6vwf_get_long_item_name
     stx string_ptr
 
-    ; Compute the actual text line slot by modding the one we were given by 11.
-    lda text_line_slot
-    a16
-    and #$00ff
-    tax
-    a8
-    ldy #11
-    jsr std_mod16_8
-    txa
-    sta text_line_slot
-
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
+    jsr _ff6vwf_menu_first_tile_id_for_list_item
     txa
     sta first_tile_id
 
@@ -718,6 +882,87 @@ begin_locals
 .word $7939
     def_static_text_tiles_z 3*10, .strlen("RARE"), -1
 
+.segment "PTEXTMENUGEARINFOMENUPCNAMEPOSITIONS"     ; $c38653
+
+.word $7E0F        ; Actor name 1
+.word $7E23        ; Actor name 2
+.word $7E37        ; Actor name 3
+.word $7E8F        ; Actor name 4
+.word $7EA3        ; Actor name 5
+.word $7EB7        ; Actor name 6
+.word $7F0F        ; Actor name 7
+.word $7F23        ; Actor name 8
+.word $7F37        ; Actor name 9
+.word $7F8F        ; Actor name 10
+.word $7FA3        ; Actor name 11
+.word $7FB7        ; Actor name 12
+.word $800F        ; Actor name 13
+.word $8023        ; Actor name 14
+.word $8037        ; Actor name 15 (unused)
+
+.segment "PTEXTMENUGEARINFOMENUPOSITIONEDTEXT"  ; $c38d71
+
+.word $8643
+    ff6_def_charset_string_z "???"
+.word $842f                         ; "Vigor"
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STRENGTH, FF6VWF_STATS_TILE_COUNT_STRENGTH, -1
+.word $852f
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STAMINA, FF6VWF_STATS_TILE_COUNT_STAMINA, -1
+    .byte $ff, $ff, 0               ; "Stamina"
+.word $85af
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC, FF6VWF_STATS_TILE_COUNT_MAGIC, -1
+    .byte $ff, $ff, $ff, $ff, 0     ; "Mag.Pwr"
+.word $872f
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_EVASION, FF6VWF_STATS_TILE_COUNT_EVASION, -1
+    .byte $ff, $ff, 0               ; "Evade %"
+.word $882f                         ; "MBlock%"
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_EVASION, FF6VWF_STATS_TILE_COUNT_MAGIC_EVASION, -1
+.word $843F
+    .byte $ff, $00
+.word $84BF
+    .byte $ff, $00
+.word $853F
+    .byte $ff, $00
+.word $85BF
+    .byte $ff, $00
+.word $863F
+    .byte $ff, $00
+.word $86BF
+    .byte $ff, $00
+.word $873F
+    .byte $ff, $00
+.word $87BF
+    .byte $ff, $00
+.word $883F
+    .byte $ff, $00
+.word $84af
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_SPEED, FF6VWF_STATS_TILE_COUNT_SPEED, -1
+    .byte $ff, 0                        ; "Speed"
+.word $862f
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, FF6VWF_STATS_TILE_COUNT_ATTACK, -1
+    .byte $ff, $ff, $ff, 0              ; "Bat.Pwr"
+.word $86af
+    def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_DEFENSE, FF6VWF_STATS_TILE_COUNT_DEFENSE, -1
+    .byte $ff, $ff, 0                   ; "Defense"
+.word $87af                             ; "Mag.Def"
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE, FF6VWF_STATS_TILE_COUNT_MAGIC_DEFENSE, -1
+.word $7B8D
+    def_static_text_tiles_z 10, .strlen("50% Dmg"), -1
+.word $7BA9
+    def_static_text_tiles_z 20, .strlen("Absorb HP"), -1
+.word $7C8D
+    def_static_text_tiles_z 30, .strlen("No Effect"), -1
+.word $7CA9
+    def_static_text_tiles_z 40, .strlen("Weak pt"), -1
+.word $7B8D
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, 6, -1
+.word $822F
+    def_static_text_tiles_z 21, .strlen("SwdTech"), -1
+.word $82AF
+    def_static_text_tiles_z 10, .strlen("Runic"), -1
+.word $832F
+    def_static_text_tiles_z 14, .strlen("2-hand"), -1
+
 .segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTA"    ; $c3a2ba
 _equip_menu_positioned_text_a:
 
@@ -825,13 +1070,50 @@ ff6vwf_item_menu_static_text_descriptor:
     .faraddr ff6vwf_item_menu_start_tiles       ; start tiles
 
 ff6vwf_item_menu_labels: ff6vwf_def_pointer_array ff6vwf_item_menu_label, ITEM_MENU_STRING_COUNT
-ff6vwf_item_menu_tile_counts: .byte 10, 10, 10, 10
-ff6vwf_item_menu_start_tiles: .byte  0, 10, 20, 30
+ff6vwf_item_menu_tile_counts: .byte 3, 2, 3, 2
+ff6vwf_item_menu_start_tiles: .byte 0, 3, 5, 8
 
 ff6vwf_item_menu_label_0:  .asciiz "Items"
 ff6vwf_item_menu_label_1:  .asciiz "Use"
 ff6vwf_item_menu_label_2:  .asciiz "Sort"
 ff6vwf_item_menu_label_3:  .asciiz "Key"
+
+ff6vwf_item_menu_can_be_used_by: .asciiz " can be used by:"
+
+ff6vwf_item_menu_offense_text_descriptor:
+    .byte ITEM_MENU_OFFENSE_STRING_COUNT            ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU            ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR               ; base address
+    .faraddr ff6vwf_item_menu_offense_labels        ; strings
+    .faraddr ff6vwf_item_menu_offense_tile_counts   ; tile counts
+    .faraddr ff6vwf_item_menu_offense_start_tiles   ; start tiles
+
+ff6vwf_item_menu_offense_labels:
+    ff6vwf_def_pointer_array ff6vwf_item_menu_offense_label, ITEM_MENU_OFFENSE_STRING_COUNT
+ff6vwf_item_menu_offense_tile_counts: .byte  4,  7,  6
+ff6vwf_item_menu_offense_start_tiles: .byte 10, 14, 21
+
+ff6vwf_item_menu_offense_label_0:   .asciiz "Runic"
+ff6vwf_item_menu_offense_label_1:   .asciiz "Two-handed"
+ff6vwf_item_menu_offense_label_2:   .asciiz "Bushido"
+
+ff6vwf_item_menu_defense_text_descriptor:
+    .byte ITEM_MENU_DEFENSE_STRING_COUNT            ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU            ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR               ; base address
+    .faraddr ff6vwf_item_menu_defense_labels        ; strings
+    .faraddr ff6vwf_item_menu_defense_tile_counts   ; tile counts
+    .faraddr ff6vwf_item_menu_defense_start_tiles   ; start tiles
+
+ff6vwf_item_menu_defense_labels:
+    ff6vwf_def_pointer_array ff6vwf_item_menu_defense_label, ITEM_MENU_DEFENSE_STRING_COUNT
+ff6vwf_item_menu_defense_tile_counts: .byte 5,  5,  5,  7
+ff6vwf_item_menu_defense_start_tiles: .byte 10, 15, 20, 25
+
+ff6vwf_item_menu_defense_label_0:   .asciiz "Resists:"
+ff6vwf_item_menu_defense_label_1:   .asciiz "Absorbs:"
+ff6vwf_item_menu_defense_label_2:   .asciiz "Nullifies:"
+ff6vwf_item_menu_defense_label_3:   .asciiz "Weak against:"
 
 ; Equip menu labels
 
