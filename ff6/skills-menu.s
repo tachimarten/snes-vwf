@@ -402,13 +402,6 @@ begin_args_nearcall
 .proc _ff6vwf_menu_draw_spell_name_in_magic_menu_with_mp
     jsr _ff6vwf_menu_draw_spell_name_in_magic_menu
 
-    /*
-    a16
-    lda #$9e92+0
-    sta f:WMADDL
-    a8
-    */
-
     ldx #$9e92
     ply
     pla
