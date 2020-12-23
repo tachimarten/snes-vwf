@@ -20,6 +20,7 @@
 .import ff6vwf_calculate_first_tile_id_simple: near
 .import ff6vwf_get_long_item_name: near
 .import ff6vwf_render_string: near
+.import ff6vwf_long_command_names: far
 .import ff6vwf_long_spell_names: far
 .import ff6vwf_long_esper_names: far
 .import ff6vwf_long_blitz_names: far
@@ -552,14 +553,15 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_status_menu
     rts
 
+.segment "PTEXTMENUDRAWSTATUSCOMMANDNAME"           ; $c35eeb
+    jsl _ff6vwf_menu_draw_status_command_name
+    jmp ff6_menu_draw_string
+
 ; This displays the held Esper in the Skills menu and the Lineup menu.
 .segment "PTEXTMENUDRAWESPERNAMEINSTATUSPANEL"
     tax
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     jmp .loword(ff6_menu_draw_string)
-
-.segment "PTEXTMENUDRAWCOMMANDNAME"     ; $c35ee1
-    ; TODO(tachiweasel)
 
 .segment "PTEXTMENUDRAWKEYITEM"         ; $c38460
     jml _ff6vwf_menu_draw_key_item
@@ -1350,7 +1352,7 @@ begin_locals
     decl_local string_ptr, 2
 
 TEXT_LINE_SLOT = 9
-FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + 8
+FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
 
     enter __FRAME_SIZE__
 
@@ -2216,6 +2218,64 @@ begin_locals
     rtl
 .endproc
 
+; farproc void _ff6vwf_menu_draw_status_command_name()
+.proc _ff6vwf_menu_draw_status_command_name
+begin_locals
+    decl_local outgoing_args, 5
+    decl_local string_ptr, 2        ; const char near *
+    decl_local first_tile, 1        ; uint8
+
+ff6_actor_address = $7e0067
+command_name = $7e00e2
+
+    enter __FRAME_SIZE__
+
+    ; Compute text line slot.
+    lda f:command_name
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6vwf_status_command_first_tiles,x
+    sta first_tile
+
+    ; Compute string pointer.
+    lda f:command_name
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_long_command_names,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #FF6_SHORT_COMMAND_NAME_LENGTH
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; flags
+    ldy string_ptr
+    sty outgoing_args+2
+    lda #^ff6vwf_long_command_names
+    sta outgoing_args+4
+    ldx first_tile
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Upload it now. (We won't get a chance later...)
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx first_tile                      ; first_tile_id
+    ldy #FF6_SHORT_COMMAND_NAME_LENGTH  ; tile count
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 .proc _ff6vwf_menu_draw_config_menu
 begin_locals
     decl_local outgoing_args, 3
@@ -2897,6 +2957,38 @@ ff6vwf_status_start_tiles: .byte  0, 10, 20, 30, 40, 50, 60, 70, 80, 90
 
 ff6vwf_status_label_0:  .asciiz "Experience"
 ff6vwf_status_label_1:  .asciiz "EXP to Next Level"
+
+ff6vwf_status_command_first_tiles:
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*0   ; Attack
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*1   ; Items
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*2   ; Magic
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Morph
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Revert
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Steal
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Mug
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*4   ; Bushido
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*5   ; Throw
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Tools
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*7   ; Blitz
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*8   ; Runic
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*9   ; Lore
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*10  ; Sketch
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*10  ; Control
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*11  ; Slot
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*12  ; Rage
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*13  ; Leap
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*14  ; Mimic
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*15  ; Dance
+    .byte 0                                                     ; Row
+    .byte 0                                                     ; Defend
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Jump
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*2   ; Dualcast
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*5   ; Gil Toss
+    .byte 0                                                     ; Summon
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Pray
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Shock
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Possess
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*0   ; Magitek
 
 ff6vwf_config_static_text_descriptor:
     .byte CONFIG_STRING_COUNT                                               ; count
