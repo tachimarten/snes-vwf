@@ -57,8 +57,14 @@ RELIC_MENU_STRING_COUNT = 3
 STATUS_STRING_COUNT = 2
 CONFIG_STRING_COUNT = 11
 
+SHORT_ESPER_BONUS_NAME_LENGTH = 10
+
 EQUIP_MENU_FIRST_STATS_TILE = 36
 STATUS_FIRST_LABEL_TILE     = 50
+
+FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_TILE_LOCATION = $4713
+FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_MESSAGE_SIZE = 14
+FF6_MENU_ESPER_BONUS_TILE_LOCATION = $4713
 
 STATS_TILE_COUNT_STRENGTH = 5
 STATS_TILE_COUNT_STAMINA = 5
@@ -109,6 +115,7 @@ ff6_menu_string_buffer              = $7e9e8b
 
 ; FF6 functions
 ff6_menu_create_scrollbar   = $c3091f
+ff6_menu_set_string_pos     = $c33519
 
 ; FF6-specific macros
 
@@ -284,6 +291,7 @@ ff6_menu_espers_draw            = $c35509
 ; FF6 routine to draw an esper in the Espers menu.
 .segment "PTEXTMENUDRAWESPERNAME"           ; $c35527
     jsl _ff6vwf_menu_draw_esper_name        ; 4 bytes
+    rts
 
 .segment "PTEXTMENUDRAWESPERNAMEININFOMENU" ; $c359ba
 ff6_menu_selected_esper = $7e0099
@@ -291,6 +299,23 @@ ff6_menu_selected_esper = $7e0099
     ldx <ff6_menu_selected_esper
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     nopx $59d2-$59ba-6
+
+.segment "PTEXTMENUDRAWESPERBONUS"          ; $c35a33
+ff6_menu_at_level_up_message = $c35cf7
+
+    pha                                                     ; Save bonus ID
+    ldy #FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_TILE_LOCATION     ; Tilemap ptr
+    jsr .loword(ff6_menu_set_string_pos)                    ; Set pos, WRAM
+    ldx #0                                                  ; Char index: 0
+:   lda f:ff6_menu_at_level_up_message,x                    ; "At..." char
+    sta WMDATA                                              ; Add to string
+    inx                                                     ; Point to next
+    cpx #FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_MESSAGE_SIZE      ; Done all 14?
+    bne :-                                                  ; Loop if not
+    pla                                                     ; Restore bonus ID
+    tax                                                     ; Put in X
+    jsl _ff6vwf_menu_draw_esper_bonus                       ; Draw Esper bonus
+    jmp ff6_menu_draw_string                                ; Draw string
 
 .segment "PTEXTMENUDRAWSPELLNAMEINESPERINFOMENU"    ; $c35af6
     jsl _ff6vwf_menu_draw_spell_name_in_esper_info_menu
@@ -1548,6 +1573,59 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
 .endproc
 
 .export _ff6vwf_menu_draw_esper_name_in_info_menu
+
+; farproc void _ff6vwf_menu_draw_esper_bonus(uint8 bonus_id)
+.proc _ff6vwf_menu_draw_esper_bonus
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local string_ptr, 2
+
+FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
+
+    enter __FRAME_SIZE__
+
+    ; Look up pointer.
+    a16
+    txa
+    and #$00ff
+    asl
+    tax
+    lda f:ff6vwf_esper_bonus_descriptions,x
+    sta string_ptr
+    a8
+
+    ; Render string.
+    lda #SHORT_ESPER_BONUS_NAME_LENGTH
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    ldx string_ptr
+    stx outgoing_args+2     ; string ptr
+    lda #^ff6vwf_esper_bonus_descriptions
+    sta outgoing_args+4     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #FIRST_TILE_ID
+    jsr ff6vwf_render_string
+
+    ; Upload it now.
+    jsr _ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx #FIRST_TILE_ID
+    ldy #SHORT_ESPER_BONUS_NAME_LENGTH
+    stz outgoing_args+0                 ; blanks_count
+    lda #FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_MESSAGE_SIZE
+    sta outgoing_args+1                 ; initial_offset
+    jsr _ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    a16
+    txy
+    lda #0
+    ldx #0
+    a8
+    rtl
+.endproc
 
 ; farproc void _ff6vwf_menu_draw_spell_name_in_esper_info_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_esper_info_menu
@@ -3023,7 +3101,7 @@ ff6vwf_skills_menu_label_6:  .asciiz "Dance"
 
 ; Esper bonuses
 
-ff6vwf_esper_bonus_descriptions: ff6vwf_def_pointer_array ff6vwf_esper_bonus_description, 20
+ff6vwf_esper_bonus_descriptions: ff6vwf_def_pointer_array ff6vwf_esper_bonus_description, 17
 
 ff6vwf_esper_bonus_description_0:  .asciiz "Max HP +10%"
 ff6vwf_esper_bonus_description_1:  .asciiz "Max HP +30%"
@@ -3036,15 +3114,12 @@ ff6vwf_esper_bonus_description_7:  .asciiz "Level +30%"
 ff6vwf_esper_bonus_description_8:  .asciiz "Level +50%"
 ff6vwf_esper_bonus_description_9:  .asciiz "Strength +1"
 ff6vwf_esper_bonus_description_10: .asciiz "Strength +2"
-ff6vwf_esper_bonus_description_11: .asciiz "Strength +2"
-ff6vwf_esper_bonus_description_12: .asciiz "Speed +1"
-ff6vwf_esper_bonus_description_13: .asciiz "Speed +2"
-ff6vwf_esper_bonus_description_14: .asciiz "Stamina +1"
-ff6vwf_esper_bonus_description_15: .asciiz "Stamina +2"
-ff6vwf_esper_bonus_description_16: .asciiz "Strength +1"
-ff6vwf_esper_bonus_description_17: .asciiz "Strength +2"
-ff6vwf_esper_bonus_description_18: .asciiz "Magic +1"
-ff6vwf_esper_bonus_description_19: .asciiz "Magic +2"
+ff6vwf_esper_bonus_description_11: .asciiz "Speed +1"
+ff6vwf_esper_bonus_description_12: .asciiz "Speed +2"
+ff6vwf_esper_bonus_description_13: .asciiz "Stamina +1"
+ff6vwf_esper_bonus_description_14: .asciiz "Stamina +2"
+ff6vwf_esper_bonus_description_15: .asciiz "Magic +1"
+ff6vwf_esper_bonus_description_16: .asciiz "Magic +2"
 
 ; Equip menu labels
 
