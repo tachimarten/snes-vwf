@@ -120,7 +120,6 @@ ff6_menu_espers_draw            = $c35509
 ; FF6 routine to draw an esper in the Espers menu.
 .segment "PTEXTMENUDRAWESPERNAME"           ; $c35527
     jsl _ff6vwf_menu_draw_esper_name        ; 4 bytes
-    rts
 
 .segment "PTEXTMENUDRAWESPERNAMEININFOMENU" ; $c359ba
 ff6_menu_selected_esper = $7e0099
