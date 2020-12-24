@@ -37,7 +37,7 @@
 
 ; Constants
 
-MAIN_MENU_STRING_COUNT = 10
+MAIN_MENU_STRING_COUNT = 11
 STATUS_STRING_COUNT = 2
 CONFIG_BG1_STRING_COUNT = 32
 CONFIG_BG3_STRING_COUNT = 4
@@ -401,7 +401,9 @@ begin_locals
     jml ff6_menu_draw_string            ; Draw item name.
 .endproc
 
-; Table of addresses for PC names
+; Table of addresses for PC names.
+;
+; These start at 0, not `FF6VWF_FIRST_TILE`.
 
 _ff6vwf_menu_pc_name_address_table:
 .word $3a4f
@@ -435,7 +437,7 @@ _ff6vwf_menu_pc_name_address_table:
 .word $7d4f
     .byte 60+6*3    ; $c3486b -- Controller menu text, member 4
 .word $398f
-    .byte 60        ; $c35fbb -- Status menu
+    .byte $4e       ; $c35fbb -- Status menu
 .word $4229
     .byte 60        ; $c3675b -- Naming menu
 .word $3adb
@@ -449,7 +451,7 @@ _ff6vwf_menu_pc_name_address_table:
 .word $3f0d
     .byte 80+6*3    ; $c38f6e -- Party gear overview, member 3
 .word $7bb7
-    .byte 80        ; $c393e5 -- Equip or Relic menu
+    .byte $e3       ; $c393e5 -- Equip or Relic menu
 .word $7c11
     .byte 80        ; $c3aed9 -- Shadow at Colosseum
 .word $7c75
@@ -1489,6 +1491,23 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles_z 4*10+5*8, .strlen("Steps"), -1
 .word $7e77
     def_static_text_tiles_z 4*10+5*9, .strlen("Gp"), -1
+; TODO(tachiweasel): Actually draw these strings!
+.word $7abd
+    def_static_text_tiles_z 4*10+5*10, .strlen("Yes"), -1
+.word $7b3d
+    def_static_text_tiles_z 4*10+5*11, .strlen("No"), -1
+.word $7937
+    def_static_text_tiles_z 4*10+5*12, .strlen("This"), -1
+.word $79b7
+    ff6_def_charset_string_z "     "
+.word $7937
+    def_static_text_tiles_z 4*10+5*12, .strlen("Erasing"), -1
+.word $79b7
+    ff6_def_charset_string_z "     "
+.word $7a37
+    ff6_def_charset_string_z "     "
+.word $813d
+    def_static_text_tiles_z 4*10+5*10, .strlen("Order"), -1
 
 .segment "PTEXTMENUSTATUSPOSITIONEDTEXT"    ; $c3646f
 .word $78cd
@@ -1696,8 +1715,8 @@ ff6vwf_main_menu_static_text_descriptor:
     .faraddr ff6vwf_main_menu_start_tiles       ; start tiles
 
 ff6vwf_main_menu_labels: ff6vwf_def_pointer_array ff6vwf_main_menu_label, MAIN_MENU_STRING_COUNT
-ff6vwf_main_menu_tile_counts: .byte 5, 5,  5,  5,  5,  5,  5,  5,  5,  5
-ff6vwf_main_menu_start_tiles: .byte 0, 5, 10, 15, 20, 25, 30, 35, 40, 45
+ff6vwf_main_menu_tile_counts: .byte 5, 5,  5,  5,  5,  5,  5,  5,  5,  5,  5
+ff6vwf_main_menu_start_tiles: .byte 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50
 
 ff6vwf_main_menu_label_0:  .asciiz "Items"
 ff6vwf_main_menu_label_1:  .asciiz "Skills"
@@ -1709,6 +1728,7 @@ ff6vwf_main_menu_label_6:  .asciiz "Save"
 ff6vwf_main_menu_label_7:  .asciiz "Time"
 ff6vwf_main_menu_label_8:  .asciiz "Steps"
 ff6vwf_main_menu_label_9:  .asciiz "Gil"
+ff6vwf_main_menu_label_10: .asciiz "Order"
 
 ; Stats labels
 
