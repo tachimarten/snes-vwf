@@ -39,7 +39,7 @@
 
 MAIN_MENU_STRING_COUNT = 10
 STATUS_STRING_COUNT = 2
-CONFIG_STRING_COUNT = 11
+CONFIG_STRING_COUNT = 32
 
 STATUS_FIRST_LABEL_TILE     = 50
 
@@ -1287,71 +1287,71 @@ ff6_menu_bg3_ypos = $3f
 
 ; Positioned text for Config page 1
 .word $3d8f
-    def_static_text_tiles_z 7*10, .strlen("Controller"), -1
+    def_static_text_tiles_z $2d, .strlen("Controller"), 4
 .word $39b5
-    ff6_def_charset_string_z "Wait"
+    def_static_text_tiles_z $4b, .strlen("Wait"), 3
 .word $3a65
-    ff6_def_charset_string_z "Fast"
+    def_static_text_tiles_z $4e, .strlen("Fast"), 3
 .word $3a75
-    ff6_def_charset_string_z "Slow"
+    def_static_text_tiles_z $51, .strlen("Slow"), 3
 .word $3b35
-    ff6_def_charset_string_z "Short"
+    def_static_text_tiles_z $57, .strlen("Short"), 3
 .word $3ba5
-    ff6_def_charset_string_z "On"
+    def_static_text_tiles_z $5a, .strlen("On"), 2
 .word $3bb5
-    ff6_def_charset_string_z "Off"
+    def_static_text_tiles_z $5c, .strlen("Off"), 2
 .word $3c25
-    ff6_def_charset_string_z "Stereo"
+    def_static_text_tiles_z $5e, .strlen("Stereo"), 4
 .word $3c35
-    ff6_def_charset_string_z "Mono"
+    def_static_text_tiles_z $62, .strlen("Mono"), 3
 .word $3cb5
-    ff6_def_charset_string_z "Memory"
+    def_static_text_tiles_z $68, .strlen("Memory"), -1
 .word $3d25
-    ff6_def_charset_string_z "Optimum"
+    def_static_text_tiles_z $6e, .strlen("Optimum"), 6
 .word $3db5
-    ff6_def_charset_string_z "Multiple"
+    def_static_text_tiles_z $c2, .strlen("Multiple"), 3
 .word $3a25
     ff6_def_charset_string_z "1 2 3 4 5 6"
 .word $3aa5
     ff6_def_charset_string_z "1 2 3 4 5 6"
 .word $3c8f
-    def_static_text_tiles_z 10*10, .strlen("Cursor"), -1
+    def_static_text_tiles_z $40, .strlen("Cursor"), -1
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
 
 .word $78f9
     ff6_def_charset_string_z "Config"
 .word $398f
-    def_static_text_tiles_z 0*10, .strlen("Bat.Mode"), -1
+    def_static_text_tiles_z $00,  .strlen("Bat.Mode"), 4
 .word $3a0f
-    def_static_text_tiles_z 1*10, .strlen("Bat.Speed"), -1
+    def_static_text_tiles_z $05,  .strlen("Bat.Speed"), 6
 .word $3a8f
-    def_static_text_tiles_z 2*10, .strlen("Msg.Speed"), -1
+    def_static_text_tiles_z $0c, .strlen("Msg.Speed"), 6
 .word $3b0f
-    def_static_text_tiles_z 3*10, .strlen("Cmd.Set"), -1
+    def_static_text_tiles_z $12, .strlen("Cmd.Set"), -1
 .word $3b8f
-    def_static_text_tiles_z 4*10, .strlen("Gauge"), -1
+    def_static_text_tiles_z $1c, .strlen("Gauge"), -1
 .word $3c0f
-    def_static_text_tiles_z 5*10, .strlen("Sound"), -1
+    def_static_text_tiles_z $22, .strlen("Sound"), 4
 .word $3d0f
-    def_static_text_tiles_z 6*10, .strlen("Reequip"), -1
+    def_static_text_tiles_z $26, .strlen("Reequip"), -1
 .word $39a5
-    ff6_def_charset_string_z "Active"
+    def_static_text_tiles_z $47, .strlen("Active"), 4
 .word $3b25
-    ff6_def_charset_string_z "Window"
+    def_static_text_tiles_z $54, .strlen("Window"), 3
 .word $3ca5
-    ff6_def_charset_string_z "Reset"
+    def_static_text_tiles_z $65, .strlen("Reset"), 3
 .word $3d35
-    ff6_def_charset_string_z "Empty"
+    def_static_text_tiles_z $74, .strlen("Empty"), 4
 .word $3da5
-    ff6_def_charset_string_z "Single"
+    def_static_text_tiles_z $c0, .strlen("Single"), 2
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTC"   ; $c34a34
 
 .word $418f
-    def_static_text_tiles_z 8*10, .strlen("Mag.Order"), -1
+    def_static_text_tiles_z $31, .strlen("Mag.Order"), 7
 .word $438f
-    def_static_text_tiles_z 9*10, .strlen("Window"), -1
+    def_static_text_tiles_z $38, .strlen("Window"), -1
 .word $440f
     .byte $ff, $ff, $ff, $ff, $ff, 0    ; "Color"
 
@@ -1365,6 +1365,15 @@ ff6_menu_bg3_ypos = $3f
 .word $7c33+$80*i
     ff6_def_charset_string_z "Cntlr2"
 .endrepeat
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTE"   ; $c34ad3
+
+.byte $e8
+    def_static_text_tiles $d0, .strlen("Healing  "), 4
+.byte $e9
+    def_static_text_tiles $d4, .strlen("Attack   "), 4
+.byte $ea
+    def_static_text_tiles $d8, .strlen("Effect   "), 4
 
 ; Constant data
 
@@ -1484,17 +1493,47 @@ ff6vwf_config_static_text_descriptor:
 
 ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
 
-ff6vwf_config_tile_counts: .byte 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,  10
-ff6vwf_config_start_tiles: .byte  0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+ff6vwf_config_tile_counts:
+    ;       0    1    2    3    4    5    6    7    8    9
+    .byte   5,   7,   6,  10,   6,   4,   7,   4,   7,   8
+    .byte   7,   4,   3,   3,   3,   3,   3,   2,   2,   4
+    .byte   3,   3,   6,   6,   4,   2,   3,   4,   4,   4
+    .byte   3,   4
+ff6vwf_config_start_tiles:
+    .byte   0,   5,  12,  18,  28,  34,  38,  45,  49,  56
+    .byte  64,  71,  75,  78,  81,  84,  87,  90,  92,  94
+    .byte  98, 101, 104, 110, 116, 192, 194, 208, 212, 216
+    .byte 220, 227
 
 ff6vwf_config_label_0:  .asciiz "ATB Mode"
 ff6vwf_config_label_1:  .asciiz "Battle Speed"
 ff6vwf_config_label_2:  .asciiz "Text Speed"
-ff6vwf_config_label_3:  .asciiz "Command Set"
+ff6vwf_config_label_3:  .asciiz "Battle Commands"
 ff6vwf_config_label_4:  .asciiz "ATB Gauge"
 ff6vwf_config_label_5:  .asciiz "Sound"
-ff6vwf_config_label_6:  .asciiz "Reequip"
-ff6vwf_config_label_7:  .asciiz "Controllers"
+ff6vwf_config_label_6:  .asciiz "Relic Change"
+ff6vwf_config_label_7:  .asciiz "Players"
 ff6vwf_config_label_8:  .asciiz "Magic Order"
-ff6vwf_config_label_9:  .asciiz "Window Color"
-ff6vwf_config_label_10: .asciiz "Cursor"
+ff6vwf_config_label_9:  .asciiz "Window Colors"
+ff6vwf_config_label_10: .asciiz "Menu Position"
+ff6vwf_config_label_11: .asciiz "Active"
+ff6vwf_config_label_12: .asciiz "Wait"
+ff6vwf_config_label_13: .asciiz "Fast"
+ff6vwf_config_label_14: .asciiz "Slow"
+ff6vwf_config_label_15: .asciiz "Menu"
+ff6vwf_config_label_16: .asciiz "D-Pad"
+ff6vwf_config_label_17: .asciiz "On"
+ff6vwf_config_label_18: .asciiz "Off"
+ff6vwf_config_label_19: .asciiz "Stereo"
+ff6vwf_config_label_20: .asciiz "Mono"
+ff6vwf_config_label_21: .asciiz "Reset"
+ff6vwf_config_label_22: .asciiz "Remember"
+ff6vwf_config_label_23: .asciiz "Auto-Equip"
+ff6vwf_config_label_24: .asciiz "Unequip"
+ff6vwf_config_label_25: .asciiz "One"
+ff6vwf_config_label_26: .asciiz "Two"
+ff6vwf_config_label_27: .asciiz "Healing"
+ff6vwf_config_label_28: .asciiz "Attack"
+ff6vwf_config_label_29: .asciiz "Effect"
+ff6vwf_config_label_30: .asciiz "Text"
+ff6vwf_config_label_31: .asciiz "Window"
