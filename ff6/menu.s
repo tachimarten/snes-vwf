@@ -43,12 +43,17 @@ CONFIG_BG1_STRING_COUNT = 32
 CONFIG_BG3_STRING_COUNT = 4
 COLOSSEUM_STRING_COUNT = 3
 PC_NAME_STRING_COUNT = 1
+LINEUP_STATIC_STRING_COUNT = 2
 
 STATUS_FIRST_LABEL_TILE     = 50
 
+LINEUP_MESSAGE_TILE_COUNT   = 15
+LINEUP_FIRST_MESSAGE_TILE   = 5
+
 ; FF6 globals
 
-ff6_actor_address       = $7e0067
+ff6_actor_address   = $7e0067
+ff6_event_data      = $7e0201
 
 ; FF6-specific macros
 
@@ -223,6 +228,25 @@ ff6_stats_magic_defense         = $7e11bb
 
 .segment "PTEXTMENUDRAWPCNAMEMENU"      ; $c36746
     jsl _ff6vwf_menu_draw_pc_name_menu
+    nopx 2
+
+.segment "PTEXTMENUDRAWLINEUPMENU"                      ; $c37553
+    jsl _ff6vwf_menu_draw_lineup_menu
+    nopx 2
+
+.segment "PTEXTMENUDRAWLINEUPFORMGROUPSMESSAGE"         ; $c37566
+    jsl _ff6vwf_menu_draw_lineup_form_groups_message
+    ldy #$7a95                          ; Text pointer
+    jmp ff6_menu_draw_banner_message    ; Draw message
+
+.segment "PTEXTMENUDRAWLINEUPNOTENOUGHGROUPSMESSAGE"    ; $c372db
+    jsl _ff6vwf_menu_draw_lineup_not_enough_groups_message
+    ldy #$7ab7                          ; Text pointer
+    jsr ff6_menu_draw_banner_message    ; Draw message
+    nopx 2
+
+.segment "PTEXTMENUDRAWLINEUPEMPTYGROUPSMESSAGE"        ; $c372e9
+    jsl _ff6vwf_menu_draw_lineup_empty_groups_message
     nopx 2
 
 .segment "PTEXTMENUDRAWCLASSNAME"
@@ -1255,6 +1279,144 @@ begin_locals
     jml ff6_menu_draw_banner_message    ; Draw "Please..."
 .endproc
 
+.proc _ff6vwf_menu_draw_lineup_menu
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    lda #LINEUP_MESSAGE_TILE_COUNT
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    ldx #.loword(ff6vwf_lineup_text_title)
+    stx outgoing_args+2
+    lda #^ff6vwf_lineup_text_title
+    sta outgoing_args+4
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #FF6VWF_FIRST_TILE
+    jsr ff6vwf_render_string
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    ldy #$7aae                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw "Please..."
+.endproc
+
+.proc _ff6vwf_menu_draw_lineup_form_groups_message
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ; Get message.
+    lda f:ff6_event_data
+    a16
+    and #$0007
+    dec
+    asl
+    tax
+    lda f:ff6vwf_lineup_text_main,x
+    sta outgoing_args+2     ; string_ptr
+    a8
+
+    ; Upload title.
+    ; TODO(tachiweasel): Different messages for different group counts.
+    lda #LINEUP_MESSAGE_TILE_COUNT
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    lda #^ff6vwf_lineup_text_main_1_group
+    sta outgoing_args+4
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
+    jsr ff6vwf_render_string
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_lineup_not_enough_groups_message
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ; Get message.
+    lda f:ff6_event_data
+    a16
+    and #$0007
+    dec
+    asl
+    tax
+    lda f:ff6vwf_lineup_text_not_enough_groups,x
+    sta outgoing_args+2     ; string_ptr
+    a8
+
+    ; Upload title.
+    ; TODO(tachiweasel): Different messages for different group counts.
+    lda #LINEUP_MESSAGE_TILE_COUNT
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    lda #^ff6vwf_lineup_text_not_enough_groups_1_group
+    sta outgoing_args+4
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
+    jsr ff6vwf_render_string
+
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    ply
+    pla
+    phy                                 ; Remove bank byte
+    ldy #$7ab7                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw message
+.endproc
+
+.proc _ff6vwf_menu_draw_lineup_empty_groups_message
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ; Get message.
+    lda f:ff6_event_data
+    a16
+    and #$0007
+    dec
+    asl
+    tax
+    lda f:ff6vwf_lineup_text_empty_groups,x
+    sta outgoing_args+2     ; string_ptr
+    a8
+
+    ; Upload title.
+    ; TODO(tachiweasel): Different messages for different group counts.
+    lda #LINEUP_MESSAGE_TILE_COUNT
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1     ; flags
+    lda #^ff6vwf_lineup_text_empty_groups_1_group
+    sta outgoing_args+4
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
+    jsr ff6vwf_render_string
+
+    leave __FRAME_SIZE__
+
+    ; Stuff the original function did:
+    ply
+    pla
+    phy                                 ; Remove bank byte
+    ldy #$7ab7                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw message
+.endproc
+
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
@@ -1510,6 +1672,17 @@ ff6_menu_bg3_ypos = $3f
 .word $411b
     def_static_text_tiles_z 0, .strlen("Please enter a name."), -1
 
+.segment "PTEXTMENULINEUPPOSITIONEDTEXT"        ; $c37a95
+
+.word $391d
+    def_static_text_tiles_z 5, .strlen("Form   group(s).      "), -1
+.word $390d
+    def_static_text_tiles_z 0, .strlen("Lineup"), 4
+.word $391d
+    def_static_text_tiles_z 5, .strlen("You need   group(s)!"), -1
+.word $391d
+    def_static_text_tiles_z 5, .strlen("No one there!       "), -1
+
 ; Constant data
 
 .segment "DATA"
@@ -1729,3 +1902,33 @@ ff6vwf_pc_name_tile_counts: .byte 15
 ff6vwf_pc_name_start_tiles: .byte 0
 
 ff6vwf_pc_name_label_0: .asciiz "Please enter a name."
+
+; Lineup menu text
+
+ff6vwf_lineup_text_title: .asciiz "Lineup"
+
+ff6vwf_lineup_text_main:
+    .addr ff6vwf_lineup_text_main_1_group
+    .addr ff6vwf_lineup_text_main_2_groups
+    .addr ff6vwf_lineup_text_main_3_groups
+
+ff6vwf_lineup_text_main_1_group:  .asciiz "Please form a group."
+ff6vwf_lineup_text_main_2_groups: .asciiz "Please form two groups."
+ff6vwf_lineup_text_main_3_groups: .asciiz "Please form three groups."
+
+ff6vwf_lineup_text_not_enough_groups:
+    .addr ff6vwf_lineup_text_not_enough_groups_1_group
+    .addr ff6vwf_lineup_text_not_enough_groups_2_groups
+    .addr ff6vwf_lineup_text_not_enough_groups_3_groups
+
+ff6vwf_lineup_text_not_enough_groups_1_group:  .asciiz "You need a group."
+ff6vwf_lineup_text_not_enough_groups_2_groups: .asciiz "You need two groups."
+ff6vwf_lineup_text_not_enough_groups_3_groups: .asciiz "You need three groups."
+
+ff6vwf_lineup_text_empty_groups:
+    .addr ff6vwf_lineup_text_empty_groups_1_group
+    .addr ff6vwf_lineup_text_empty_groups_2_3_groups
+    .addr ff6vwf_lineup_text_empty_groups_2_3_groups
+
+ff6vwf_lineup_text_empty_groups_1_group:    .asciiz "That group is empty."
+ff6vwf_lineup_text_empty_groups_2_3_groups: .asciiz "Those groups are empty."
