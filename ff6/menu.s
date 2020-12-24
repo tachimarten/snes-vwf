@@ -39,7 +39,8 @@
 
 MAIN_MENU_STRING_COUNT = 10
 STATUS_STRING_COUNT = 2
-CONFIG_STRING_COUNT = 32
+CONFIG_BG1_STRING_COUNT = 32
+CONFIG_BG3_STRING_COUNT = 4
 
 STATUS_FIRST_LABEL_TILE     = 50
 
@@ -369,7 +370,7 @@ begin_locals
     jml ff6_menu_draw_string            ; Draw item name.
 .endproc
 
-; Table of addresses
+; Table of addresses for PC names
 
 _ff6vwf_menu_pc_name_address_table:
 .word $3a4f
@@ -387,13 +388,13 @@ _ff6vwf_menu_pc_name_address_table:
 .word $3d99
     .byte 60+6*3    ; $c333d5 -- Party member info 3
 .word $798f
-    .byte 60+6*0    ; $c344b4 -- Command Set menu text, member 1
+    .byte 105       ; $c344b4 -- Command Set menu text, member 1
 .word $7b4f
-    .byte 60+6*1    ; $c344ed -- Command Set menu text, member 2
+    .byte 111       ; $c344ed -- Command Set menu text, member 2
 .word $7d0f
-    .byte 60+6*2    ; $c34526 -- Command Set menu text, member 3
+    .byte 192       ; $c34526 -- Command Set menu text, member 3
 .word $7ecf
-    .byte 60+6*3    ; $c3455f -- Command Set menu text, member 4
+    .byte 198       ; $c3455f -- Command Set menu text, member 4
 .word $7bcf
     .byte 60+6*0    ; $c347b4 -- Controller menu text, member 1
 .word $7c4f
@@ -453,12 +454,6 @@ _ff6vwf_menu_pc_name_address_table:
 .word bg3_position 23, 31
     .byte 0         ; $c38623 -- Gear info, "can be used by:", PC 15 (unused)
 
-/*
-$7e0f + $80*row + $14*col
-    .byte 114+(row*3+col)*6     ; $c38623 -- Gear info, "can be used by:"
-.endrepeat
-.endrepeat
-*/
 ; TODO(tachiweasel): Kefka menu
 ; TODO(tachiweasel): Colosseum members
 _ff6vwf_menu_pc_name_address_table_end:
@@ -1066,20 +1061,36 @@ begin_locals
 .proc _ff6vwf_menu_draw_status_command_name
 begin_locals
     decl_local outgoing_args, 5
-    decl_local string_ptr, 2        ; const char near *
-    decl_local first_tile, 1        ; uint8
+    decl_local dest_tilemap_position, 2     ; vram near *
+    decl_local string_ptr, 2                ; const char near *
+    decl_local first_tile, 1                ; uint8
 
 command_name = $7e00e2
 
     enter __FRAME_SIZE__
 
-    ; Compute text line slot.
-    lda f:command_name
+    ; Store dest tilemap position
     a16
-    and #$00ff
-    tax
+    lda f:ff6_menu_positioned_text_ptr
+    sta dest_tilemap_position
     a8
-    lda f:ff6vwf_status_command_first_tiles,x
+
+    ; Compute first tile ID.
+    ldx #0
+:   a16
+    lda f:_ff6vwf_status_command_positions,x
+    cmp dest_tilemap_position
+    a8
+    beq @found_position
+    inx
+    inx
+    inx
+    cpx #_ff6vwf_status_command_positions_end - _ff6vwf_status_command_positions
+    bne :-
+    stp                 ; Assert we found the command position!
+@found_position:
+    lda f:_ff6vwf_status_command_positions+2,x
+    add #FF6VWF_FIRST_TILE
     sta first_tile
 
     ; Compute string pointer.
@@ -1110,14 +1121,64 @@ command_name = $7e00e2
 
     ; Draw tiles.
     ldx first_tile                      ; first_tile_id
-    ldy #FF6_SHORT_COMMAND_NAME_LENGTH  ; tile count
+    ldy #6                              ; tile count
     stz outgoing_args+0                 ; blanks_count
     stz outgoing_args+1                 ; initial_offset
     jsr ff6vwf_menu_draw_vwf_tiles
 
+@out:
     leave __FRAME_SIZE__
     rtl
 .endproc
+
+.export _ff6vwf_menu_draw_status_command_name
+
+_ff6vwf_status_command_positions:
+.word $79ad     ; $c344b4 -- Cmd.Set menu, character 0, position 0
+    .byte 0*6
+.word $7a23     ; $c344b4 -- Cmd.Set menu, character 0, position 1
+    .byte 1*6
+.word $7a37     ; $c344b4 -- Cmd.Set menu, character 0, position 2
+    .byte 2*6
+.word $7aad     ; $c344b4 -- Cmd.Set menu, character 0, position 3
+    .byte 3*6
+.word $7b6d     ; $c344b4 -- Cmd.Set menu, character 1, position 0
+    .byte 4*6
+.word $7be3     ; $c344b4 -- Cmd.Set menu, character 1, position 1
+    .byte 5*6
+.word $7bf7     ; $c344b4 -- Cmd.Set menu, character 1, position 2
+    .byte 6*6
+.word $7c6d     ; $c344b4 -- Cmd.Set menu, character 1, position 3
+    .byte 7*6
+.word $7d2d     ; $c344b4 -- Cmd.Set menu, character 2, position 0
+    .byte 8*6
+.word $7da3     ; $c344b4 -- Cmd.Set menu, character 2, position 1
+    .byte 9*6
+.word $7db7     ; $c344b4 -- Cmd.Set menu, character 2, position 2
+    .byte 10*6
+.word $7e2d     ; $c344b4 -- Cmd.Set menu, character 2, position 3
+    .byte 11*6
+.word $7eed     ; $c344b4 -- Cmd.Set menu, character 3, position 0
+    .byte 12*6
+.word $7f63     ; $c344b4 -- Cmd.Set menu, character 3, position 1
+    .byte 13*6
+.word $7f77     ; $c344b4 -- Cmd.Set menu, character 3, position 2
+    .byte 14*6
+.word $7fed     ; $c344b4 -- Cmd.Set menu, character 3, position 3
+    .byte 15*6
+.word $7bf1     ; $c36102 -- Status menu, position 0
+    .byte 0*6
+.word $7c71     ; $c36102 -- Status menu, position 1
+    .byte 1*6
+.word $7cf1     ; $c36102 -- Status menu, position 2
+    .byte 2*6
+.word $7d71     ; $c36102 -- Status menu, position 3
+    .byte 3*6
+.repeat 24,i
+.word $80c9 + $80*i
+    .byte i*6   ; $c35ead -- Gogo's commands menu
+.endrepeat
+_ff6vwf_status_command_positions_end:
 
 .proc _ff6vwf_menu_draw_config_menu
 begin_locals
@@ -1127,9 +1188,16 @@ ff6_update_config_menu_arrow = $c33980
 
     enter __FRAME_SIZE__
 
-    ldx #.loword(ff6vwf_config_static_text_descriptor)
+    ldx #.loword(ff6vwf_config_bg1_static_text_descriptor)
     stx outgoing_args+0
-    lda #^ff6vwf_config_static_text_descriptor
+    lda #^ff6vwf_config_bg1_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    ldx #.loword(ff6vwf_config_bg3_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_config_bg3_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE  ; first_tile_id
     jsr ff6vwf_menu_render_static_strings
@@ -1320,11 +1388,11 @@ ff6_menu_bg3_ypos = $3f
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
 
 .word $78f9
-    ff6_def_charset_string_z "Config"
+    def_static_text_tiles_z $00, .strlen("Config"), -1
 .word $398f
-    def_static_text_tiles_z $00,  .strlen("Bat.Mode"), 4
+    def_static_text_tiles_z $00, .strlen("Bat.Mode"), 4
 .word $3a0f
-    def_static_text_tiles_z $05,  .strlen("Bat.Speed"), 6
+    def_static_text_tiles_z $05, .strlen("Bat.Speed"), 6
 .word $3a8f
     def_static_text_tiles_z $0c, .strlen("Msg.Speed"), 6
 .word $3b0f
@@ -1358,12 +1426,12 @@ ff6_menu_bg3_ypos = $3f
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTD"   ; $c34afb
 
 .word $7b4d
-    def_static_text_tiles_z 7*10, .strlen("Controller"), -1
+    def_static_text_tiles_z 10, .strlen("Controller"), -1
 .repeat 4, i
 .word $7c21+$80*i
-    ff6_def_charset_string_z "Cntlr1"
+    def_static_text_tiles_z 20, .strlen("Cntlr1"), -1
 .word $7c33+$80*i
-    ff6_def_charset_string_z "Cntlr2"
+    def_static_text_tiles_z 30, .strlen("Cntlr2"), -1
 .endrepeat
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTE"   ; $c34ad3
@@ -1374,6 +1442,13 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles $d4, .strlen("Attack   "), 4
 .byte $ea
     def_static_text_tiles $d8, .strlen("Effect   "), 4
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTF"   ; $c34ab3
+
+.word $4425
+    def_static_text_tiles_z $dc, .strlen("Font"), 3
+.word $4435
+    def_static_text_tiles_z $e3, .strlen("Window"), 4
 
 ; Constant data
 
@@ -1454,13 +1529,13 @@ ff6vwf_status_command_first_tiles:
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*1   ; Items
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*2   ; Magic
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Morph
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Revert
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Steal
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Mug
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*4   ; Bushido
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*5   ; Throw
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Tools
-    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*7   ; Blitz
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*3   ; Revert [1]
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*4   ; Steal
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*5   ; Mug
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Bushido
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*7   ; Throw
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*8   ; Tools
+    .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*9   ; Blitz
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*8   ; Runic
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*9   ; Lore
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*10  ; Sketch
@@ -1480,60 +1555,81 @@ ff6vwf_status_command_first_tiles:
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Shock
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*6   ; Possess
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*0   ; Magitek
+ff6vwf_status_command_first_tiles_end:
+
+FF6VWF_STATUS_COMMAND_COUNT = ff6vwf_status_command_first_tiles_end - ff6vwf_status_command_first_tiles
 
 ; Config menu static text
 
-ff6vwf_config_static_text_descriptor:
-    .byte CONFIG_STRING_COUNT                                               ; count
+ff6vwf_config_bg1_static_text_descriptor:
+    .byte CONFIG_BG1_STRING_COUNT                                           ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
     .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
-    .faraddr ff6vwf_config_labels                                           ; strings
-    .faraddr ff6vwf_config_tile_counts                                      ; tile counts
-    .faraddr ff6vwf_config_start_tiles                                      ; start tiles
+    .faraddr ff6vwf_config_bg1_labels                                       ; strings
+    .faraddr ff6vwf_config_bg1_tile_counts                                  ; tile counts
+    .faraddr ff6vwf_config_bg1_start_tiles                                  ; start tiles
 
-ff6vwf_config_labels: ff6vwf_def_pointer_array ff6vwf_config_label, CONFIG_STRING_COUNT
+ff6vwf_config_bg1_labels: ff6vwf_def_pointer_array ff6vwf_config_bg1_label, CONFIG_BG1_STRING_COUNT
 
-ff6vwf_config_tile_counts:
+ff6vwf_config_bg1_tile_counts:
     ;       0    1    2    3    4    5    6    7    8    9
     .byte   5,   7,   6,  10,   6,   4,   7,   4,   7,   8
     .byte   7,   4,   3,   3,   3,   3,   3,   2,   2,   4
     .byte   3,   3,   6,   6,   4,   2,   3,   4,   4,   4
     .byte   3,   4
-ff6vwf_config_start_tiles:
+ff6vwf_config_bg1_start_tiles:
     .byte   0,   5,  12,  18,  28,  34,  38,  45,  49,  56
     .byte  64,  71,  75,  78,  81,  84,  87,  90,  92,  94
     .byte  98, 101, 104, 110, 116, 192, 194, 208, 212, 216
     .byte 220, 227
 
-ff6vwf_config_label_0:  .asciiz "ATB Mode"
-ff6vwf_config_label_1:  .asciiz "Battle Speed"
-ff6vwf_config_label_2:  .asciiz "Text Speed"
-ff6vwf_config_label_3:  .asciiz "Battle Commands"
-ff6vwf_config_label_4:  .asciiz "ATB Gauge"
-ff6vwf_config_label_5:  .asciiz "Sound"
-ff6vwf_config_label_6:  .asciiz "Relic Change"
-ff6vwf_config_label_7:  .asciiz "Players"
-ff6vwf_config_label_8:  .asciiz "Magic Order"
-ff6vwf_config_label_9:  .asciiz "Window Colors"
-ff6vwf_config_label_10: .asciiz "Menu Position"
-ff6vwf_config_label_11: .asciiz "Active"
-ff6vwf_config_label_12: .asciiz "Wait"
-ff6vwf_config_label_13: .asciiz "Fast"
-ff6vwf_config_label_14: .asciiz "Slow"
-ff6vwf_config_label_15: .asciiz "Menu"
-ff6vwf_config_label_16: .asciiz "D-Pad"
-ff6vwf_config_label_17: .asciiz "On"
-ff6vwf_config_label_18: .asciiz "Off"
-ff6vwf_config_label_19: .asciiz "Stereo"
-ff6vwf_config_label_20: .asciiz "Mono"
-ff6vwf_config_label_21: .asciiz "Reset"
-ff6vwf_config_label_22: .asciiz "Remember"
-ff6vwf_config_label_23: .asciiz "Auto-Equip"
-ff6vwf_config_label_24: .asciiz "Unequip"
-ff6vwf_config_label_25: .asciiz "One"
-ff6vwf_config_label_26: .asciiz "Two"
-ff6vwf_config_label_27: .asciiz "Healing"
-ff6vwf_config_label_28: .asciiz "Attack"
-ff6vwf_config_label_29: .asciiz "Effect"
-ff6vwf_config_label_30: .asciiz "Text"
-ff6vwf_config_label_31: .asciiz "Window"
+ff6vwf_config_bg1_label_0:  .asciiz "ATB Mode"
+ff6vwf_config_bg1_label_1:  .asciiz "Battle Speed"
+ff6vwf_config_bg1_label_2:  .asciiz "Text Speed"
+ff6vwf_config_bg1_label_3:  .asciiz "Battle Commands"
+ff6vwf_config_bg1_label_4:  .asciiz "ATB Gauge"
+ff6vwf_config_bg1_label_5:  .asciiz "Sound"
+ff6vwf_config_bg1_label_6:  .asciiz "Relic Change"
+ff6vwf_config_bg1_label_7:  .asciiz "Players"
+ff6vwf_config_bg1_label_8:  .asciiz "Magic Order"
+ff6vwf_config_bg1_label_9:  .asciiz "Window Colors"
+ff6vwf_config_bg1_label_10: .asciiz "Menu Position"
+ff6vwf_config_bg1_label_11: .asciiz "Active"
+ff6vwf_config_bg1_label_12: .asciiz "Wait"
+ff6vwf_config_bg1_label_13: .asciiz "Fast"
+ff6vwf_config_bg1_label_14: .asciiz "Slow"
+ff6vwf_config_bg1_label_15: .asciiz "Menu"
+ff6vwf_config_bg1_label_16: .asciiz "D-Pad"
+ff6vwf_config_bg1_label_17: .asciiz "On"
+ff6vwf_config_bg1_label_18: .asciiz "Off"
+ff6vwf_config_bg1_label_19: .asciiz "Stereo"
+ff6vwf_config_bg1_label_20: .asciiz "Mono"
+ff6vwf_config_bg1_label_21: .asciiz "Reset"
+ff6vwf_config_bg1_label_22: .asciiz "Remember"
+ff6vwf_config_bg1_label_23: .asciiz "Auto-Equip"
+ff6vwf_config_bg1_label_24: .asciiz "Unequip"
+ff6vwf_config_bg1_label_25: .asciiz "One"
+ff6vwf_config_bg1_label_26: .asciiz "Two"
+ff6vwf_config_bg1_label_27: .asciiz "Healing"
+ff6vwf_config_bg1_label_28: .asciiz "Attack"
+ff6vwf_config_bg1_label_29: .asciiz "Effect"
+ff6vwf_config_bg1_label_30: .asciiz "Text"
+ff6vwf_config_bg1_label_31: .asciiz "Window"
+
+ff6vwf_config_bg3_static_text_descriptor:
+    .byte CONFIG_BG3_STRING_COUNT               ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
+    .faraddr ff6vwf_config_bg3_labels           ; strings
+    .faraddr ff6vwf_config_bg3_tile_counts      ; tile counts
+    .faraddr ff6vwf_config_bg3_start_tiles      ; start tiles
+
+ff6vwf_config_bg3_labels: ff6vwf_def_pointer_array ff6vwf_config_bg3_label, CONFIG_BG3_STRING_COUNT
+
+ff6vwf_config_bg3_tile_counts: .byte  10,  10,  10,  10
+ff6vwf_config_bg3_start_tiles: .byte   0,  10,  20,  30
+
+ff6vwf_config_bg3_label_0: .asciiz "Config"
+ff6vwf_config_bg3_label_1: .asciiz "Players"
+ff6vwf_config_bg3_label_2: .asciiz "Player 1"
+ff6vwf_config_bg3_label_3: .asciiz "Player 2"
