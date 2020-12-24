@@ -851,7 +851,7 @@ begin_locals
     lda #^ff6vwf_long_lore_names
     sta outgoing_args+2
     ldx #FF6_SHORT_LORE_NAME_LENGTH
-    ldy 0
+    ldy #0
     jsr ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
