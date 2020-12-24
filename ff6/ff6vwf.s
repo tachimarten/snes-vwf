@@ -470,7 +470,7 @@ begin_args_nearcall
 .proc ff6vwf_calculate_first_tile_id_simple
     jsr std_mul8
     txa
-    add #8
+    add #FF6VWF_FIRST_TILE
     tax
     rts
 .endproc

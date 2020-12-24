@@ -54,7 +54,8 @@ RELIC_MENU_STRING_COUNT = 3
 EQUIP_MENU_FIRST_STATS_TILE = 36
 ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE = 32
 ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT = 20
-ITEM_MENU_FIRST_STATS_TILE = ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE + ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
+ITEM_MENU_TAUGHT_SPELL_TILE_COUNT = 5
+ITEM_MENU_FIRST_STATS_TILE = ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE + ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT + ITEM_MENU_TAUGHT_SPELL_TILE_COUNT
 
 ; FF6 globals
 
@@ -316,13 +317,16 @@ ff6_inventory_ids = $7e1869
 .proc _ff6vwf_menu_draw_gear_info_text
 begin_locals
     decl_local outgoing_args, 6
-    decl_local item_id, 1           ; uint8
+    decl_local item_id, 1               ; uint8
+    decl_local offense_defense_text, 3  ; const struct static_text far *
     decl_local buffer, 64
 
     enter __FRAME_SIZE__
 
     ; Save item ID.
-    tya
+    tyx
+    jsr _ff6vwf_menu_get_inventory_item_id
+    txa
     sta item_id
 
     ; Draw item icon.
@@ -389,10 +393,28 @@ begin_locals
     ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_STATS_TILE
     jsr ff6vwf_menu_render_static_strings
 
-    ; Upload attack/defense labels.
+    ; Determine whether we should display offense or defense labels.
+    ldx item_id
+    ldy #$1e            ; sizeof(struct ff6_item_properties)
+    jsr std_mul8
+    lda f:$d85000,x     ; Get weapon properties.
+    and #$07            ; Get the class.
+    cmp #1              ; Is this a weapon?
+    bne @is_armor       ; Branch if not.
+    ldx #.loword(ff6vwf_item_menu_offense_text_descriptor)
+    lda #^ff6vwf_item_menu_offense_text_descriptor
+    bra @write_offense_defense_static_text
+@is_armor:
     ldx #.loword(ff6vwf_item_menu_defense_text_descriptor)
-    stx outgoing_args+0
     lda #^ff6vwf_item_menu_defense_text_descriptor
+@write_offense_defense_static_text:
+    stx offense_defense_text+0
+    sta offense_defense_text+2      ; bank byte
+
+    ; Upload attack/defense labels.
+    ldx offense_defense_text+0
+    stx outgoing_args+0
+    lda offense_defense_text+2
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
     jsr ff6vwf_menu_render_static_strings
@@ -817,13 +839,13 @@ begin_locals
 .segment "PTEXTMENUITEMMENUPOSITIONEDTEXT"      ; $c38d16
 
 .word $790d
-    def_static_text_tiles_z 0*10, .strlen("Item"), -1
+    def_static_text_tiles_z 0, .strlen("Item"), 3
 .word $791d
-    def_static_text_tiles_z 1*10, .strlen("USE"), -1
+    def_static_text_tiles_z 3, .strlen("USE"), 2
 .word $7927
-    def_static_text_tiles_z 2*10, .strlen("ARRANGE"), -1
+    def_static_text_tiles_z 5, .strlen("ARRANGE"), 3
 .word $7939
-    def_static_text_tiles_z 3*10, .strlen("RARE"), -1
+    def_static_text_tiles_z 8, .strlen("RARE"), 2
 
 .segment "PTEXTMENUGEARINFOMENUPCNAMEPOSITIONS"     ; $c38653
 
@@ -888,21 +910,21 @@ begin_locals
     def_static_text_tiles ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_DEFENSE, FF6VWF_STATS_TILE_COUNT_DEFENSE, -1
     .byte $ff, $ff, 0                   ; "Defense"
 .word $87af                             ; "Mag.Def"
-    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE, FF6VWF_STATS_TILE_COUNT_MAGIC_DEFENSE, -1
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE, .strlen("Mag.Def"), 6
 .word $7B8D
-    def_static_text_tiles_z 10, .strlen("50% Dmg"), -1
+    def_static_text_tiles_z 10, .strlen("50% Dmg"), 5
 .word $7BA9
-    def_static_text_tiles_z 20, .strlen("Absorb HP"), -1
+    def_static_text_tiles_z 15, .strlen("Absorb HP"), 5
 .word $7C8D
-    def_static_text_tiles_z 30, .strlen("No Effect"), -1
+    def_static_text_tiles_z 20, .strlen("No Effect"), 5
 .word $7CA9
-    def_static_text_tiles_z 40, .strlen("Weak pt"), -1
+    def_static_text_tiles_z 25, .strlen("Weak pt"), 7
 .word $7B8D
-    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, 6, -1
+    def_static_text_tiles_z ITEM_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, 6, FF6VWF_STATS_TILE_COUNT_ATTACK
 .word $822F
     def_static_text_tiles_z 21, .strlen("SwdTech"), -1
 .word $82AF
-    def_static_text_tiles_z 10, .strlen("Runic"), -1
+    def_static_text_tiles_z 10, .strlen("Runic"), 4
 .word $832F
     def_static_text_tiles_z 14, .strlen("2-hand"), -1
 
@@ -1053,10 +1075,10 @@ ff6vwf_item_menu_defense_labels:
 ff6vwf_item_menu_defense_tile_counts: .byte 5,  5,  5,  7
 ff6vwf_item_menu_defense_start_tiles: .byte 10, 15, 20, 25
 
-ff6vwf_item_menu_defense_label_0:   .asciiz "Resists:"
-ff6vwf_item_menu_defense_label_1:   .asciiz "Absorbs:"
-ff6vwf_item_menu_defense_label_2:   .asciiz "Nullifies:"
-ff6vwf_item_menu_defense_label_3:   .asciiz "Weak against:"
+ff6vwf_item_menu_defense_label_0:   .asciiz "Resists"
+ff6vwf_item_menu_defense_label_1:   .asciiz "Absorbs"
+ff6vwf_item_menu_defense_label_2:   .asciiz "Nullifies"
+ff6vwf_item_menu_defense_label_3:   .asciiz "Weak against"
 
 ; Equip menu labels
 

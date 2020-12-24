@@ -162,6 +162,7 @@ ff6_menu_at_level_up_message = $c35cf7
     jsl _ff6vwf_menu_draw_esper_bonus                       ; Draw Esper bonus
     jmp ff6_menu_draw_string                                ; Draw string
 
+; This is also called for armor that teaches spells in the gear info menu.
 .segment "PTEXTMENUDRAWSPELLNAMEINESPERINFOMENU"    ; $c35af6
     jsl _ff6vwf_menu_draw_spell_name_in_esper_info_menu
     nopx 2
@@ -386,7 +387,7 @@ begin_locals
 
     enter __FRAME_SIZE__
 
-    ; Compute text line slot.
+    ; Compute first tile ID.
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -394,7 +395,9 @@ begin_locals
     a8
     ldy #18                 ; 8 visible rows plus one off-screen row, 2 columns
     jsr std_mod16_8
-    tay                     ; spell slot
+    ldy #5
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txy                     ; first tile ID
 
     ; Fetch spell ID.
     lda f:ff6_menu_list_slot
@@ -445,7 +448,7 @@ begin_locals
     lda f:ff6_menu_list,x
     tax                     ; spell ID
 
-    ldy #0                  ; spell slot
+    ldy #0                  ; first tile ID
     lda #1
     sta outgoing_args+0     ; bg3
     jsr _ff6vwf_menu_draw_spell_name
@@ -626,6 +629,7 @@ FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
 .proc _ff6vwf_menu_draw_spell_name_in_esper_info_menu
 begin_locals
     decl_local outgoing_args, 1
+    decl_local bg3, 1
 
 ff6_current_spell_id    = $7e00e1
 ff6_current_row         = $7e00f5
@@ -634,17 +638,37 @@ FIRST_SPELL_ROW = $11
 
     enter __FRAME_SIZE__
 
-    ; Calculate text slot.
+    ; Is this called to display an armor-taught spell? (We can tell because of where we're drawing
+    ; to.)
+    a16
+    lda f:ff6_menu_positioned_text_ptr
+    cmp #$832f
+    a8
+    beq @armor_spell
+
+    ; Calculate first tile ID, Esper spell branch.
     a16
     lda ff6_current_row
     sub #FIRST_SPELL_ROW
     lsr
-    tay
     a8
+    tax
+    ldy #5
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txy
+    lda #0
+    sta bg3
+    bra @draw_spell_name
 
+@armor_spell:
+    ldy #FF6VWF_FIRST_TILE + 101
+    lda #1
+    sta bg3
+
+@draw_spell_name:
     lda f:ff6_current_spell_id
     tax
-    stz outgoing_args+0             ; bg3
+    lda outgoing_args+0             ; bg3
     jsr _ff6vwf_menu_draw_spell_name
 
     ldx #$9e92          ; The original function did this...
@@ -652,13 +676,12 @@ FIRST_SPELL_ROW = $11
     rtl
 .endproc
 
-; nearproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 text_slot, bool bg3)
+; nearproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 first_tile_id, bool bg3)
 .proc _ff6vwf_menu_draw_spell_name
 begin_locals
     decl_local outgoing_args, 6
     decl_local spell_id, 1
     decl_local string_ptr, 2
-    decl_local text_line_slot, 1
     decl_local first_tile_id, 1
     decl_local dma_flags, 1         ; uint8
     decl_local base_addr, 2         ; vram near *
@@ -671,7 +694,7 @@ begin_args_nearcall
     txa
     sta spell_id
     tya
-    sta text_line_slot
+    sta first_tile_id
 
     ; Compute string pointer.
     lda spell_id
@@ -682,13 +705,6 @@ begin_args_nearcall
     lda f:ff6vwf_long_spell_names,x
     sta string_ptr
     a8
-
-    ; Calculate first tile ID.
-    ldx text_line_slot
-    ldy #5
-    jsr ff6vwf_calculate_first_tile_id_simple
-    txa
-    sta first_tile_id
 
     ; Determine the appropriate DMA flags and base address.
     lda bg3

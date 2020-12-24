@@ -321,9 +321,19 @@ begin_locals
     sta first_tile_id
 
     ; Calculate base address and DMA flags.
+    a16
+    lda f:ff6_menu_positioned_text_ptr
+    cmp #$7000
+    a8
+    bge @bg3
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta dma_flags
     ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    bra @store_dma_flags_and_base_addr
+@bg3:
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+@store_dma_flags_and_base_addr:
+    sta dma_flags
     sty base_addr
 
     ; Render string.
@@ -363,55 +373,92 @@ begin_locals
 
 _ff6vwf_menu_pc_name_address_table:
 .word $3a4f
-    .byte 10+6*0     ; $c3174d -- Leader info over save file 1
+    .byte 10+6*0    ; $c3174d -- Leader info over save file 1
 .word $3c0f
-    .byte 10+6*1     ; $c317fa -- Leader info over save file 2
+    .byte 10+6*1    ; $c317fa -- Leader info over save file 2
 .word $3dcf
-    .byte 10+6*2     ; $c3185d -- Leader info over save file 3
+    .byte 10+6*2    ; $c3185d -- Leader info over save file 3
 .word $3919
-    .byte 60+6*0     ; $c332f1 -- Party member info 1
+    .byte 60+6*0    ; $c332f1 -- Party member info 1
 .word $3a99
-    .byte 60+6*1     ; $c3333d -- Party member info 2
+    .byte 60+6*1    ; $c3333d -- Party member info 2
 .word $3c19
-    .byte 60+6*2     ; $c33389 -- Party member info 3
+    .byte 60+6*2    ; $c33389 -- Party member info 3
 .word $3d99
-    .byte 60+6*3     ; $c333d5 -- Party member info 3
+    .byte 60+6*3    ; $c333d5 -- Party member info 3
 .word $798f
-    .byte 60+6*0     ; $c344b4 -- Command Set menu text, member 1
+    .byte 60+6*0    ; $c344b4 -- Command Set menu text, member 1
 .word $7b4f
-    .byte 60+6*1     ; $c344ed -- Command Set menu text, member 2
+    .byte 60+6*1    ; $c344ed -- Command Set menu text, member 2
 .word $7d0f
-    .byte 60+6*2     ; $c34526 -- Command Set menu text, member 3
+    .byte 60+6*2    ; $c34526 -- Command Set menu text, member 3
 .word $7ecf
-    .byte 60+6*3     ; $c3455f -- Command Set menu text, member 4
+    .byte 60+6*3    ; $c3455f -- Command Set menu text, member 4
 .word $7bcf
-    .byte 60+6*0     ; $c347b4 -- Controller menu text, member 1
+    .byte 60+6*0    ; $c347b4 -- Controller menu text, member 1
 .word $7c4f
-    .byte 60+6*1     ; $c347f1 -- Controller menu text, member 2
+    .byte 60+6*1    ; $c347f1 -- Controller menu text, member 2
 .word $7ccf
-    .byte 60+6*2     ; $c3482e -- Controller menu text, member 3
+    .byte 60+6*2    ; $c3482e -- Controller menu text, member 3
 .word $7d4f
-    .byte 60+6*3     ; $c3486b -- Controller menu text, member 4
+    .byte 60+6*3    ; $c3486b -- Controller menu text, member 4
 .word $398f
-    .byte 60         ; $c35fbb -- Status menu
+    .byte 60        ; $c35fbb -- Status menu
 .word $4229
-    .byte 60         ; $c3675b -- Naming menu
+    .byte 60        ; $c3675b -- Naming menu
 .word $3adb
-    .byte 60         ; $c37953 -- Lineup menu
+    .byte 60        ; $c37953 -- Lineup menu
 .word $390d
-    .byte 80+6*0     ; $c38f1c -- Party gear overview, member 1
+    .byte 80+6*0    ; $c38f1c -- Party gear overview, member 1
 .word $3b0d
-    .byte 80+6*1     ; $c38f36 -- Party gear overview, member 2
+    .byte 80+6*1    ; $c38f36 -- Party gear overview, member 2
 .word $3d0d
-    .byte 80+6*2     ; $c38f52 -- Party gear overview, member 3
+    .byte 80+6*2    ; $c38f52 -- Party gear overview, member 3
 .word $3f0d
-    .byte 80+6*3     ; $c38f6e -- Party gear overview, member 3
+    .byte 80+6*3    ; $c38f6e -- Party gear overview, member 3
 .word $7bb7
-    .byte 80         ; $c393e5 -- Equip or Relic menu
+    .byte 80        ; $c393e5 -- Equip or Relic menu
 .word $7c11
-    .byte 80         ; $c3aed9 -- Shadow at Colosseum
+    .byte 80        ; $c3aed9 -- Shadow at Colosseum
 .word $7c75
-    .byte 60         ; $c3b2a5 -- Colosseum challenger
+    .byte 60        ; $c3b2a5 -- Colosseum challenger
+.word bg3_position 3, 23
+    .byte 114+0*6   ; $c38623 -- Gear info, "can be used by:", PC 1
+.word bg3_position 13, 23
+    .byte 114+1*6   ; $c38623 -- Gear info, "can be used by:", PC 2
+.word bg3_position 23, 23
+    .byte 114+2*6   ; $c38623 -- Gear info, "can be used by:", PC 3
+.word bg3_position 3, 25
+    .byte 114+3*6   ; $c38623 -- Gear info, "can be used by:", PC 4
+.word bg3_position 13, 25
+    .byte 114+4*6   ; $c38623 -- Gear info, "can be used by:", PC 5
+.word bg3_position 23, 25
+    .byte 114+5*6   ; $c38623 -- Gear info, "can be used by:", PC 6
+.word bg3_position 3, 27
+    .byte 114+6*6   ; $c38623 -- Gear info, "can be used by:", PC 7
+.word bg3_position 13, 27
+    .byte 114+7*6   ; $c38623 -- Gear info, "can be used by:", PC 8
+.word bg3_position 23, 27
+    .byte 114+8*6   ; $c38623 -- Gear info, "can be used by:", PC 9
+.word bg3_position 3, 29
+    .byte 114+9*6   ; $c38623 -- Gear info, "can be used by:", PC 10
+.word bg3_position 13, 29
+    .byte 114+10*6  ; $c38623 -- Gear info, "can be used by:", PC 11
+.word bg3_position 23, 29
+    .byte 235+0*6   ; $c38623 -- Gear info, "can be used by:", PC 12
+.word bg3_position 3, 31
+    .byte 235+1*6   ; $c38623 -- Gear info, "can be used by:", PC 13
+.word bg3_position 13, 31
+    .byte 235+2*6   ; $c38623 -- Gear info, "can be used by:", PC 14
+.word bg3_position 23, 31
+    .byte 0         ; $c38623 -- Gear info, "can be used by:", PC 15 (unused)
+
+/*
+$7e0f + $80*row + $14*col
+    .byte 114+(row*3+col)*6     ; $c38623 -- Gear info, "can be used by:"
+.endrepeat
+.endrepeat
+*/
 ; TODO(tachiweasel): Kefka menu
 ; TODO(tachiweasel): Colosseum members
 _ff6vwf_menu_pc_name_address_table_end:
