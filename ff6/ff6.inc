@@ -79,7 +79,8 @@ ff6_short_spell_names           = $e6f567
 
 ; FF6 functions
 
-ff6_menu_draw_string        = $c37fd9
+ff6_menu_draw_banner_message    = $c302f9
+ff6_menu_draw_string            = $c37fd9
 
 ; Macros
 

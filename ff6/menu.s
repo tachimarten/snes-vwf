@@ -41,6 +41,8 @@ MAIN_MENU_STRING_COUNT = 10
 STATUS_STRING_COUNT = 2
 CONFIG_BG1_STRING_COUNT = 32
 CONFIG_BG3_STRING_COUNT = 4
+COLOSSEUM_STRING_COUNT = 3
+PC_NAME_STRING_COUNT = 1
 
 STATUS_FIRST_LABEL_TILE     = 50
 
@@ -96,8 +98,9 @@ ff6vwf_menu_redraw_needed: .res 1
     jsl _ff6vwf_menu_draw_pc_name
     rts
 
-.segment "PTEXTMENUBUILDCOLOSSEUMITEMS"
-    jml _ff6vwf_menu_build_colosseum_items  ; 4 bytes
+.segment "PTEXTMENUBUILDCOLOSSEUMITEMS"     ; $c3ad27
+    jsl _ff6vwf_menu_build_colosseum_items  ; 4 bytes
+    nop
 
 .segment "PTEXTMENUDRAWCOLOSSEUMITEM"
     jsl _ff6vwf_menu_draw_colosseum_item    ; 4 bytes
@@ -217,6 +220,10 @@ ff6_stats_magic_defense         = $7e11bb
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
     jsl _ff6vwf_menu_draw_config_menu
     nop
+
+.segment "PTEXTMENUDRAWPCNAMEMENU"      ; $c36746
+    jsl _ff6vwf_menu_draw_pc_name_menu
+    nopx 2
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -691,11 +698,25 @@ ff6_esper_list = $7e9d89
     rts
 .endproc
 
+; farproc void _ff6vwf_menu_build_colosseum_items()
 .proc _ff6vwf_menu_build_colosseum_items
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_colosseum_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_colosseum_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE      ; tile_offset
+    jsr ff6vwf_menu_render_static_strings
+
     ; Stuff the original function did
+    leave __FRAME_SIZE__
     lda #1
     sta f:BG1SC
-    jml $c3ad2c
+    rtl
 .endproc
 
 .proc _ff6vwf_menu_draw_colosseum_item
@@ -738,6 +759,7 @@ begin_locals
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple   ; first tile ID
     txa
+    add #60
     sta first_tile_id
 
     ; Render string.
@@ -780,8 +802,7 @@ begin_locals
 
 ff6_menu_colosseum_opponent = $7e0206
 
-TEXT_LINE_SLOT = 2
-FIRST_TILE_ID = 2 * 10 + 8
+FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
 
     enter __FRAME_SIZE__
 
@@ -1212,6 +1233,28 @@ ff6_update_config_menu_arrow = $c33980
 
 .export _ff6vwf_menu_draw_config_menu
 
+.proc _ff6vwf_menu_draw_pc_name_menu
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_pc_name_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_pc_name_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    ldy #$68e3                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw "Please..."
+.endproc
+
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
@@ -1443,12 +1486,29 @@ ff6_menu_bg3_ypos = $3f
 .byte $ea
     def_static_text_tiles $d8, .strlen("Effect   "), 4
 
-.segment "PTEXTMENUCONFIGPOSITIONEDTEXTF"   ; $c34ab3
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTF"       ; $c34ab3
 
 .word $4425
     def_static_text_tiles_z $dc, .strlen("Font"), 3
 .word $4435
     def_static_text_tiles_z $e3, .strlen("Window"), 4
+
+.segment "PTEXTMENUCOLOSSEUMPOSITIONEDTEXTA"    ; $c3ad9a
+
+.word $790d
+    def_static_text_tiles_z 0, .strlen("Colosseum"), -1
+.word $7923
+    def_static_text_tiles_z 10, .strlen("Select an Item"), -1
+
+.segment "PTEXTMENUCOLOSSEUMPOSITIONEDTEXTB"    ; $c3b40f
+
+.word $7d15
+    def_static_text_tiles_z 30, .strlen("Select the challenger"), -1
+
+.segment "PTEXTMENUNAMEPCPOSITIONEDTEXT"        ; $c368e3
+
+.word $411b
+    def_static_text_tiles_z 0, .strlen("Please enter a name."), -1
 
 ; Constant data
 
@@ -1633,3 +1693,39 @@ ff6vwf_config_bg3_label_0: .asciiz "Config"
 ff6vwf_config_bg3_label_1: .asciiz "Players"
 ff6vwf_config_bg3_label_2: .asciiz "Player 1"
 ff6vwf_config_bg3_label_3: .asciiz "Player 2"
+
+; Colosseum menu static text
+
+ff6vwf_colosseum_static_text_descriptor:
+    .byte COLOSSEUM_STRING_COUNT            ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
+    .faraddr ff6vwf_colosseum_labels        ; strings
+    .faraddr ff6vwf_colosseum_tile_counts   ; tile counts
+    .faraddr ff6vwf_colosseum_start_tiles   ; start tiles
+
+ff6vwf_colosseum_labels: ff6vwf_def_pointer_array ff6vwf_colosseum_label, COLOSSEUM_STRING_COUNT
+
+ff6vwf_colosseum_tile_counts: .byte 10, 20, 20
+ff6vwf_colosseum_start_tiles: .byte 0,  10, 30
+
+ff6vwf_colosseum_label_0: .asciiz "Colosseum"
+ff6vwf_colosseum_label_1: .asciiz "Choose an item to wager."
+ff6vwf_colosseum_label_2: .asciiz "Select the challenger."
+
+; PC name menu static text
+
+ff6vwf_pc_name_static_text_descriptor:
+    .byte PC_NAME_STRING_COUNT                                              ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
+    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
+    .faraddr ff6vwf_pc_name_labels                                          ; strings
+    .faraddr ff6vwf_pc_name_tile_counts                                     ; tile counts
+    .faraddr ff6vwf_pc_name_start_tiles                                     ; start tiles
+
+ff6vwf_pc_name_labels: ff6vwf_def_pointer_array ff6vwf_pc_name_label, PC_NAME_STRING_COUNT
+
+ff6vwf_pc_name_tile_counts: .byte 15
+ff6vwf_pc_name_start_tiles: .byte 0
+
+ff6vwf_pc_name_label_0: .asciiz "Please enter a name."

@@ -34,9 +34,6 @@ SHOP_FIRST_SPECIFIC_TILE    = 104
 
 SHOP_MESSAGE_TILE_COUNT = 15
 
-; FF6 functions
-ff6_menu_draw_shop_message  = $c302f9
-
 ; Patches
 
 .segment "PTEXTMENUDRAWSHOPMENU"                ; $c3b93f
@@ -248,7 +245,7 @@ ff6_shop_id = $7e0201
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw greeting
+    jml ff6_menu_draw_banner_message            ; Draw greeting
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_buy
@@ -296,7 +293,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw question
+    jml ff6_menu_draw_banner_message              ; Draw question
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_shop_attack_defense(uint16 item_properties_index)
@@ -366,7 +363,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_dupe_tool
@@ -395,7 +392,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_cant_afford
@@ -424,7 +421,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_buy_sell_thanks
@@ -453,7 +450,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_sell
@@ -477,7 +474,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_sell_quantity
@@ -501,7 +498,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_shop_message              ; Draw message
+    jml ff6_menu_draw_banner_message              ; Draw message
 .endproc
 
 ; ROM data patches
