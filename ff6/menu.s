@@ -12,6 +12,7 @@
 
 .import std_memcpy: near
 .import std_mod16_8: near
+.import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple:  near
 .import ff6vwf_menu_force_nmi_trampoline:       far
@@ -37,15 +38,16 @@
 
 ; Constants
 
-MAIN_MENU_STRING_COUNT = 11
-STATUS_BG1_STRING_COUNT = 2
-STATUS_BG3_STRING_COUNT = 1
-CONFIG_BG1_STRING_COUNT = 32
-CONFIG_BG3_STRING_COUNT = 4
-SAVE_STRING_COUNT = 4
-COLOSSEUM_STRING_COUNT = 3
-PC_NAME_STRING_COUNT = 1
-LINEUP_STATIC_STRING_COUNT = 2
+MAIN_MENU_STRING_COUNT      = 11
+STATUS_BG1_STRING_COUNT     = 2
+STATUS_BG3_STRING_COUNT     = 1
+CONFIG_BG1_STRING_COUNT     = 32
+CONFIG_BG3_STRING_COUNT     = 4
+SAVE_STRING_COUNT           = 4
+COLOSSEUM_STRING_COUNT      = 3
+PC_NAME_STRING_COUNT        = 1
+LINEUP_STATIC_STRING_COUNT  = 2
+KEFKA_LINEUP_STRING_COUNT   = 3
 
 STATUS_FIRST_LABEL_TILE     = 50
 
@@ -100,9 +102,10 @@ ff6vwf_menu_redraw_needed: .res 1
 .segment "PTEXTMENUINIT"
     jml _ff6vwf_menu_init
 
-; FIXME(tachiweasel): This is necessary to preserve Y but breaks the Kefka lineup!
+; Note that the Kefka lineup code will jump into the middle of this instruction without the
+; special-case `_ff6vwf_menu_draw_pc_name_for_kefka_lineup`.
 .segment "PTEXTMENUDRAWPCNAME"              ; $c334cf
-    jsl _ff6vwf_menu_draw_pc_name
+    jsl _ff6vwf_menu_draw_pc_name_general
     rts
 
 .segment "PTEXTMENUBUILDCOLOSSEUMITEMS"     ; $c3ad27
@@ -259,6 +262,13 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_lineup_empty_groups_message
     nopx 2
 
+.segment "PTEXTMENUDRAWKEFKALINEUP"             ; $c3ab2d
+    jsl _ff6vwf_menu_draw_kefka_lineup
+
+.segment "PTEXTMENUDRAWPCNAMEFORKEFKALINEUP"    ; $c3abf0
+    jsl _ff6vwf_menu_draw_pc_name_for_kefka_lineup
+    jmp ff6_menu_draw_string
+
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
 
@@ -311,24 +321,62 @@ ff6_reset_vars = $d4cdf3
     jml $c368fe
 .endproc
 
-; farproc void _ff6vwf_menu_draw_pc_name(uint8 unused, tiledata near *tilemap_addr)
+; farproc void _ff6vwf_menu_draw_pc_name_general(uint8 unused, tiledata near *tilemap_addr)
+.proc _ff6vwf_menu_draw_pc_name_general
+begin_locals
+
+    enter __FRAME_SIZE__
+
+    ; Store positioned text pointer.
+    a16
+    tya
+    sta f:ff6_menu_positioned_text_ptr
+
+    ; Find the tile ID.
+    ldx #0
+:   lda f:_ff6vwf_menu_pc_name_address_table,x
+    cmp f:ff6_menu_positioned_text_ptr
+    beq @found_tile_id
+    inx
+    inx
+    inx
+    cpx #_ff6vwf_menu_pc_name_address_table_end-_ff6vwf_menu_pc_name_address_table
+    bne :-
+    lda #0      ; fallback
+    a8
+    bra @store_tile_id
+@found_tile_id:
+    a8
+    lda f:_ff6vwf_menu_pc_name_address_table+2,x
+@store_tile_id:
+
+    tax     ; first_tile_id
+    jsr _ff6vwf_menu_draw_pc_name
+
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    jml ff6_menu_draw_string            ; Draw item name.
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_pc_name(uint8 first_tile_id)
 .proc _ff6vwf_menu_draw_pc_name
 begin_locals
     decl_local outgoing_args, 6
     decl_local first_tile_id, 1
     decl_local base_addr, 2
     decl_local dma_flags, 1
-    decl_local tilemap_addr, 2
     decl_local name_buffer, 7       ; char[7]
 
     enter __FRAME_SIZE__
 
-    ; Save tilemap address.
-    a16
-    tya
-    sta f:ff6_menu_positioned_text_ptr
+    ; Store arguments.
+    txa
+    sta first_tile_id
 
     ; Copy PC name.
+    a16
     lda f:ff6_actor_address
     add #2                  ; Move to name.
     sta outgoing_args+3     ; src_ptr
@@ -341,26 +389,6 @@ begin_locals
     sta outgoing_args+5     ; src_ptr, bank byte
     ldx #FF6_SHORT_PC_NAME_LENGTH
     jsr ff6vwf_transcode_string
-
-    ; Find the tile ID.
-    a16
-    ldx #0
-:   a16
-    lda f:_ff6vwf_menu_pc_name_address_table,x
-    cmp f:ff6_menu_positioned_text_ptr
-    a8
-    beq @found_tile_id
-    inx
-    inx
-    inx
-    cpx #_ff6vwf_menu_pc_name_address_table_end-_ff6vwf_menu_pc_name_address_table
-    bne :-
-    lda 0       ; fallback
-    bra @store_tile_id
-@found_tile_id:
-    lda f:_ff6vwf_menu_pc_name_address_table+2,x
-@store_tile_id:
-    sta first_tile_id
 
     ; Calculate base address and DMA flags.
     a16
@@ -405,10 +433,7 @@ begin_locals
     jsr ff6vwf_menu_draw_vwf_tiles
 
     leave __FRAME_SIZE__
-    ply
-    pla
-    phy                                 ; Remove bank byte.
-    jml ff6_menu_draw_string            ; Draw item name.
+    rts
 .endproc
 
 ; Table of addresses for PC names.
@@ -1473,14 +1498,72 @@ begin_locals
     ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
     jsr ff6vwf_render_string
 
-    leave __FRAME_SIZE__
-
     ; Stuff the original function did:
+    leave __FRAME_SIZE__
     ply
     pla
     phy                                 ; Remove bank byte
     ldy #$7ab7                          ; Text pointer
     jml ff6_menu_draw_banner_message    ; Draw message
+.endproc
+
+.proc _ff6vwf_menu_draw_kefka_lineup
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_kefka_lineup_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_kefka_lineup_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE      ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    lda #$20                    ; Palette 0
+    sta f:ff6_menu_bg_attrs     ; Color: User's
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
+; farproc void _ff6vwf_menu_draw_pc_name(uint8 unused, tiledata near *tilemap_addr)
+.proc _ff6vwf_menu_draw_pc_name_for_kefka_lineup
+begin_locals
+    decl_local party_member_id, 1
+
+ff6_menu_party_member_infos = $c36969
+
+    tax                     ; Actor ID
+    enter __FRAME_SIZE__
+
+    ; Save party member ID.
+    txa
+    sta party_member_id
+
+    ; Put party member info in X.
+    a16
+    and #$00ff
+    asl
+    tax
+    lda f:ff6_menu_party_member_infos,x
+    sta f:ff6_actor_address
+    a8
+
+    ; Calculate first tile ID and put in X.
+    ldx party_member_id
+    ldy #6
+    jsr std_mul8
+    txa
+    add #FF6VWF_FIRST_TILE + 30
+    tax
+
+    ; Draw name.
+    jsr _ff6vwf_menu_draw_pc_name
+
+    leave __FRAME_SIZE__
+    rtl
 .endproc
 
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
@@ -1803,6 +1886,15 @@ ff6_menu_bg3_ypos = $3f
 .word $391d
     def_static_text_tiles_z 5, .strlen("No one there!       "), -1
 
+.segment "PTEXTMENUKEFKALINEUPPOSITIONEDTEXT"   ; $c3ac8a
+
+.word $4011
+    def_static_text_tiles_z 0, .strlen("End"), -1
+.word $3991
+    def_static_text_tiles_z 5, .strlen("Reset"), -1
+.word $391d
+    def_static_text_tiles_z 10, .strlen("Determine order"), -1
+
 ; Constant data
 
 .segment "DATA"
@@ -2088,3 +2180,23 @@ ff6vwf_lineup_text_empty_groups:
 
 ff6vwf_lineup_text_empty_groups_1_group:    .asciiz "That group is empty."
 ff6vwf_lineup_text_empty_groups_2_3_groups: .asciiz "Those groups are empty."
+
+; Kefka lineup text
+
+ff6vwf_kefka_lineup_static_text_descriptor:
+    .byte KEFKA_LINEUP_STRING_COUNT                                         ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
+    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
+    .faraddr ff6vwf_kefka_lineup_labels                                     ; strings
+    .faraddr ff6vwf_kefka_lineup_tile_counts                                ; tile counts
+    .faraddr ff6vwf_kefka_lineup_start_tiles                                ; start tiles
+
+ff6vwf_kefka_lineup_labels:
+    ff6vwf_def_pointer_array ff6vwf_kefka_lineup_label, KEFKA_LINEUP_STRING_COUNT
+
+ff6vwf_kefka_lineup_tile_counts: .byte 5, 5, 15
+ff6vwf_kefka_lineup_start_tiles: .byte 0, 5, 10
+
+ff6vwf_kefka_lineup_label_0: .asciiz "OK"
+ff6vwf_kefka_lineup_label_1: .asciiz "Reset"
+ff6vwf_kefka_lineup_label_2: .asciiz "Line up your party members."
