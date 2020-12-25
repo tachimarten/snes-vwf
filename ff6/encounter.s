@@ -157,6 +157,9 @@ ff6vwf_encounter_bss_end:
     jsl _ff6vwf_encounter_draw_item_name
     rts
 
+.segment "PTEXTENCOUNTERDRAWITEMTYPE"   ; $c1654b
+    nopx 7
+
 .segment "PTEXTENCOUNTERBUILDMENUITEMFORSPELL"
     jml _ff6vwf_encounter_build_menu_item_for_spell     ; 4 bytes
 
