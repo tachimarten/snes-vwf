@@ -37,6 +37,9 @@
 ; Address in VRAM where characters begin, for BG3 during encounters.
 VWF_ENCOUNTER_TILE_BASE_ADDR = $b000
 
+; Address in VRAM where characters begin, for the menu portion of BG1 during encounters.
+VWF_ENCOUNTER_BG1_TILE_BASE_ADDR = $8000
+
 FF6VWF_ITEM_TYPE_INVENTORY      = 0
 FF6VWF_ITEM_TYPE_ITEM_IN_HAND   = 1
 FF6VWF_ITEM_TYPE_TOOL           = 2
@@ -96,6 +99,9 @@ ff6vwf_encounter_bss_end:
 ; Encounter setup. We patch it to initialize our DMA stack.
 .segment "PTEXTENCOUNTERINIT"
     jml _ff6vwf_encounter_init
+
+.segment "PTEXTENCOUNTERUPLOADBG1CHARDATA"      ; $c140fa
+    jsl _ff6vwf_encounter_upload_bg1_char_data
 
 .segment "PTEXTENCOUNTERDRAWCOMMANDNAME"        ; $c169de
     jsl _ff6vwf_encounter_draw_command_name_from_display_list
@@ -226,6 +232,11 @@ ff6vwf_encounter_close_submenu_patch:
     jml _ff6vwf_encounter_close_submenu
     stp     ; not reached
 
+.segment "PTEXTENCOUNTERMPNEEDEDTILEMAP"    ; $c14a41
+    .byte $ff, $12, $14, $ff
+    .byte $ff, 4
+    def_static_text_tiles 14, 5, -1
+
 .segment "PTEXTENCOUNTERROWDEFTILEMAP" ; $c2e165
 COMMAND_ROW_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_ROW*COMMAND_TILE_COUNT
 COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TILE_COUNT
@@ -243,6 +254,32 @@ COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TIL
     sta f:ff6vwf_encounter_text_dma_stack_size
     jsl $c00016         ; original code
     jml $c1102e
+.endproc
+
+; farproc void _ff6vwf_encounter_upload_bg1_char_data()
+.proc _ff6vwf_encounter_upload_bg1_char_data
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ; Render string.
+    lda #6
+    sta outgoing_args+0
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1             ; 4bpp
+    ldy #.loword(ff6vwf_mp_needed_string)
+    sty outgoing_args+2             ; string
+    lda #^ff6vwf_mp_needed_string
+    sta outgoing_args+4             ; string bank byte
+    ldx #$16
+    ldy #VWF_ENCOUNTER_BG1_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    leave __FRAME_SIZE__
+    plx
+    pla         ; Remove return address.
+    jml $c140fe
 .endproc
 
 ; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_command_name_from_display_list(
@@ -1988,3 +2025,9 @@ begin_locals
 :   tax         ; skill slot * 2, plus one if right column
     rts
 .endproc
+
+; Constant data
+
+.segment "DATA"
+
+ff6vwf_mp_needed_string: .asciiz "needed"
