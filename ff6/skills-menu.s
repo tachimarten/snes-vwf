@@ -435,7 +435,7 @@ begin_locals
 ; farproc void _ff6vwf_menu_draw_spell_name_in_spell_usage_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_spell_usage_menu
 begin_locals
-    decl_local outgoing_args, 1
+    decl_local outgoing_args, 5
 
     enter __FRAME_SIZE__
 
@@ -448,10 +448,23 @@ begin_locals
     lda f:ff6_menu_list,x
     tax                     ; spell ID
 
-    ldy #0                  ; first tile ID
+    ldy #FF6VWF_FIRST_TILE  ; first tile ID
     lda #1
     sta outgoing_args+0     ; bg3
     jsr _ff6vwf_menu_draw_spell_name
+
+    ; Upload "Needed" too.
+    lda #6
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; 2bpp
+    ldy #.loword(ff6vwf_menu_needed_string)
+    sty outgoing_args+2     ; string ptr
+    lda #^ff6vwf_menu_needed_string
+    sta outgoing_args+4     ; string ptr bank
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    ldx #FF6VWF_FIRST_TILE + 10
+    jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
     ply
@@ -1143,9 +1156,18 @@ out:
     def_static_text_tiles_z 30, .strlen("Learn.Rate"), -1
     def_static_text_tiles 40, .strlen("At level up..."), -1
 
+.segment "PTEXTMENUMPNEEDEDPOSITIONEDTEXT"  ; $c35889
+
+.word $7a15
+    ff6_def_charset_string_z "MP"
+.word $7a51
+    def_static_text_tiles_z 10, .strlen("Needed"), -1
+
 ; Constant data
 
 .segment "DATA"
+
+ff6vwf_menu_needed_string: .asciiz "needed"
 
 ff6vwf_skills_menu_static_text_descriptor:
     .byte SKILLS_MENU_STRING_COUNT              ; count
