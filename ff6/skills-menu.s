@@ -308,7 +308,7 @@ ff6vwf_menu_draw_blitz:
     lda z:<ff6_menu_bg1_write_row
     jsr _ff6twue_menu_blitz_compute_map_ptr
 
-.segment "PTEXTMENUDRAWLORE"    ; $c35290
+.segment "PTEXTMENUDRAWLORE"        ; $c35290
     jsl _ff6vwf_menu_draw_lore
     nop
 
@@ -1111,6 +1111,37 @@ out:
     def_static_text_tiles_z 5*10, .strlen("Rage"), -1
 .word $7c8d
     def_static_text_tiles_z 6*10, .strlen("Dance"), -1
+
+.segment "PTEXTMENUSKILLSSUBMENUPOSITIONEDTEXT" ; $c35c91
+
+.word $81b7
+    def_static_text_tiles_z 4*10, .strlen("Lore"), -1
+.word $81b7
+    def_static_text_tiles_z 5*10, .strlen("Rage"), -1
+.word $81b7
+    def_static_text_tiles_z 6*10, .strlen("Dance"), -1
+.word $81b7
+    def_static_text_tiles_z 0*10, .strlen("Espers"), -1
+.word $81b7
+    def_static_text_tiles_z 3*10, .strlen("Blitz"), -1
+.word $81b7
+    def_static_text_tiles_z 2*10, .strlen("SwdTech"), -1
+.word $422d
+    ff6_def_charset_string_z "LV"
+.word $42ad
+    ff6_def_charset_string_z "HP"
+.word $432d
+    ff6_def_charset_string_z "MP"
+.word $42bb
+    ff6_def_charset_string_z "/"
+.word $433b
+    ff6_def_charset_string_z "/"
+    def_static_text_tiles_z 10, .strlen(" has it!"), -1
+.word $4439
+    def_static_text_tiles_z 20, .strlen("Skill"), -1
+.word $4423
+    def_static_text_tiles_z 30, .strlen("Learn.Rate"), -1
+    def_static_text_tiles 40, .strlen("At level up..."), -1
 
 ; Constant data
 

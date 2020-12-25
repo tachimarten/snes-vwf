@@ -38,7 +38,8 @@
 ; Constants
 
 MAIN_MENU_STRING_COUNT = 11
-STATUS_STRING_COUNT = 2
+STATUS_BG1_STRING_COUNT = 2
+STATUS_BG3_STRING_COUNT = 1
 CONFIG_BG1_STRING_COUNT = 32
 CONFIG_BG3_STRING_COUNT = 4
 COLOSSEUM_STRING_COUNT = 3
@@ -1084,12 +1085,20 @@ begin_locals
 
     enter __FRAME_SIZE__
 
-    ; Upload main labels.
-    ldx #.loword(ff6vwf_status_static_text_descriptor)
+    ; Upload BG1 labels.
+    ldx #.loword(ff6vwf_status_bg1_static_text_descriptor)
     stx outgoing_args+0
-    lda #^ff6vwf_status_static_text_descriptor
+    lda #^ff6vwf_status_bg1_static_text_descriptor
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE + STATUS_FIRST_LABEL_TILE
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Upload BG3 labels.
+    ldx #.loword(ff6vwf_status_bg3_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_status_bg3_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE
     jsr ff6vwf_menu_render_static_strings
 
     ; Upload stats labels.
@@ -1103,6 +1112,8 @@ begin_locals
     leave __FRAME_SIZE__
     rtl
 .endproc
+
+.export _ff6vwf_menu_draw_status_menu
 
 ; farproc void _ff6vwf_menu_draw_status_command_name()
 .proc _ff6vwf_menu_draw_status_command_name
@@ -1511,7 +1522,7 @@ ff6_menu_bg3_ypos = $3f
 
 .segment "PTEXTMENUSTATUSPOSITIONEDTEXT"    ; $c3646f
 .word $78cd
-    ff6_def_charset_string_z "Status"
+    def_static_text_tiles_z $e3, .strlen("Status"), 4
 .word $3a6b
     ff6_def_charset_string_z "/"
 .word $3aab
@@ -1761,21 +1772,36 @@ ff6vwf_stats_label_6: .asciiz "Attack"
 ff6vwf_stats_label_7: .asciiz "Defense"
 ff6vwf_stats_label_8: .asciiz "Magic Def."
 
-ff6vwf_status_static_text_descriptor:
-    .byte STATUS_STRING_COUNT                                               ; count
+ff6vwf_status_bg1_static_text_descriptor:
+    .byte STATUS_BG1_STRING_COUNT                                           ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
     .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
-    .faraddr ff6vwf_status_labels                                           ; strings
-    .faraddr ff6vwf_status_tile_counts                                      ; tile counts
-    .faraddr ff6vwf_status_start_tiles                                      ; start tiles
+    .faraddr ff6vwf_status_bg1_labels                                       ; strings
+    .faraddr ff6vwf_status_bg1_tile_counts                                  ; tile counts
+    .faraddr ff6vwf_status_bg1_start_tiles                                  ; start tiles
 
-ff6vwf_status_labels: ff6vwf_def_pointer_array ff6vwf_status_label, STATUS_STRING_COUNT
+ff6vwf_status_bg1_labels: ff6vwf_def_pointer_array ff6vwf_status_bg1_label, STATUS_BG1_STRING_COUNT
 
-ff6vwf_status_tile_counts: .byte 10, 10, 10, 10, 10, 10, 10, 10, 10, 10
-ff6vwf_status_start_tiles: .byte  0, 10, 20, 30, 40, 50, 60, 70, 80, 90
+ff6vwf_status_bg1_tile_counts: .byte 10, 10
+ff6vwf_status_bg1_start_tiles: .byte  0, 10
 
-ff6vwf_status_label_0:  .asciiz "Experience"
-ff6vwf_status_label_1:  .asciiz "EXP to Next Level"
+ff6vwf_status_bg1_label_0:  .asciiz "Experience"
+ff6vwf_status_bg1_label_1:  .asciiz "EXP to Next Level"
+
+ff6vwf_status_bg3_static_text_descriptor:
+    .byte STATUS_BG3_STRING_COUNT               ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
+    .faraddr ff6vwf_status_bg3_labels           ; strings
+    .faraddr ff6vwf_status_bg3_tile_counts      ; tile counts
+    .faraddr ff6vwf_status_bg3_start_tiles      ; start tiles
+
+ff6vwf_status_bg3_labels: ff6vwf_def_pointer_array ff6vwf_status_bg3_label, STATUS_BG3_STRING_COUNT
+
+ff6vwf_status_bg3_tile_counts: .byte 5
+ff6vwf_status_bg3_start_tiles: .byte $e3
+
+ff6vwf_status_bg3_label_0:  .asciiz "Status"
 
 ff6vwf_status_command_first_tiles:
     .byte FF6VWF_FIRST_TILE + FF6_SHORT_COMMAND_NAME_LENGTH*0   ; Attack
