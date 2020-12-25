@@ -50,6 +50,9 @@ COMMAND_SLOT_ROW = 4
 COMMAND_SLOT_DEFEND = 5
 PARTY_MEMBERS_FIRST_TILE = 82
 
+ITEM_R_HAND_START_TILE = 70
+ITEM_L_HAND_START_TILE = 76
+
 ; FF6 globals
 
 ff6_encounter_enemy_ids          = $7e200d
@@ -134,8 +137,12 @@ ff6vwf_encounter_bss_end:
 ; FF6 routine that builds a menu item for an equipped item in hand (during encounters). We patch it
 ; to record that this is an item in hand so that the VWF rendering routine can use the appropriate
 ; slot.
-.segment "PTEXTENCOUNTERBUILDMENUITEMFORITEMINHAND"
+.segment "PTEXTENCOUNTERBUILDMENUITEMFORITEMINHAND"     ; $c14bba
     jml _ff6vwf_encounter_build_menu_item_for_item_in_hand  ; 4 bytes
+
+.segment "PTEXTENCOUNTERBUILDITEMSINHANDMENU"           ; $c15648
+    jsl _ff6vwf_encounter_build_items_in_hand_menu
+    nopx 2
 
 ; FF6 routine that builds a menu item for one of Edgar's tools (during encounters). We patch it
 ; to record that this is a tool so that the VWF rendering routine can use the appropriate slot.
@@ -240,10 +247,14 @@ ff6vwf_encounter_close_submenu_patch:
 .segment "PTEXTENCOUNTERROWDEFTILEMAP" ; $c2e165
 COMMAND_ROW_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_ROW*COMMAND_TILE_COUNT
 COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TILE_COUNT
-    .byte $ff, $ff
+.byte $ff, $ff
     def_static_text_tiles_z COMMAND_ROW_START_TILE, .strlen("Row"), -1
-    .byte $ff, $ff
+.byte $ff, $ff
     def_static_text_tiles_z COMMAND_DEFEND_START_TILE, .strlen("Def."), -1
+.word $0305
+    def_static_text_tiles ITEM_R_HAND_START_TILE, .strlen("R-Hand"), -1
+.word $0905
+    def_static_text_tiles ITEM_L_HAND_START_TILE, .strlen("L-Hand"), -1
 
 ; Our own functions, in a separate bank
 .segment "TEXT"
@@ -748,6 +759,49 @@ name_pointer    = $7e0010
     cpx #$13
     bne :-
     jml $c14bc9
+.endproc
+
+.proc _ff6vwf_encounter_build_items_in_hand_menu
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ; Render "R-Hand".
+    lda #6
+    sta outgoing_args+0
+    stz outgoing_args+1             ; 2bpp
+    ldy #.loword(ff6vwf_items_in_hand_label_0)
+    sty outgoing_args+2             ; string
+    lda #^ff6vwf_items_in_hand_label_0
+    sta outgoing_args+4             ; string bank byte
+    ldx #FF6VWF_FIRST_TILE+ITEM_R_HAND_START_TILE
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Render "L-Hand".
+    lda #6
+    sta outgoing_args+0
+    stz outgoing_args+1             ; 2bpp
+    ldy #.loword(ff6vwf_items_in_hand_label_1)
+    sty outgoing_args+2             ; string
+    lda #^ff6vwf_items_in_hand_label_1
+    sta outgoing_args+4             ; string bank byte
+    ldx #FF6VWF_FIRST_TILE+ITEM_L_HAND_START_TILE
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Stuff the original function did:
+    a16
+    lda #$7e40
+    sta f:$7e7baa
+    a8
+
+    leave __FRAME_SIZE__
+    a16
+    lda #0                  ; Avoids a crash.
+    a8
+    rtl
 .endproc
 
 ; Original function: $c14bf7.
@@ -2031,3 +2085,8 @@ begin_locals
 .segment "DATA"
 
 ff6vwf_mp_needed_string: .asciiz "needed"
+
+; R-Hand/L-Hand text
+
+ff6vwf_items_in_hand_label_0: .asciiz "Right Hand"
+ff6vwf_items_in_hand_label_1: .asciiz "Left Hand"
