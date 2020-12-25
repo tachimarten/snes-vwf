@@ -11,6 +11,7 @@
 .include "../snes.inc"
 
 .import std_div16_8: near
+.import std_memcpy: near
 .import std_memset: near
 .import std_mod16_8: near
 .import std_mul16_8: near
@@ -52,6 +53,8 @@ PARTY_MEMBERS_FIRST_TILE = 82
 
 ITEM_R_HAND_START_TILE = 70
 ITEM_L_HAND_START_TILE = 76
+
+ESPER_LABEL_START_TILE = $5e
 
 ; FF6 globals
 
@@ -182,6 +185,10 @@ ff6_encounter_build_menu_item_for_lore:
     jsl _ff6vwf_encounter_draw_spell_name
     rts
 
+.segment "PTEXTENCOUNTERDRAWESPERMENU"          ; $c14e20
+    jsl _ff6vwf_encounter_draw_esper_menu
+    nopx 9
+
 .segment "PTEXTENCOUNTERDRAWESPERNAME"          ; $c1667d
     jsl _ff6vwf_encounter_draw_esper_name
     rts
@@ -241,6 +248,11 @@ _ff6vwf_encounter_schedule_dma_trampoline:
 ff6vwf_encounter_close_submenu_patch:
     jml _ff6vwf_encounter_close_submenu
     stp     ; not reached
+
+.segment "PTEXTENCOUNTERESPERLABELTILEMAP"  ; $c2e083
+esper_label_tilemap:
+    .byte $ff, $ff
+    def_static_text_tiles ESPER_LABEL_START_TILE, .strlen("Esper  "), 5
 
 .segment "PTEXTENCOUNTERMPNEEDEDTILEMAP"    ; $c14a41
     .byte $ff, $12, $14, $ff
@@ -1059,6 +1071,43 @@ ff6_spell_name_length = $c1601b
 @out:
     leave __FRAME_SIZE__
     txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
+    rtl
+.endproc
+
+; farproc void _ff6vwf_encounter_draw_esper_menu()
+.proc _ff6vwf_encounter_draw_esper_menu
+begin_locals
+    decl_local outgoing_args, 6
+
+dest_ptr = $7e5755
+
+    enter __FRAME_SIZE__
+
+    ; Render string.
+    lda #5
+    sta outgoing_args+0                             ; tile_count
+    stz outgoing_args+1                             ; 2bpp
+    ldy #.loword(ff6vwf_encounter_esper_label)
+    sty outgoing_args+2                             ; string
+    lda #^ff6vwf_encounter_esper_label
+    sta outgoing_args+4                             ; string bank byte
+    ldx #FF6VWF_FIRST_TILE+ESPER_LABEL_START_TILE   ; first_tile_id
+    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Stuff the original function did:
+    lda #^dest_ptr
+    sta outgoing_args+2
+    lda #^esper_label_tilemap
+    sta outgoing_args+5
+    ldx #.loword(dest_ptr)
+    stx outgoing_args+0
+    ldx #.loword(esper_label_tilemap)
+    stx outgoing_args+3
+    ldx #$17
+    jsr std_memcpy
+
+    leave __FRAME_SIZE__
     rtl
 .endproc
 
@@ -2088,8 +2137,8 @@ begin_locals
 .segment "DATA"
 
 ff6vwf_mp_needed_string: .asciiz "needed"
+ff6vwf_encounter_esper_label: .asciiz "Esper"
 
 ; R-Hand/L-Hand text
-
 ff6vwf_items_in_hand_label_0: .asciiz "Right Hand"
 ff6vwf_items_in_hand_label_1: .asciiz "Left Hand"
