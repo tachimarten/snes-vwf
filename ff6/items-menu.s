@@ -658,9 +658,14 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 
 ; farproc void _ff6vwf_menu_draw_item_to_be_used()
 .proc _ff6vwf_menu_draw_item_to_be_used
+begin_locals
+    decl_local outgoing_args, 5
+
 TEXT_LINE_SLOT = 0
 
 ff6_menu_cursor_selected_inventory_slot = $7e004b
+
+    enter __FRAME_SIZE__
 
     lda f:ff6_menu_cursor_selected_inventory_slot
     tax
@@ -669,13 +674,27 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
     ldy #TEXT_LINE_SLOT
     jsr ff6vwf_menu_draw_item_name_bg3
 
+    ; Upload "Owned:"
+    lda #6
+    sta outgoing_args+0     ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    sta outgoing_args+1     ; flags
+    ldy #.loword(ff6vwf_menu_owned_string)
+    sty outgoing_args+2
+    lda #^ff6vwf_menu_owned_string
+    sta outgoing_args+4
+    ldx #FF6VWF_FIRST_TILE+10
+    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    leave __FRAME_SIZE__
+
     ; For some reason we have to do this to prevent the cursor from disappearing...
     a16
     lda #0
     a8
     ldx #0
     ldy #0
-
     rtl
 .endproc
 
@@ -846,6 +865,11 @@ begin_locals
     def_static_text_tiles_z 5, .strlen("ARRANGE"), 3
 .word $7939
     def_static_text_tiles_z 8, .strlen("RARE"), 2
+
+.segment "PTEXTMENUITEMUSAGEPOSITIONEDTEXT"     ; $c38e41
+
+.word $7a0d
+    def_static_text_tiles_z 10, .strlen("Owned:"), -1
 
 .segment "PTEXTMENUGEARINFOMENUPCNAMEPOSITIONS"     ; $c38653
 
@@ -1020,9 +1044,7 @@ _equip_menu_positioned_text_b:
 
 .segment "DATA"
 
-ff6vwf_string_equipment:
-    ff6_def_charset_string_z "Equipment "
-ff6vwf_string_equipment_end:
+ff6vwf_menu_owned_string: .asciiz "Owned:"
 
 ; Items menu labels
 
