@@ -42,6 +42,7 @@ STATUS_BG1_STRING_COUNT = 2
 STATUS_BG3_STRING_COUNT = 1
 CONFIG_BG1_STRING_COUNT = 32
 CONFIG_BG3_STRING_COUNT = 4
+SAVE_STRING_COUNT = 4
 COLOSSEUM_STRING_COUNT = 3
 PC_NAME_STRING_COUNT = 1
 LINEUP_STATIC_STRING_COUNT = 2
@@ -226,6 +227,14 @@ ff6_stats_magic_defense         = $7e11bb
 .segment "PTEXTMENUDRAWCONFIGMENU"      ; $c33947
     jsl _ff6vwf_menu_draw_config_menu
     nop
+
+.segment "PTEXTMENUDRAWSAVEMENU"        ; $c315ff
+    jsl _ff6vwf_menu_draw_save_menu
+    nopx 2
+
+.segment "PTEXTMENUDRAWLOADMENU"        ; $c31629
+    jsl _ff6vwf_menu_draw_load_menu
+    nopx 2
 
 .segment "PTEXTMENUDRAWPCNAMEMENU"      ; $c36746
     jsl _ff6vwf_menu_draw_pc_name_menu
@@ -1270,6 +1279,50 @@ ff6_update_config_menu_arrow = $c33980
 
 .export _ff6vwf_menu_draw_config_menu
 
+.proc _ff6vwf_menu_draw_save_menu
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_save_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_save_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    ldy #$1a78                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw "Save"
+.endproc
+
+.proc _ff6vwf_menu_draw_load_menu
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_save_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_save_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    ldy #$1a7f                          ; Text pointer
+    jml ff6_menu_draw_banner_message    ; Draw "New Game"
+.endproc
+
 .proc _ff6vwf_menu_draw_pc_name_menu
 begin_locals
     decl_local outgoing_args, 3
@@ -1685,6 +1738,43 @@ ff6_menu_bg3_ypos = $3f
 .word $4435
     def_static_text_tiles_z $e3, .strlen("Window"), 4
 
+.segment "PTEXTMENUSAVEPOSITIONEDTEXT"          ; $c31a24
+
+.word $7a4f
+    def_static_text_tiles_z 0*5, .strlen("Empty"), -1
+.word $7c0f
+    def_static_text_tiles_z 0*5, .strlen("Empty"), -1
+.word $7dcf
+    def_static_text_tiles_z 0*5, .strlen("Empty"), -1
+.word $7acf
+    def_static_text_tiles_z 1*5, .strlen("Time"), -1
+.word $7c8f
+    def_static_text_tiles_z 1*5, .strlen("Time"), -1
+.word $7e4f
+    def_static_text_tiles_z 1*5, .strlen("Time"), -1
+.word $7b11
+    ff6_def_charset_string_z ":"
+.word $7cd1
+    ff6_def_charset_string_z ":"
+.word $7e91
+    ff6_def_charset_string_z ":"
+.word $7a7b
+    ff6_def_charset_string_z "LV"
+.word $7c3b
+    ff6_def_charset_string_z "LV"
+.word $7dfb
+    ff6_def_charset_string_z "LV"
+.word $7afb
+    ff6_def_charset_string_z "/"
+.word $7cbb
+    ff6_def_charset_string_z "/"
+.word $7e7b
+    ff6_def_charset_string_z "/"
+.word $7967
+    def_static_text_tiles_z 2*5, .strlen("Save"), -1
+.word $7963
+    def_static_text_tiles_z 3*5, .strlen("New Game"), -1
+
 .segment "PTEXTMENUCOLOSSEUMPOSITIONEDTEXTA"    ; $c3ad9a
 
 .word $790d
@@ -1912,6 +2002,26 @@ ff6vwf_config_bg3_label_0: .asciiz "Config"
 ff6vwf_config_bg3_label_1: .asciiz "Players"
 ff6vwf_config_bg3_label_2: .asciiz "Player 1"
 ff6vwf_config_bg3_label_3: .asciiz "Player 2"
+
+; Save menu static text
+
+ff6vwf_save_static_text_descriptor:
+    .byte SAVE_STRING_COUNT                 ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
+    .faraddr ff6vwf_save_labels             ; strings
+    .faraddr ff6vwf_save_tile_counts        ; tile counts
+    .faraddr ff6vwf_save_start_tiles        ; start tiles
+
+ff6vwf_save_labels: ff6vwf_def_pointer_array ff6vwf_save_label, SAVE_STRING_COUNT
+
+ff6vwf_save_tile_counts: .byte 5, 5,  5,  5
+ff6vwf_save_start_tiles: .byte 0, 5, 10, 15
+
+ff6vwf_save_label_0: .asciiz "Empty"
+ff6vwf_save_label_1: .asciiz "Time"
+ff6vwf_save_label_2: .asciiz "Save"
+ff6vwf_save_label_3: .asciiz "New Game"
 
 ; Colosseum menu static text
 
