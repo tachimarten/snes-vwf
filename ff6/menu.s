@@ -43,6 +43,7 @@ STATUS_BG1_STRING_COUNT     = 2
 STATUS_BG3_STRING_COUNT     = 1
 CONFIG_BG1_STRING_COUNT     = 32
 CONFIG_BG3_STRING_COUNT     = 4
+COMMAND_SET_STRING_COUNT    = 1
 SAVE_STRING_COUNT           = 4
 COLOSSEUM_STRING_COUNT      = 3
 PC_NAME_STRING_COUNT        = 1
@@ -231,6 +232,11 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_config_menu
     nop
 
+;.segment "PTEXTMENUDRAWCOMMANDSETMENU"  ; $c34478
+.segment "PTEXTMENUDRAWCOMMANDSETMENU"  ; $c3442f
+    jsl _ff6vwf_menu_draw_command_set_menu
+    nopx 2
+
 .segment "PTEXTMENUDRAWSAVEMENU"        ; $c315ff
     jsl _ff6vwf_menu_draw_save_menu
     nopx 2
@@ -274,7 +280,7 @@ ff6_stats_magic_defense         = $7e11bb
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
-.segment "PTEXTMENURUNDMA"
+.segment "PTEXTMENURUNDMA"              ; $c31412
 ff6_menu_refresh_mode_7 = $c3d263
 ff6_menu_refresh_oam    = $c31463
 ff6_menu_refresh_cgram  = $c314d2
@@ -285,15 +291,15 @@ ff6_menu_do_vram_dma_b  = $c314ac
     jsr .loword(ff6_menu_refresh_mode_7)
     jsr .loword(ff6_menu_refresh_oam)
     jsr .loword(ff6_menu_refresh_cgram)
-    jsr .loword(ff6_menu_do_vram_dma_a)
 
-    ; We have priority over VRAM DMA B.
+    ; We have priority over the VRAM DMA that FF6 wants to do.
     ;
     ; For this to work, we must eagerly trigger NMI every time we render some text.
     jsl _ff6vwf_menu_run_dma
     cpy #0
     bne @we_did_dma
 
+    jsr .loword(ff6_menu_do_vram_dma_a)
     jsr .loword(ff6_menu_do_vram_dma_b)
 @we_did_dma:
     rts
@@ -1079,7 +1085,7 @@ ff6_update_config_menu_arrow = $c33980
     jsr ff6vwf_render_string
 
     ; Upload it.
-    jsr ff6vwf_menu_force_nmi
+    jsr _ff6vwf_menu_commit_transaction
 
     inc string_index
     lda string_index
@@ -1303,6 +1309,28 @@ ff6_update_config_menu_arrow = $c33980
 .endproc
 
 .export _ff6vwf_menu_draw_config_menu
+
+.proc _ff6vwf_menu_draw_command_set_menu
+begin_locals
+    decl_local outgoing_args, 3
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_command_set_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_command_set_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE  ; first_tile_id
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    leave __FRAME_SIZE__
+    ply
+    pla
+    phy                                         ; Remove bank byte.
+    ldy #$4490
+    jml $c30341
+.endproc
 
 .proc _ff6vwf_menu_draw_save_menu
 begin_locals
@@ -1821,6 +1849,12 @@ ff6_menu_bg3_ypos = $3f
 .word $4435
     def_static_text_tiles_z $e3, .strlen("Window"), 4
 
+.segment "PTEXTMENUCOMMANDSETPOSITIONEDTEXT"    ; $c34af1
+
+command_set_positioned_text:
+.word $78cf
+    def_static_text_tiles_z $6d, .strlen("Arrange"), -1
+
 .segment "PTEXTMENUSAVEPOSITIONEDTEXT"          ; $c31a24
 
 .word $7a4f
@@ -2107,6 +2141,24 @@ ff6vwf_config_bg3_label_0: .asciiz "Config"
 ff6vwf_config_bg3_label_1: .asciiz "Players"
 ff6vwf_config_bg3_label_2: .asciiz "Player 1"
 ff6vwf_config_bg3_label_3: .asciiz "Player 2"
+
+; Command Set/Arrange menu static text
+
+ff6vwf_command_set_static_text_descriptor:
+    .byte COMMAND_SET_STRING_COUNT              ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
+    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
+    .faraddr ff6vwf_command_set_labels          ; strings
+    .faraddr ff6vwf_command_set_tile_counts     ; tile counts
+    .faraddr ff6vwf_command_set_start_tiles     ; start tiles
+
+ff6vwf_command_set_labels:
+    ff6vwf_def_pointer_array ff6vwf_command_set_label, COMMAND_SET_STRING_COUNT
+
+ff6vwf_command_set_tile_counts: .byte   10
+ff6vwf_command_set_start_tiles: .byte  $6d
+
+ff6vwf_command_set_label_0: .asciiz "D-Pad Config"
 
 ; Save menu static text
 
