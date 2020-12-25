@@ -38,7 +38,7 @@
 
 ; Constants
 
-MAIN_MENU_STRING_COUNT      = 11
+MAIN_MENU_STRING_COUNT      = 19
 STATUS_BG1_STRING_COUNT     = 2
 STATUS_BG3_STRING_COUNT     = 1
 CONFIG_BG1_STRING_COUNT     = 32
@@ -1617,44 +1617,44 @@ ff6_menu_bg3_ypos = $3f
 .segment "PTEXTMENUMAINMENUPOSITIONEDTEXT"  ; $c337cb
 
 .word $7939
-    def_static_text_tiles_z 4*10+5*0, .strlen("Item"), -1
+    def_static_text_tiles_z 40+0, .strlen("Item"), 3
 .word $79b9
-    def_static_text_tiles_z 4*10+5*1, .strlen("Skills"), 5
+    def_static_text_tiles_z 40+3, .strlen("Skills"), 3
 .word $7a39
-    def_static_text_tiles_z 4*10+5*2, .strlen("Equip"), -1
+    def_static_text_tiles_z 40+6, .strlen("Equip"), 3
 .word $7ab9
-    def_static_text_tiles_z 4*10+5*3, .strlen("Relic"), -1
+    def_static_text_tiles_z 40+9, .strlen("Relic"), 3
 .word $7b39
-    def_static_text_tiles_z 4*10+5*4, .strlen("Status"), 5
+    def_static_text_tiles_z 40+12, .strlen("Status"), 4
 .word $7bb9
-    def_static_text_tiles_z 4*10+5*5, .strlen("Config"), 5
+    def_static_text_tiles_z 40+16, .strlen("Config"), 4
 .word $7c39
-    def_static_text_tiles_z 4*10+5*6, .strlen("Save"), -1
+    def_static_text_tiles_z 40+20, .strlen("Save"), 3
 .word $7cbb
-    def_static_text_tiles_z 4*10+5*7, .strlen("Time"), -1
+    def_static_text_tiles_z 40+23, .strlen("Time"), 3
 .word $7cff
     ff6_def_charset_string_z ":"
 .word $7db7
-    def_static_text_tiles_z 4*10+5*8, .strlen("Steps"), -1
+    def_static_text_tiles_z 40+26, .strlen("Steps"), 3
 .word $7e77
-    def_static_text_tiles_z 4*10+5*9, .strlen("Gp"), -1
+    def_static_text_tiles_z 40+29, .strlen("Gp"), -1
 ; TODO(tachiweasel): Actually draw these strings!
 .word $7abd
-    def_static_text_tiles_z 4*10+5*10, .strlen("Yes"), -1
+    def_static_text_tiles_z 40+35, .strlen("Yes"), 2
 .word $7b3d
-    def_static_text_tiles_z 4*10+5*11, .strlen("No"), -1
+    def_static_text_tiles_z 40+37, .strlen("No"), -1
 .word $7937
-    def_static_text_tiles_z 4*10+5*12, .strlen("This"), -1
+    def_static_text_tiles_z 40+58, .strlen("This"), -1
 .word $79b7
-    ff6_def_charset_string_z "     "
+    def_static_text_tiles_z 40+65, .strlen("data?"), -1
 .word $7937
-    def_static_text_tiles_z 4*10+5*12, .strlen("Erasing"), -1
+    def_static_text_tiles_z 40+39, .strlen("Erasing"), 6
 .word $79b7
-    ff6_def_charset_string_z "     "
+    def_static_text_tiles_z 40+46, .strlen("data."), -1
 .word $7a37
-    ff6_def_charset_string_z "     "
+    def_static_text_tiles_z 40+52, .strlen("Okay?"), -1
 .word $813d
-    def_static_text_tiles_z 4*10+5*10, .strlen("Order"), -1
+    def_static_text_tiles_z 40+31, .strlen("Order"), 4
 
 .segment "PTEXTMENUSTATUSPOSITIONEDTEXT"    ; $c3646f
 .word $78cd
@@ -1908,8 +1908,13 @@ ff6vwf_main_menu_static_text_descriptor:
     .faraddr ff6vwf_main_menu_start_tiles       ; start tiles
 
 ff6vwf_main_menu_labels: ff6vwf_def_pointer_array ff6vwf_main_menu_label, MAIN_MENU_STRING_COUNT
-ff6vwf_main_menu_tile_counts: .byte 5, 5,  5,  5,  5,  5,  5,  5,  5,  5,  5
-ff6vwf_main_menu_start_tiles: .byte 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50
+;         0   1   2   3    4   5   6   7   8   9
+ff6vwf_main_menu_tile_counts:
+    .byte 3,  3,  3,  3,   4,  4,  3,  3,  3,  2
+    .byte 4,  2,  2,  7,   6,  6,  7,  6,  4
+ff6vwf_main_menu_start_tiles:
+    .byte 0,  3,  6,  9,  12, 16, 20, 23, 26, 29
+    .byte 31, 35, 37, 39, 46, 52, 58, 65, 71
 
 ff6vwf_main_menu_label_0:  .asciiz "Items"
 ff6vwf_main_menu_label_1:  .asciiz "Skills"
@@ -1922,6 +1927,14 @@ ff6vwf_main_menu_label_7:  .asciiz "Time"
 ff6vwf_main_menu_label_8:  .asciiz "Steps"
 ff6vwf_main_menu_label_9:  .asciiz "Gil"
 ff6vwf_main_menu_label_10: .asciiz "Order"
+ff6vwf_main_menu_label_11: .asciiz "Yes"
+ff6vwf_main_menu_label_12: .asciiz "No"
+ff6vwf_main_menu_label_13: .asciiz "Overwriting"
+ff6vwf_main_menu_label_14: .asciiz "game. Are"
+ff6vwf_main_menu_label_15: .asciiz "you sure?"
+ff6vwf_main_menu_label_16: .asciiz "Do you want"
+ff6vwf_main_menu_label_17: .asciiz "to load this"
+ff6vwf_main_menu_label_18: .asciiz "game?"
 
 ; Stats labels
 
@@ -2107,7 +2120,8 @@ ff6vwf_save_static_text_descriptor:
 
 ff6vwf_save_labels: ff6vwf_def_pointer_array ff6vwf_save_label, SAVE_STRING_COUNT
 
-ff6vwf_save_tile_counts: .byte 5, 5,  5,  5
+;                              0  1   2   3   4   5   6   7   8   9
+ff6vwf_save_tile_counts: .byte 5, 5,  5, 10
 ff6vwf_save_start_tiles: .byte 0, 5, 10, 15
 
 ff6vwf_save_label_0: .asciiz "Empty"
