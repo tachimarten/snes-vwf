@@ -35,6 +35,7 @@
 ; Constants
 
 SKILLS_MENU_STRING_COUNT = 7
+ESPER_INFO_MENU_STRING_COUNT = 3
 
 SHORT_ESPER_BONUS_NAME_LENGTH = 10
 
@@ -137,6 +138,10 @@ ff6_menu_espers_draw            = $c35509
 ; FF6 routine to draw an esper in the Espers menu.
 .segment "PTEXTMENUDRAWESPERNAME"           ; $c35527
     jsl _ff6vwf_menu_draw_esper_name        ; 4 bytes
+
+.segment "PTEXTMENUDRAWESPERINFOMENU"       ; $c358ae
+    jsl _ff6vwf_menu_draw_esper_info_menu
+    nopx 7
 
 .segment "PTEXTMENUDRAWESPERNAMEININFOMENU" ; $c359ba
 ff6_menu_selected_esper = $7e0099
@@ -535,6 +540,29 @@ begin_locals
     rtl
 .endproc
 
+.proc _ff6vwf_menu_draw_esper_info_menu
+begin_locals
+    decl_local outgoing_args, 5
+
+    enter __FRAME_SIZE__
+
+    ldx #.loword(ff6vwf_esper_info_menu_static_text_descriptor)
+    stx outgoing_args+0
+    lda #^ff6vwf_esper_info_menu_static_text_descriptor
+    sta outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE
+    jsr ff6vwf_menu_render_static_strings
+
+    ; Stuff the original function did:
+    a16
+    lda #$0100
+    sta $7e9a10
+    a8
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 ; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id)
 .proc _ff6vwf_menu_draw_esper_name_in_info_menu
 begin_locals
@@ -681,7 +709,8 @@ FIRST_SPELL_ROW = $11
 @draw_spell_name:
     lda f:ff6_current_spell_id
     tax
-    lda outgoing_args+0             ; bg3
+    lda bg3
+    sta outgoing_args+0             ; bg3
     jsr _ff6vwf_menu_draw_spell_name
 
     ldx #$9e92          ; The original function did this...
@@ -1152,9 +1181,9 @@ out:
     def_static_text_tiles_z 10, .strlen(" has it!"), -1
 .word $4439
     def_static_text_tiles_z 20, .strlen("Skill"), -1
-.word $4423
+.word $4427
     def_static_text_tiles_z 30, .strlen("Learn.Rate"), -1
-    def_static_text_tiles 40, .strlen("At level up..."), -1
+    def_static_text_tiles 40, .strlen("At level up..."), 9
 
 .segment "PTEXTMENUMPNEEDEDPOSITIONEDTEXT"  ; $c35889
 
@@ -1190,6 +1219,26 @@ ff6vwf_skills_menu_label_3:  .asciiz "Blitz"
 ff6vwf_skills_menu_label_4:  .asciiz "Lore"
 ff6vwf_skills_menu_label_5:  .asciiz "Rage"
 ff6vwf_skills_menu_label_6:  .asciiz "Dance"
+
+; Esper info
+
+ff6vwf_esper_info_menu_static_text_descriptor:
+    .byte ESPER_INFO_MENU_STRING_COUNT                                      ; count
+    .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
+    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
+    .faraddr ff6vwf_esper_info_menu_labels                                  ; strings
+    .faraddr ff6vwf_esper_info_menu_tile_counts                             ; tile counts
+    .faraddr ff6vwf_esper_info_menu_start_tiles                             ; start tiles
+
+ff6vwf_esper_info_menu_labels:
+    ff6vwf_def_pointer_array ff6vwf_esper_info_menu_label, ESPER_INFO_MENU_STRING_COUNT
+
+ff6vwf_esper_info_menu_tile_counts: .byte 10, 10, 10
+ff6vwf_esper_info_menu_start_tiles: .byte 20, 30, 40
+
+ff6vwf_esper_info_menu_label_0: .asciiz "Skill"
+ff6vwf_esper_info_menu_label_1: .asciiz "Acquisition Rate"
+ff6vwf_esper_info_menu_label_2: .asciiz "When leveling up:"
 
 ; Esper bonuses
 
