@@ -511,13 +511,14 @@ ff6_enemy_name_table  = $cfc050
     rtl
 .endproc
 
-; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_pc_name(uint8 unused, uint16 dest_tilemap_offset)
-.proc _ff6vwf_encounter_draw_pc_name
+; nearproc uint8 _ff6vwf_encounter_render_pc_name(uint8 party_index)
+;
+; Returns the starting tile index.
+.proc _ff6vwf_encounter_render_pc_name
 begin_locals
     decl_local outgoing_args, 6
-    decl_local dest_tilemap_offset, 2       ; uint16
-    decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; uint8
+    decl_local party_index, 1               ; uint8
     decl_local name_buffer, 7               ; char[7]
 
 name_pointer    = $7e0010
@@ -525,19 +526,10 @@ name_pointer    = $7e0010
     enter __FRAME_SIZE__
 
     ; Init locals.
-    sty dest_tilemap_offset
-    lda #0
-    sta $7e0014
+    txa
+    sta party_index
 
     ; Look up party member ID.
-    a16
-    lda f:name_pointer
-    sub #$2eae
-    asli 3
-    xba
-    a8
-    and #$03                ; (name_pointer - $2eae) / $20
-    tax
     ldy #FF6_SHORT_PC_NAME_LENGTH
     jsr ff6vwf_calculate_first_tile_id_simple
     txa
@@ -545,23 +537,24 @@ name_pointer    = $7e0010
     sta current_tile_index
 
     ; Copy name buffer.
+    lda party_index
     a16
-    lda f:name_pointer
-    inc
+    and #$0003
+    xba
+    lsri 3                  ; * 32
+    add #$2eaf              ; $7e2eaf = character name
     sta outgoing_args+3     ; src_ptr
     tdc
     add #name_buffer
     sta outgoing_args+0     ; dest_ptr
     a8
-    stz outgoing_args+2     ; dest_ptr, bank byte
     lda #$7e
+    sta outgoing_args+2     ; dest_ptr, bank byte
     sta outgoing_args+5     ; src_ptr, bank byte
     ldx #FF6_SHORT_PC_NAME_LENGTH
     jsr ff6vwf_transcode_string
 
     ; Render the string.
-    lda #FF6_SHORT_PC_NAME_LENGTH   ; max tile count
-    sta outgoing_args+0
     a16
     tdc
     add #name_buffer
@@ -569,13 +562,59 @@ name_pointer    = $7e0010
     a8
     lda #$7e
     sta outgoing_args+3             ; string_ptr, bank byte
-    stz outgoing_args+4             ; save_tiles_to_draw
-    ldx dest_tilemap_offset         ; dest_tilemap_offset
-    ldy current_tile_index          ; first_tile_id
-    jsr ff6vwf_encounter_draw_enemy_name_string
+    stz outgoing_args+0             ; flags = 2bpp
+    ldx current_tile_index          ; first_tile_id
+    ldy #FF6_SHORT_PC_NAME_LENGTH   ; max_tile_count
+    jsr ff6vwf_render_string
 
-@out:
+    ldx current_tile_index
     leave __FRAME_SIZE__
+    rts
+.endproc
+
+.export _ff6vwf_encounter_render_pc_name
+
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_pc_name(uint8 unused, uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_pc_name
+.struct locals
+    .org 1
+    outgoing_args       .byte 5
+    dest_tilemap_offset .word       ; uint16
+    max_tile_count      .byte       ; uint8
+.endstruct
+
+name_pointer    = $7e0010
+
+    enter .sizeof(locals)
+
+    sty locals::dest_tilemap_offset
+    lda #FF6_SHORT_PC_NAME_LENGTH
+    sta locals::max_tile_count
+    lda #0
+    sta $7e0014
+
+    ; Render name.
+    a16
+    lda f:name_pointer
+    sub #$2eae
+    asli 3
+    xba
+    and #$03            ; (name_pointer - $2eaf) / $20
+    tax                 ; X = party_index
+    a8
+    jsr _ff6vwf_encounter_render_pc_name    ; returns current tile index in X
+
+    ; Draw tiles.
+    ldy locals::dest_tilemap_offset ; dest_tilemap_offset
+    a16
+    tdc
+    add #locals::max_tile_count
+    sta locals::outgoing_args+0     ; tiles_to_draw_ptr
+    a8
+    jsr _ff6vwf_encounter_draw_enemy_name_tiles     ; returns dest_tilemap_offset in X
+
+    leave .sizeof(locals)
+
     txy             ; Y = dest tilemap offset
     a16
     lda #0
@@ -912,6 +951,7 @@ ff6_dma_size_to_transfer = $10
     phy
     a8
     jsr _ff6vwf_encounter_reupload_all_command_names
+    jsr _ff6vwf_encounter_reupload_all_pc_names
     a16
     ply
     plx
@@ -977,6 +1017,7 @@ begin_locals
     rts
 .endproc
 
+; nearproc void _ff6vwf_encounter_reupload_all_command_names()
 .proc _ff6vwf_encounter_reupload_all_command_names
 begin_locals
     decl_local command_index, 1     ; uint8
@@ -994,6 +1035,29 @@ begin_locals
     bne :-
 
     leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc void _ff6vwf_encounter_reupload_all_pc_names()
+.proc _ff6vwf_encounter_reupload_all_pc_names
+.struct locals
+    .org 1
+    pc_index    .byte   ; uint8
+.endstruct
+
+    enter .sizeof(locals)
+
+    lda #0
+    sta locals::pc_index
+:   tax
+    jsr _ff6vwf_encounter_render_pc_name
+    lda locals::pc_index
+    inc
+    sta locals::pc_index
+    cmp #4
+    bne :-
+
+    leave .sizeof(locals)
     rts
 .endproc
 

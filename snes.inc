@@ -140,11 +140,11 @@ RDMPYH   = $4217
 ; stomping on something the game was using.
 .macro enter frame_size
     phd
-.if __FRAME_SIZE__ < 11
-.repeat __FRAME_SIZE__ / 2
+.if frame_size < 11
+.repeat frame_size / 2
     phy
 .endrepeat
-.if (__FRAME_SIZE__ .mod 2) = 1
+.if (frame_size .mod 2) = 1
     pha
 .endif
     tsc
@@ -163,11 +163,11 @@ RDMPYH   = $4217
 ; Note that this clobbers A and Y, so don't use those registers for passing return values. Use X
 ; instead.
 .macro leave frame_size
-.if __FRAME_SIZE__ < 11
-.if (__FRAME_SIZE__ .mod 2) = 1
+.if frame_size < 11
+.if (frame_size .mod 2) = 1
     pla
 .endif
-.repeat __FRAME_SIZE__ / 2
+.repeat frame_size / 2
     ply
 .endrepeat
 .else
