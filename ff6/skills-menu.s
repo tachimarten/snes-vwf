@@ -12,6 +12,7 @@
 
 .import std_mod16_8: near
 .import std_mul8:    near
+.import std_stpcpy:  near
 
 .import ff6vwf_long_blitz_names: far
 .import ff6vwf_long_dance_names: far
@@ -31,6 +32,7 @@
 .import ff6vwf_menu_move_blitz_tilemap_trampoline: far
 .import ff6vwf_menu_render_static_strings:         near
 .import ff6vwf_render_string:                      near
+.import ff6vwf_transcode_string:                   near
 
 ; Constants
 
@@ -171,6 +173,10 @@ ff6_menu_at_level_up_message = $c35cf7
 .segment "PTEXTMENUDRAWSPELLNAMEINESPERINFOMENU"    ; $c35af6
     jsl _ff6vwf_menu_draw_spell_name_in_esper_info_menu
     nopx 2
+
+.segment "PTEXTMENUDRAWPCHASESPERMESSAGE"       ; $c355af
+    jsl _ff6vwf_menu_draw_pc_has_esper_message
+    jmp .loword(ff6_menu_draw_string)
 
 .segment "PTEXTMENUINITRAGEMENU"
 ff6_menu_rage_load_navigation_data  = $c34c4c
@@ -718,6 +724,90 @@ FIRST_SPELL_ROW = $11
     rtl
 .endproc
 
+; farproc void _ff6vwf_menu_draw_pc_has_esper_message(uint16 name_offset)
+.proc _ff6vwf_menu_draw_pc_has_esper_message
+begin_locals
+    decl_local outgoing_args, 6
+    decl_local name_ptr, 3      ; ff6char far *
+    decl_local buffer_end, 2    ; char near *
+    decl_local buffer, 32       ; char[32]
+
+FIRST_TILE_ID = 20
+MESSAGE_LENGTH = 24
+
+    enter __FRAME_SIZE__
+
+    ; Copy string name.
+    a16
+    txa
+    add #$1602
+    sta outgoing_args+3     ; src_ptr
+    tdc
+    add #buffer
+    sta outgoing_args+0     ; dest_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+5     ; src_ptr, bank byte
+    sta outgoing_args+2     ; dest_ptr, bank byte
+    ldx #FF6_SHORT_PC_NAME_LENGTH
+    jsr ff6vwf_transcode_string
+
+    ; Trim spaces on the end. Determine end pointer.
+    ldx #FF6_SHORT_PC_NAME_LENGTH-1
+:   cpx #0
+    beq :+
+    lda buffer-1,x
+    cmp #$ff
+    bne :+
+    dex
+    bra :-
+:   a16
+    stx buffer_end
+    tdc
+    add #buffer
+    add buffer_end
+
+    ; Append " has it!" string.
+    sta outgoing_args+0     ; dest_ptr
+    lda #.loword(ff6vwf_esper_menu_has_it_message)
+    sta outgoing_args+3     ; src_ptr
+    a8
+    lda #$7e
+    sta outgoing_args+2     ; dest_ptr, bank byte
+    lda #^ff6vwf_esper_menu_has_it_message
+    sta outgoing_args+5     ; src_ptr, bank byte
+    jsr std_stpcpy
+
+    ; Render string.
+    lda #MESSAGE_LENGTH
+    sta outgoing_args+0             ; max_tile_count
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+1             ; 4bpp
+    a16
+    tdc
+    add #buffer
+    sta outgoing_args+2             ; string
+    a8
+    lda #$7e
+    sta outgoing_args+4             ; string bank byte
+    ldx #FIRST_TILE_ID              ; first_tile_id
+    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    jsr ff6vwf_render_string
+
+    ; Upload it now.
+    jsr ff6vwf_menu_force_nmi
+
+    ; Draw tiles.
+    ldx #FIRST_TILE_ID                  ; first tile ID
+    ldy #MESSAGE_LENGTH                 ; max tile count
+    stz outgoing_args+0                 ; blanks_count
+    stz outgoing_args+1                 ; initial_offset
+    jsr ff6vwf_menu_draw_vwf_tiles
+
+    leave __FRAME_SIZE__
+    rtl
+.endproc
+
 ; nearproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 first_tile_id, bool bg3)
 .proc _ff6vwf_menu_draw_spell_name
 begin_locals
@@ -1261,3 +1351,7 @@ ff6vwf_esper_bonus_description_13: .asciiz "Stamina +1"
 ff6vwf_esper_bonus_description_14: .asciiz "Stamina +2"
 ff6vwf_esper_bonus_description_15: .asciiz "Magic +1"
 ff6vwf_esper_bonus_description_16: .asciiz "Magic +2"
+
+; Esper menu
+
+ff6vwf_esper_menu_has_it_message: .asciiz " currently has that Esper."
