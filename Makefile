@@ -5,6 +5,7 @@ ASFLAGS?=
 FF6VWF_OBJS=\
 	ff6/ff6vwf.o \
 	ff6/encounter.o \
+	ff6/encounter-items.o \
 	ff6/encounter-skills.o \
 	ff6/menu.o \
 	ff6/shop.o \
@@ -35,6 +36,8 @@ ff6/ff6twue.o:	ff6/ff6twue.s ff6/ff6twue.smc
 ff6/ff6vwf.o:	font.inc snes.inc ff6/ff6.inc
 
 ff6/encounter.o:	snes.inc ff6/ff6.inc
+
+ff6/encounter-items.o:	snes.inc ff6/ff6.inc
 
 ff6/encounter-skills.o:	snes.inc ff6/ff6.inc
 

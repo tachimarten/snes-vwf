@@ -101,6 +101,11 @@ esper_label_tilemap:
     .byte $ff, $ff
     def_static_text_tiles ESPER_LABEL_START_TILE, .strlen("Esper  "), 5
 
+.segment "PTEXTENCOUNTERMPNEEDEDTILEMAP"    ; $c14a41
+    .byte $ff, $12, $14, $ff
+    .byte $ff, 4
+    def_static_text_tiles 14, 5, -1
+
 ; Our own functions, in a separate bank
 .segment "TEXT"
 
@@ -788,3 +793,6 @@ ff6_display_list_ptr    = $7e004f
 .segment "DATA"
 
 ff6vwf_encounter_esper_label: .asciiz "Esper"
+ff6vwf_mp_needed_string: .asciiz "needed"
+
+.export ff6vwf_mp_needed_string: far
