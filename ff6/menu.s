@@ -1750,15 +1750,26 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles STATUS_FIRST_LABEL_TILE + 10*1, 10, -1
     .byte $ff, $ff, $ff, 0              ; "For level up:"
 
-.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"           ; $c3490b
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"           ; $c34903
 
-; Positioned text for Config page 1
-.word $3d8f
-    def_static_text_tiles_z $2d, .strlen("Controller"), 4
+; Text pointers for Config page 1
+.addr .loword(menu_config_controller_tiles)
+.addr .loword(menu_config_cursor_tiles)
+.addr .loword(menu_config_fast_tiles)
+.addr .loword(menu_config_slow_tiles)
+
+; Positioned text for Config page 1.
+;
+; We swap "Controller" and "Cursor" slots to give us enough room while keeping addresses the same.
+menu_config_controller_tiles:
+.word $3c8f
+    def_static_text_tiles_z $40, .strlen("Controller"), 7
 .word $39b5
     def_static_text_tiles_z $4b, .strlen("Wait"), 3
+menu_config_fast_tiles:
 .word $3a65
     def_static_text_tiles_z $4e, .strlen("Fast"), 3
+menu_config_slow_tiles:
 .word $3a75
     def_static_text_tiles_z $51, .strlen("Slow"), 3
 .word $3b35
@@ -1781,27 +1792,48 @@ ff6_menu_bg3_ypos = $3f
     ff6_def_charset_string_z "1 2 3 4 5 6"
 .word $3aa5
     ff6_def_charset_string_z "1 2 3 4 5 6"
-.word $3c8f
-    def_static_text_tiles_z $40, .strlen("Cursor"), -1
+menu_config_cursor_tiles:
+.word $3d8f
+    def_static_text_tiles_z $2d, .strlen("Cursor"), 4
+    ;def_static_text_tiles_z $40, .strlen("Cursor"), -1
 
-.segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c349a1
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c34993
+
+; Text pointers for Config page 1
+.addr .loword(menu_config_bat_mode_tiles)   ; Bat.Mode
+.addr .loword(menu_config_bat_speed_tiles)  ; Bat.Speed
+.addr .loword(menu_config_msg_speed_tiles)  ; Msg.Speed
+.addr .loword(menu_config_cmd_set_tiles)    ; Cmd.Set
+.addr .loword(menu_config_gauge_tiles)      ; Gauge
+.addr .loword(menu_config_sound_tiles)      ; Sound
+.addr .loword(menu_config_reequip_tiles)    ; Reequip
 
 .word $78f9
     def_static_text_tiles_z $00, .strlen("Config"), -1
+menu_config_bat_mode_tiles:
 .word $398f
-    def_static_text_tiles_z $00, .strlen("Bat.Mode"), 4
+    def_static_text_tiles_z $00, 5, -1      ; Bat.Mode
+menu_config_bat_speed_tiles:
 .word $3a0f
-    def_static_text_tiles_z $05, .strlen("Bat.Speed"), 6
+    def_static_text_tiles_z $05, 7, -1      ; Bat.Speed
+menu_config_msg_speed_tiles:
 .word $3a8f
-    def_static_text_tiles_z $0c, .strlen("Msg.Speed"), 6
+    def_static_text_tiles_z $0c, 6, -1      ; Msg.Speed
+menu_config_cmd_set_tiles:
 .word $3b0f
-    def_static_text_tiles_z $12, .strlen("Cmd.Set"), -1
+    def_static_text_tiles_z $12, 9, -1      ; Cmd.Set
+menu_config_gauge_tiles:
 .word $3b8f
-    def_static_text_tiles_z $1c, .strlen("Gauge"), -1
+    def_static_text_tiles_z $1c, 6, -1      ; Gauge
+menu_config_sound_tiles:
 .word $3c0f
-    def_static_text_tiles_z $22, .strlen("Sound"), 4
+    def_static_text_tiles_z $22, 3, -1      ; Sound
+menu_config_reequip_tiles:
 .word $3d0f
-    def_static_text_tiles_z $26, .strlen("Reequip"), -1
+    def_static_text_tiles_z $26, 7, -1      ; Reequip
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTG"   ; $c349f1
+
 .word $39a5
     def_static_text_tiles_z $47, .strlen("Active"), 4
 .word $3b25
@@ -1813,14 +1845,21 @@ ff6_menu_bg3_ypos = $3f
 .word $3da5
     def_static_text_tiles_z $c0, .strlen("Single"), 2
 
+.addr .loword(menu_config_mag_order_tiles)  ; Mag.Order
+.addr .loword(menu_config_window_tiles)     ; Window
+.addr .loword(menu_config_color_tiles)      ; Color
+
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTC"   ; $c34a34
 
+menu_config_mag_order_tiles:
 .word $418f
     def_static_text_tiles_z $31, .strlen("Mag.Order"), 7
+menu_config_window_tiles:
 .word $438f
-    def_static_text_tiles_z $38, .strlen("Window"), -1
+    def_static_text_tiles_z $38, 8, -1
+menu_config_color_tiles:
 .word $440f
-    .byte $ff, $ff, $ff, $ff, $ff, 0    ; "Color"
+    .byte 0
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTD"   ; $c34afb
 
