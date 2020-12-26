@@ -906,23 +906,18 @@ ff6_tool_display_list_right = $7e5760
     txa                             ; first_tile_id
     sta first_tile_id
 
-    ; Render string.
-    stz outgoing_args+0             ; 2bpp
+    ; Render the string.
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2                 ; string_ptr
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+3             ; string bank byte
-    ldy #10                         ; max_tile_count
-    jsr ff6vwf_render_string
-
-    ; Draw tile data.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy first_tile_id           ; first_tile_id
-    lda #FF6_SHORT_ITEM_LENGTH
-    sta outgoing_args+0         ; text_tiles_to_draw
+    sta outgoing_args+4                 ; string_ptr bank byte
     lda #2
-    sta outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data
+    sta outgoing_args+1                 ; blank_tiles_at_end
+    lda #FF6_SHORT_ITEM_LENGTH
+    sta outgoing_args+0                 ; max_tile_count
+    ldx dest_tilemap_offset             ; dest_tilemap_offset
+    ldy first_tile_id                   ; first_tile_id
+    jsr _ff6vwf_encounter_draw_standard_string
 
     leave __FRAME_SIZE__
     txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
@@ -998,15 +993,6 @@ ff6_spell_name_length = $c1601b
     txa                             ; first_tile_id
     sta first_tile_id
 
-    ; Render string.
-    stz outgoing_args+0             ; 2bpp
-    ldy string_ptr
-    sty outgoing_args+1             ; string
-    lda #^ff6vwf_long_spell_names
-    sta outgoing_args+3             ; string bank byte
-    ldy #10                         ; max_tile_count
-    jsr ff6vwf_render_string
-
     ; Draw spell icon.
     ldx spell_id
     ldy #FF6_SHORT_SPELL_NAME_LENGTH
@@ -1017,13 +1003,17 @@ ff6_spell_name_length = $c1601b
     jsr _ff6vwf_encounter_draw_tile
     stx dest_tilemap_offset
 
-    ; Draw tile data.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy first_tile_id           ; first_tile_id
+    ; Render the string.
+    ldy string_ptr
+    sty outgoing_args+2                 ; string_ptr
+    lda #^ff6vwf_long_spell_names
+    sta outgoing_args+4                 ; string_ptr bank byte
+    stz outgoing_args+1                 ; blank_tiles_at_end
     lda f:ff6_spell_name_length
-    sta outgoing_args+0         ; text_tiles_to_draw
-    stz outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data
+    sta outgoing_args+0                 ; max_tile_count
+    ldx dest_tilemap_offset             ; dest_tilemap_offset
+    ldy first_tile_id                   ; first_tile_id
+    jsr _ff6vwf_encounter_draw_standard_string
 
 @out:
     leave __FRAME_SIZE__
@@ -1104,24 +1094,18 @@ display_list_ptr = $7e004f
     sta string_ptr
     a8
 
-    ; Render string.
-    stz outgoing_args+0                 ; 2bpp
+    ; Render the string.
     ldy string_ptr
-    sty outgoing_args+1                 ; string
+    sty outgoing_args+2                 ; string_ptr
     lda #^ff6vwf_long_esper_names
-    sta outgoing_args+3                 ; string bank byte
-    ldx #FIRST_TILE_ID                  ; first_tile_id
-    ldy #10                             ; max_tile_count
-    jsr ff6vwf_render_string
-
-    ; Draw tile data.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy #FIRST_TILE_ID          ; text_line_slot
-    lda #10
-    sta outgoing_args+0         ; text_tiles_to_draw
+    sta outgoing_args+4                 ; string_ptr bank byte
     lda #1
-    sta outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data
+    sta outgoing_args+1                 ; blank_tiles_at_end
+    lda #10
+    sta outgoing_args+0                 ; max_tile_count
+    ldx dest_tilemap_offset             ; dest_tilemap_offset
+    ldy #FIRST_TILE_ID                  ; first_tile_id
+    jsr _ff6vwf_encounter_draw_standard_string
 
     leave __FRAME_SIZE__
     a16
@@ -1277,23 +1261,18 @@ begin_args_nearcall
     txa                             ; first_tile_id
     sta first_tile_id
 
-    ; Render string.
-    stz outgoing_args+0             ; 2bpp
+    ; Render the string.
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2                 ; string_ptr
     lda name_list+2
-    sta outgoing_args+3             ; string bank byte
-    ldy #10                         ; max_tile_count
-    jsr ff6vwf_render_string
-
-    ; Draw tile data.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy first_tile_id           ; first_tile_id
-    lda #10
-    sta outgoing_args+0         ; text_tiles_to_draw
+    sta outgoing_args+4                 ; string_ptr bank byte
     lda #1
-    sta outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data
+    sta outgoing_args+1                 ; blank_tiles_at_end
+    lda #10
+    sta outgoing_args+0                 ; max_tile_count
+    ldx dest_tilemap_offset             ; dest_tilemap_offset
+    ldy first_tile_id                   ; first_tile_id
+    jsr _ff6vwf_encounter_draw_standard_string
 
 @out:
     leave __FRAME_SIZE__
@@ -1500,24 +1479,19 @@ ff6_display_list_ptr    = $7e004f
     txa                             ; first_tile_id
     sta first_tile_id
 
-    ; Render string.
-    stz outgoing_args+0             ; 2bpp
+    ; Render the string.
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+2                 ; string_ptr
     lda name_list+2
-    sta outgoing_args+3             ; string bank byte
-    ldy #10                         ; max_tile_count
-    jsr ff6vwf_render_string
-
-    ; Draw tile data.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy first_tile_id           ; text_line_slot
-    lda #10
-    sta outgoing_args+0         ; text_tiles_to_draw
+    sta outgoing_args+4                 ; string_ptr bank byte
     lda name_length
     sub #10 - 1
-    sta outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data
+    sta outgoing_args+1                 ; blank_tiles_at_end
+    lda #10
+    sta outgoing_args+0                 ; max_tile_count
+    ldx dest_tilemap_offset             ; dest_tilemap_offset
+    ldy first_tile_id                   ; fsrst_tile_id
+    jsr _ff6vwf_encounter_draw_standard_string
     bra @out
 
 @no_dance:
@@ -1615,6 +1589,53 @@ begin_args_nearcall
     lda max_tile_count
     sta f:ff6_tiles_to_draw
 :
+
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_standard_string(uint16 dest_tilemap_offset,
+;                                                        uint8 first_tile_id,
+;                                                        uint8 max_tile_count,
+;                                                        uint8 blank_tiles_at_end,
+;                                                        const char far *string_ptr)
+;
+; Returns the dest tilemap offset.
+.proc _ff6vwf_encounter_draw_standard_string
+begin_locals
+    decl_local outgoing_args, 4
+    decl_local dest_tilemap_offset, 2   ; uint16
+    decl_local first_tile_id, 1         ; uint8
+begin_args_nearcall
+    decl_arg max_tile_count, 1          ; uint8
+    decl_arg blank_tiles_at_end, 1      ; uint8
+    decl_arg string_ptr, 3              ; const char far *
+
+    enter __FRAME_SIZE__
+
+    ; Save arguments.
+    stx dest_tilemap_offset
+    tya
+    sta first_tile_id
+
+    ; Render string.
+    ldx string_ptr+0
+    stx outgoing_args+1         ; string_ptr
+    lda string_ptr+2
+    sta outgoing_args+3         ; string_ptr, bank byte
+    stz outgoing_args+0         ; flags = 2bpp
+    ldx first_tile_id           ; first_tile_id
+    ldy max_tile_count          ; max_tile_count
+    jsr ff6vwf_render_string
+
+    ; Draw tiles.
+    ldx dest_tilemap_offset     ; dest_tilemap_offset
+    ldy first_tile_id           ; first_tile_id
+    lda max_tile_count
+    sta outgoing_args+0         ; text_tiles_to_draw
+    lda blank_tiles_at_end
+    sta outgoing_args+1         ; blank_tiles_at_end
+    jsr _ff6vwf_encounter_draw_tile_data    ; returns dest_tilemap_offset in X
 
     leave __FRAME_SIZE__
     rts
@@ -1893,45 +1914,6 @@ begin_args_nearcall
     rts
 .endproc
 
-; nearproc uint16 _ff6vwf_encounter_draw_tile_data_for_enemy_name(uint16 dest_tilemap_offset,
-;                                                                 uint8 text_line_slot,
-;                                                                 uint8 text_tiles_to_draw,
-;                                                                 uint8 blank_tiles_at_end)
-.proc _ff6vwf_encounter_draw_tile_data_for_enemy_name
-begin_locals
-    decl_local outgoing_args, 2
-    decl_local dest_tilemap_offset, 2       ; uint16
-    decl_local current_tile_index, 1        ; char
-begin_args_nearcall
-    decl_arg text_tiles_to_draw, 1          ; uint8
-    decl_arg blank_tiles_at_end, 1          ; uint8
-
-    enter __FRAME_SIZE__
-
-    ; Initialize locals.
-    stx dest_tilemap_offset
-    tya
-    sta current_tile_index
-
-    ; Draw tile data.
-    ldx current_tile_index      ; current_tile_index
-    ldy dest_tilemap_offset     ; dest_tilemap_offset
-    a16
-    tdc
-    add #text_tiles_to_draw
-    sta outgoing_args+0         ; tiles_to_draw_ptr
-    a8
-    jsr _ff6vwf_encounter_draw_enemy_name_tiles     ; returns dest_tilemap_offset in X
-    stx dest_tilemap_offset
-
-    ; Add blank tiles on the end, if necessary. (X should still contain dest tilemap offset.)
-    ldy blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_blank_tile_data
-
-    leave __FRAME_SIZE__
-    rts
-.endproc
-
 ; nearproc uint16 _ff6vwf_encounter_draw_blank_tile_data(uint16 dest_tilemap_offset, uint8 count)
 .proc _ff6vwf_encounter_draw_blank_tile_data
 begin_locals
@@ -2072,23 +2054,17 @@ ff6_display_list_ptr    = $7e004f
     sta string_ptr
     a8
 
-    ; Render string.
-    stz outgoing_args+0             ; 2bpp
+    ; Render the string.
+    stz outgoing_args+4         ; save_tiles_to_draw
     ldy string_ptr
-    sty outgoing_args+1             ; string
+    sty outgoing_args+1         ; string_ptr
     lda #^ff6vwf_long_status_names
-    sta outgoing_args+3             ; string bank byte
-    ldx first_tile_id               ; first_tile_id
-    ldy #10                         ; max_tile_count
-    jsr ff6vwf_render_string
-
-    ; Draw tile data.
+    sta outgoing_args+3         ; string_ptr bank byte
+    lda #10
+    sta outgoing_args+0         ; max_tile_count
     ldx dest_tilemap_offset     ; dest_tilemap_offset
     ldy first_tile_id           ; first_tile_id
-    lda #10
-    sta outgoing_args+0         ; text_tiles_to_draw
-    stz outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data_for_enemy_name
+    jsr _ff6vwf_encounter_draw_enemy_name_string
 
 @out:
     leave __FRAME_SIZE__
