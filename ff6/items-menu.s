@@ -178,8 +178,6 @@ begin_locals
     decl_local item_id, 1
     decl_local string_ptr, 2
     decl_local first_tile_id, 1
-    decl_local base_addr, 2
-    decl_local dma_flags, 1
 
     tax             ; Put item ID in X.
 
@@ -210,23 +208,17 @@ begin_locals
     lda f:ff6vwf_current_equipment_bg3
     bne :+
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
     bra :++
 :   lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-:   sta dma_flags
-    sty base_addr
+:
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
-    lda dma_flags
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy base_addr
+    sta outgoing_args+3     ; string ptr bank
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now.
@@ -359,19 +351,17 @@ begin_locals
     jsr std_stpcpy
 
     ; Render string.
-    lda #ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     a16
     tdc
     add #buffer
-    sta outgoing_args+2     ; string_ptr
+    sta outgoing_args+1     ; string_ptr
     a8
     lda #$7e
-    sta outgoing_args+4     ; string_ptr bank byte
+    sta outgoing_args+3     ; string_ptr bank byte
     ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    ldy #ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -623,15 +613,13 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     sta first_tile_id
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     ldy string_ptr
-    sty outgoing_args+2
+    sty outgoing_args+1
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -675,16 +663,14 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
     jsr ff6vwf_menu_draw_item_name_bg3
 
     ; Upload "Owned:"
-    lda #6
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     ldy #.loword(ff6vwf_menu_owned_string)
-    sty outgoing_args+2
+    sty outgoing_args+1
     lda #^ff6vwf_menu_owned_string
-    sta outgoing_args+4
+    sta outgoing_args+3
     ldx #FF6VWF_FIRST_TILE+10
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    ldy #6                  ; max_tile_count
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -819,20 +805,18 @@ begin_locals
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
-    txa
+    jsr ff6vwf_calculate_first_tile_id_simple
+    txa                     ; first_tile_id
     sta first_tile_id
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     ldy string_ptr
-    sty outgoing_args+2
+    sty outgoing_args+1
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    sta outgoing_args+3
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)

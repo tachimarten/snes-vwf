@@ -88,7 +88,6 @@ begin_args_nearcall
 .export ff6vwf_transcode_string
 
 ; nearproc void ff6vwf_render_string(uint8 first_tile_id,
-;                                    vram near *tile_base_addr,
 ;                                    uint8 max_tile_count,
 ;                                    uint8 flags,
 ;                                    char far *string_ptr)
@@ -99,12 +98,12 @@ begin_locals
     decl_local outgoing_args, 7
     decl_local first_tile_id, 1
     decl_local text_line_chardata_ptr, 3    ; chardata far *
-    decl_local tile_base_addr, 2
+    decl_local tile_base_addr, 2            ; vram near *
     decl_local max_line_byte_size, 2
     decl_local bytes_to_skip, 1
     decl_local bytes_rendered, 2            ; uint16
+    decl_local max_tile_count, 1            ; uint8
 begin_args_nearcall
-    decl_arg max_tile_count, 1
     decl_arg flags, 1
     decl_arg string_ptr, 3
 
@@ -113,10 +112,19 @@ begin_args_nearcall
     ; Initialize locals.
     txa
     sta first_tile_id
-    sty tile_base_addr
+    tya
+    sta max_tile_count
+
+    ; Look up tile base address.
+    lda flags
+    a16
+    and #$0003
+    asl
+    tax
+    lda f:_ff6vwf_render_string_base_addresses,x
+    sta tile_base_addr
 
     ; Compute pointer into the character map.
-    a16
     tdc
     add #text_line_chardata_ptr
     tax
@@ -187,6 +195,13 @@ begin_args_nearcall
 .endproc
 
 .export ff6vwf_render_string
+
+; Maps flags to VRAM base addresses.
+_ff6vwf_render_string_base_addresses:
+.word VWF_ENCOUNTER_TILE_BASE_ADDR          ; encounter, 2BPP
+.word VWF_ENCOUNTER_BG1_TILE_BASE_ADDR      ; encounter, 4BPP
+.word VWF_MENU_TILE_BG3_BASE_ADDR           ; menu, 2BPP
+.word VWF_MENU_TILE_BG1_BASE_ADDR           ; menu, 4BPP
 
 ; nearproc void ff6vwf_schedule_text_dma(uint8 first_tile_id,
 ;                                        vram near *tile_base_addr,

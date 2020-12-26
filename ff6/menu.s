@@ -371,7 +371,6 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 6
     decl_local first_tile_id, 1
-    decl_local base_addr, 2
     decl_local dma_flags, 1
     decl_local name_buffer, 7       ; char[7]
 
@@ -403,29 +402,24 @@ begin_locals
     a8
     bge @bg3
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
     bra @store_dma_flags_and_base_addr
 @bg3:
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
 @store_dma_flags_and_base_addr:
     sta dma_flags
-    sty base_addr
 
     ; Render string.
-    lda #FF6_SHORT_PC_NAME_LENGTH
-    sta outgoing_args+0     ; max_tile_count
     lda dma_flags
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0             ; flags
     a16
     tdc
     add #name_buffer
-    sta outgoing_args+2     ; string ptr
+    sta outgoing_args+1             ; string ptr
     a8
     lda #$7e
-    sta outgoing_args+4     ; string ptr bank
-    ldx first_tile_id
-    ldy base_addr
+    sta outgoing_args+3             ; string ptr bank
+    ldx first_tile_id               ; first_tile_id
+    ldy #FF6_SHORT_PC_NAME_LENGTH   ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now.
@@ -721,19 +715,17 @@ ff6_esper_list = $7e9d89
     ldx text_line_slot
     ldy max_tile_count
     jsr ff6vwf_calculate_first_tile_id_simple
-    txa
+    txa                     ; first_tile_id
     sta first_tile_id
 
     ; Render string.
-    lda max_tile_count
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda name_list+2
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3     ; string ptr bank
+    ldy max_tile_count      ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -830,15 +822,13 @@ begin_locals
     sta first_tile_id
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; flags
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0     ; flags
     ldy string_ptr
-    sty outgoing_args+2
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_item_names
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    sta outgoing_args+3     ; string ptr, bank byte
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Schedule an upload for later, or just upload now if we're in force blank.
@@ -881,19 +871,17 @@ FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
     tax
     lda f:ff6vwf_long_enemy_names,x
     sta string_ptr
+    a8
 
     ; Render string.
-    a8
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; flags, 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FIRST_TILE_ID
+    sta outgoing_args+3     ; string ptr bank
+    ldy #10                 ; max_tile_count
+    ldx #FIRST_TILE_ID      ; first_tile_id
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -979,19 +967,17 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     ldx text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
-    txa
+    txa                     ; first_tile_id
     sta first_tile_id
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_enemy_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3     ; string ptr bank
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -1069,19 +1055,18 @@ ff6_update_config_menu_arrow = $c33980
     asl
     tay
     lda [text+static_text::strings],y
-    sta outgoing_args+2         ; string_ptr
+    sta outgoing_args+1         ; string_ptr
     txy
     a8
-    lda [text+static_text::tile_counts],y
-    sta outgoing_args+0             ; max_tile_count
     lda text+static_text::dma_flags
-    sta outgoing_args+1             ; 4bpp
+    sta outgoing_args+0             ; 4bpp
     lda text+static_text::strings+2
-    sta outgoing_args+4             ; string ptr bank
+    sta outgoing_args+3             ; string ptr bank
     lda [text+static_text::start_tiles],y
     add tile_offset
-    tax                             ; tile ID
-    ldy text+static_text::base_addr ; base_addr
+    tax                             ; first tile ID
+    lda [text+static_text::tile_counts],y
+    tay                             ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it.
@@ -1202,16 +1187,14 @@ command_name = $7e00e2
     a8
 
     ; Render string.
-    lda #FF6_SHORT_COMMAND_NAME_LENGTH
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    ldy string_ptr
-    sty outgoing_args+2
+    sta outgoing_args+0                 ; flags
+    ldy string_ptr                      ; string ptr
+    sty outgoing_args+1
     lda #^ff6vwf_long_command_names
-    sta outgoing_args+4
-    ldx first_tile
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
+    sta outgoing_args+3                 ; string ptr, bank byte
+    ldx first_tile                      ; first_tile_id
+    ldy #FF6_SHORT_COMMAND_NAME_LENGTH  ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -1400,20 +1383,18 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_lineup_menu
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
-    lda #LINEUP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0             ; flags
     ldx #.loword(ff6vwf_lineup_text_title)
-    stx outgoing_args+2
+    stx outgoing_args+1             ; string_ptr
     lda #^ff6vwf_lineup_text_title
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE
+    sta outgoing_args+3             ; string_ptr, bank byte
+    ldy #LINEUP_MESSAGE_TILE_COUNT  ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE          ; first_tile_id
     jsr ff6vwf_render_string
 
     ; Stuff the original function did:
@@ -1427,7 +1408,7 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_lineup_form_groups_message
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
@@ -1439,18 +1420,16 @@ begin_locals
     asl
     tax
     lda f:ff6vwf_lineup_text_main,x
-    sta outgoing_args+2     ; string_ptr
+    sta outgoing_args+1     ; string_ptr
     a8
 
     ; Upload title.
     ; TODO(tachiweasel): Different messages for different group counts.
-    lda #LINEUP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0             ; flags
     lda #^ff6vwf_lineup_text_main_1_group
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3             ; string_ptr, bank byte
+    ldy #LINEUP_MESSAGE_TILE_COUNT  ; max_tile_count
     ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
     jsr ff6vwf_render_string
 
@@ -1472,18 +1451,16 @@ begin_locals
     asl
     tax
     lda f:ff6vwf_lineup_text_not_enough_groups,x
-    sta outgoing_args+2     ; string_ptr
+    sta outgoing_args+1             ; string_ptr
     a8
 
     ; Upload title.
     ; TODO(tachiweasel): Different messages for different group counts.
-    lda #LINEUP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0             ; flags
     lda #^ff6vwf_lineup_text_not_enough_groups_1_group
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3             ; string ptr, bank byte
+    ldy #LINEUP_MESSAGE_TILE_COUNT  ; max_tile_count
     ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
     jsr ff6vwf_render_string
 
@@ -1511,18 +1488,16 @@ begin_locals
     asl
     tax
     lda f:ff6vwf_lineup_text_empty_groups,x
-    sta outgoing_args+2     ; string_ptr
+    sta outgoing_args+1             ; string_ptr
     a8
 
     ; Upload title.
     ; TODO(tachiweasel): Different messages for different group counts.
-    lda #LINEUP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0             ; flags
     lda #^ff6vwf_lineup_text_empty_groups_1_group
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3             ; string_ptr, bank byte
+    ldy #LINEUP_MESSAGE_TILE_COUNT  ; max_tile_count
     ldx #FF6VWF_FIRST_TILE + LINEUP_FIRST_MESSAGE_TILE
     jsr ff6vwf_render_string
 

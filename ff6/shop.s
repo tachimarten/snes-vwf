@@ -197,7 +197,7 @@ ff6_menu_item_for_sale = $7e00f1
 
 .proc _ff6vwf_menu_draw_shop
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
 ff6_shop_id = $7e0201
 
@@ -220,22 +220,20 @@ ff6_shop_id = $7e0201
     and #$07            ; Get shop type
     a16
     and #$00ff
-    dec                 ; Valid shop IDs start at 1...
+    dec                                             ; Valid shop IDs start at 1...
     asl
     tax
     lda f:ff6vwf_shop_title_labels,x
-    sta outgoing_args+2     ; string ptr
+    sta outgoing_args+1                             ; string ptr
     a8
 
     ; Upload title.
-    lda #7
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                             ; flags
     lda #^ff6vwf_shop_title_labels
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_TITLE_TILE
+    sta outgoing_args+3                             ; string ptr, bank byte
+    ldy #7                                          ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_TITLE_TILE  ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -299,7 +297,7 @@ begin_locals
 ; farproc void _ff6vwf_menu_draw_shop_attack_defense(uint16 item_properties_index)
 .proc _ff6vwf_menu_draw_shop_attack_defense
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
     decl_local item_properties_index, 2
 
 ff6_item_properties = $d85000
@@ -319,15 +317,13 @@ ff6_item_properties = $d85000
 :
 
     ; Upload title.
-    lda #5
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
-    stx outgoing_args+2     ; string_ptr
+    sta outgoing_args+0                                 ; flags
+    stx outgoing_args+1                                 ; string_ptr
     lda #^ff6vwf_shop_attack_string
-    sta outgoing_args+4     ; string_ptr, bank byte
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE+SHOP_FIRST_SPECIFIC_TILE+9   ; first tile
+    sta outgoing_args+3                                 ; string_ptr, bank byte
+    ldy #5                                              ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE+SHOP_FIRST_SPECIFIC_TILE+9   ; first tile ID
     jsr ff6vwf_render_string
 
     ; Stuff the original function did:
@@ -339,21 +335,19 @@ ff6_item_properties = $d85000
 
 .proc _ff6vwf_menu_buy_have_too_many
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
     ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                                 ; flags
     ldx #.loword(ff6vwf_shop_buy_have_99_string)
-    stx outgoing_args+2
+    stx outgoing_args+1                                 ; string ptr
     lda #^ff6vwf_shop_buy_have_99_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
+    sta outgoing_args+3                                 ; string ptr, bank byte
+    ldy #SHOP_MESSAGE_TILE_COUNT                        ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE    ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -368,21 +362,19 @@ begin_locals
 
 .proc _ff6vwf_menu_buy_dupe_tool
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
     ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                                 ; flags
     ldx #.loword(ff6vwf_shop_buy_dupe_tool_string)
-    stx outgoing_args+2
+    stx outgoing_args+1                                 ; string ptr
     lda #^ff6vwf_shop_buy_dupe_tool_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
+    sta outgoing_args+3                                 ; string ptr, bank byte
+    ldy #SHOP_MESSAGE_TILE_COUNT                        ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE    ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -397,21 +389,19 @@ begin_locals
 
 .proc _ff6vwf_menu_buy_cant_afford
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
     ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                                 ; flags
     ldx #.loword(ff6vwf_shop_buy_cant_afford_string)
-    stx outgoing_args+2
+    stx outgoing_args+1                                 ; string ptr
     lda #^ff6vwf_shop_buy_cant_afford_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
+    sta outgoing_args+3                                 ; string ptr, bank byte
+    ldy #SHOP_MESSAGE_TILE_COUNT                        ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE    ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -426,21 +416,19 @@ begin_locals
 
 .proc _ff6vwf_menu_buy_sell_thanks
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
     ; Upload title.
-    lda #SHOP_MESSAGE_TILE_COUNT
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                                 ; flags
     ldx #.loword(ff6vwf_shop_buy_sell_thanks_string)
-    stx outgoing_args+2
+    stx outgoing_args+1                                 ; string_ptr, bank byte
     lda #^ff6vwf_shop_buy_sell_thanks_string
-    sta outgoing_args+4
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE
+    sta outgoing_args+3                                 ; string_ptr, bank byte
+    ldy #SHOP_MESSAGE_TILE_COUNT                        ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + SHOP_FIRST_MESSAGE_TILE    ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -450,7 +438,7 @@ begin_locals
     pla
     phy                                         ; Remove bank byte
     ldy #.loword(ff6_menu_shop_greeting_text)   ; Text pointer
-    jml ff6_menu_draw_banner_message              ; Draw message
+    jml ff6_menu_draw_banner_message            ; Draw message
 .endproc
 
 .proc _ff6vwf_menu_draw_shop_sell

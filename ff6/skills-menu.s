@@ -446,7 +446,7 @@ begin_locals
 ; farproc void _ff6vwf_menu_draw_spell_name_in_spell_usage_menu()
 .proc _ff6vwf_menu_draw_spell_name_in_spell_usage_menu
 begin_locals
-    decl_local outgoing_args, 5
+    decl_local outgoing_args, 4
 
     enter __FRAME_SIZE__
 
@@ -465,16 +465,14 @@ begin_locals
     jsr _ff6vwf_menu_draw_spell_name
 
     ; Upload "Needed" too.
-    lda #6
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 2bpp
+    sta outgoing_args+0             ; flags = 2bpp
     ldy #.loword(ff6vwf_menu_needed_string)
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1             ; string ptr
     lda #^ff6vwf_menu_needed_string
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    ldx #FF6VWF_FIRST_TILE + 10
+    sta outgoing_args+3             ; string ptr bank
+    ldy #6                          ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + 10     ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -572,7 +570,7 @@ begin_locals
 ; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id)
 .proc _ff6vwf_menu_draw_esper_name_in_info_menu
 begin_locals
-    decl_local outgoing_args, 6
+    decl_local outgoing_args, 4
     decl_local string_ptr, 2
 
 TEXT_LINE_SLOT = 9
@@ -591,15 +589,13 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
     a8
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; flags = 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_esper_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3     ; string ptr bank
+    ldy #10                 ; max_tile_count
     ldx #FIRST_TILE_ID
     jsr ff6vwf_render_string
 
@@ -622,7 +618,7 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
 ; farproc void _ff6vwf_menu_draw_esper_bonus(uint8 bonus_id)
 .proc _ff6vwf_menu_draw_esper_bonus
 begin_locals
-    decl_local outgoing_args, 6
+    decl_local outgoing_args, 4
     decl_local string_ptr, 2
 
 FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
@@ -640,15 +636,13 @@ FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
     a8
 
     ; Render string.
-    lda #SHORT_ESPER_BONUS_NAME_LENGTH
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1     ; flags
+    sta outgoing_args+0                 ; flags
     ldx string_ptr
-    stx outgoing_args+2     ; string ptr
+    stx outgoing_args+1                 ; string ptr
     lda #^ff6vwf_esper_bonus_descriptions
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3                 ; string ptr bank
+    ldy #SHORT_ESPER_BONUS_NAME_LENGTH  ; max_tile_count
     ldx #FIRST_TILE_ID
     jsr ff6vwf_render_string
 
@@ -779,19 +773,17 @@ MESSAGE_LENGTH = 24
     jsr std_stpcpy
 
     ; Render string.
-    lda #MESSAGE_LENGTH
-    sta outgoing_args+0             ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
-    sta outgoing_args+1             ; 4bpp
+    sta outgoing_args+0             ; 4bpp
     a16
     tdc
     add #buffer
-    sta outgoing_args+2             ; string
+    sta outgoing_args+1             ; string
     a8
     lda #$7e
-    sta outgoing_args+4             ; string bank byte
+    sta outgoing_args+3             ; string bank byte
     ldx #FIRST_TILE_ID              ; first_tile_id
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    ldy #MESSAGE_LENGTH             ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now.
@@ -811,12 +803,11 @@ MESSAGE_LENGTH = 24
 ; nearproc void _ff6vwf_menu_draw_spell_name(uint8 spell_id, uint8 first_tile_id, bool bg3)
 .proc _ff6vwf_menu_draw_spell_name
 begin_locals
-    decl_local outgoing_args, 6
+    decl_local outgoing_args, 4
     decl_local spell_id, 1
     decl_local string_ptr, 2
     decl_local first_tile_id, 1
     decl_local dma_flags, 1         ; uint8
-    decl_local base_addr, 2         ; vram near *
 begin_args_nearcall
     decl_arg bg3, 1
 
@@ -842,27 +833,18 @@ begin_args_nearcall
     lda bg3
     bne :+
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta dma_flags
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
-    sty base_addr
     bra :++
 :   lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta dma_flags
-    ldy #VWF_MENU_TILE_BG3_BASE_ADDR
-    sty base_addr
 :
 
     ; Render string.
-    lda #5
-    sta outgoing_args+0     ; max_tile_count
-    lda dma_flags
-    sta outgoing_args+1     ; DMA flags
+    sta outgoing_args+0     ; DMA flags
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_spell_names
-    sta outgoing_args+4     ; string ptr bank
+    sta outgoing_args+3     ; string ptr bank
     ldx first_tile_id
-    ldy base_addr
+    ldy #5                  ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -940,18 +922,16 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
+    jsr ff6vwf_calculate_first_tile_id_simple   ; X = first_tile_id
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; 4bpp
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; flags = 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string_ptr
     lda #^ff6vwf_long_blitz_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3     ; string_ptr bank
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
@@ -1073,15 +1053,13 @@ begin_args_nearcall
     jsr ff6vwf_calculate_first_tile_id_simple
 
     ; Render string.
-    lda #10
-    sta outgoing_args+0     ; max_tile_count
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+1     ; 4bpp
+    sta outgoing_args+0     ; flags = 4bpp
     ldy string_ptr
-    sty outgoing_args+2     ; string ptr
+    sty outgoing_args+1     ; string_ptr
     lda #^ff6vwf_long_blitz_names
-    sta outgoing_args+4     ; string ptr bank
-    ldy #VWF_MENU_TILE_BG1_BASE_ADDR
+    sta outgoing_args+3     ; string_ptr bank
+    ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Upload it now. (We won't get a chance later...)
