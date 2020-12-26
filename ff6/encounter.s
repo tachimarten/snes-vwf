@@ -276,12 +276,8 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     bne @got_a_command
 
     ; Fill with blanks.
-    stz outgoing_args+0                     ; save_tiles_to_draw
     ldy #FF6_SHORT_COMMAND_NAME_LENGTH+1    ; tiles_to_draw
-    ldx dest_tilemap_offset                 ; dest_tilemap_offset
-    jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
-    stx dest_tilemap_offset
-    bra @out
+    bra @draw_blanks
 
 @got_a_command:
     ; Calculate first tile index.
@@ -293,7 +289,7 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     sta current_tile_index
 
     ; Draw tiles.
-    lda #FF6_SHORT_COMMAND_NAME_LENGTH
+    lda #FF6_SHORT_COMMAND_NAME_LENGTH - 1
     sta tiles_to_draw
     a16
     tdc
@@ -305,7 +301,13 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     jsr _ff6vwf_encounter_draw_enemy_name_tiles
     stx dest_tilemap_offset
 
-@out:
+    ldy #1                      ; Draw one blank tile.
+
+@draw_blanks:
+    stz outgoing_args+0                     ; save_tiles_to_draw
+    ldx dest_tilemap_offset                 ; dest_tilemap_offset
+    jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
+
     leave __FRAME_SIZE__
     txy                 ; Put dest_tilemap_offset in Y.
     a16
