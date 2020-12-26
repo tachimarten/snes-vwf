@@ -49,7 +49,7 @@ ITEM_MENU_STRING_COUNT  = 4
 ITEM_MENU_OFFENSE_STRING_COUNT = 3
 ITEM_MENU_DEFENSE_STRING_COUNT = 4
 EQUIP_MENU_STRING_COUNT = 8
-RELIC_MENU_STRING_COUNT = 3
+RELIC_MENU_STRING_COUNT = 4
 
 EQUIP_MENU_FIRST_STATS_TILE = 36
 ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE = 32
@@ -762,7 +762,7 @@ begin_locals
 
 .proc _ff6vwf_menu_draw_relic_menu
 begin_locals
-    decl_local outgoing_args, 12
+    decl_local outgoing_args, 3
 
     enter __FRAME_SIZE__
 
@@ -965,9 +965,9 @@ _equip_menu_positioned_text_a:
 .word $7b8d
     def_static_text_tiles_z 33, .strlen("Body"), 3
 .word $7b0d
-    def_static_text_tiles_z 20, .strlen("Relic"), -1
+    def_static_text_tiles_z 8, .strlen("Relic"), 3
 .word $7b8d
-    def_static_text_tiles_z 20, .strlen("Relic"), -1
+    def_static_text_tiles_z 8, .strlen("Relic"), 3
 
 ; Positioned spaces for blanking options and title in gear menus
 .word $790d
@@ -991,54 +991,64 @@ _equip_menu_positioned_text_a:
 
 ; Positioned text for options in Relic menu
 .word $7911
-    def_static_text_tiles_z 0, .strlen("EQUIP"), -1
+    def_static_text_tiles_z 0, .strlen("EQUIP"), 3
 .word $791f
-    def_static_text_tiles_z 10, .strlen("REMOVE"), -1
+    def_static_text_tiles_z 3, .strlen("REMOVE"), 5
 
 .segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTB"    ; $c3a371
 _equip_menu_positioned_text_b:
-    .word $7ca9                         ; "Vigor"
-        def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STRENGTH, FF6VWF_STATS_TILE_COUNT_STRENGTH, -1
-    .word $7da9
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STAMINA, FF6VWF_STATS_TILE_COUNT_STAMINA, -1
-        .byte $ff, $ff, 0               ; "Stamina"
-    .word $7e29
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC, FF6VWF_STATS_TILE_COUNT_MAGIC, -1
-        .byte $ff, $ff, $ff, $ff, 0     ; "Mag.Pwr"
-    .word $7fa9
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_EVASION, FF6VWF_STATS_TILE_COUNT_EVASION, -1
-        .byte $ff, $ff, 0               ; "Evade %"
-    .word $80a9                         ; "MBlock%"
-        def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_EVASION, FF6VWF_STATS_TILE_COUNT_MAGIC_EVASION, -1
-    .word $7cbd
-        .byte $d5, $00
-    .word $7d3d
-        .byte $d5, $00
-    .word $7dbd
-        .byte $d5, $00
-    .word $7e3d
-        .byte $d5, $00
-    .word $7f3d
-        .byte $d5, $00
-    .word $7fbd
-        .byte $d5, $00
-    .word $7ebd
-        .byte $d5, $00
-    .word $803d
-        .byte $d5, $00
-    .word $80bd
-        .byte $d5, $00
-    .word $7d29
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_SPEED, FF6VWF_STATS_TILE_COUNT_SPEED, -1
-        .byte $ff, 0                        ; "Speed"
-    .word $7ea9
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, FF6VWF_STATS_TILE_COUNT_ATTACK, -1
-        .byte $ff, $ff, $ff, 0              ; "Bat.Pwr"
-    .word $7f29
-        def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_DEFENSE, FF6VWF_STATS_TILE_COUNT_DEFENSE, -1
-        .byte $ff, $ff, 0                   ; "Defense"
-    .word $8029                             ; "Mag.Def"
-        def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE, FF6VWF_STATS_TILE_COUNT_MAGIC_DEFENSE, -1
+.word $7ca9                         ; "Vigor"
+    def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STRENGTH, FF6VWF_STATS_TILE_COUNT_STRENGTH, -1
+.word $7da9
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_STAMINA, FF6VWF_STATS_TILE_COUNT_STAMINA, -1
+    .byte $ff, $ff, 0               ; "Stamina"
+.word $7e29
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC, FF6VWF_STATS_TILE_COUNT_MAGIC, -1
+    .byte $ff, $ff, $ff, $ff, 0     ; "Mag.Pwr"
+.word $7fa9
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_EVASION, FF6VWF_STATS_TILE_COUNT_EVASION, -1
+    .byte $ff, $ff, 0               ; "Evade %"
+.word $80a9                         ; "MBlock%"
+    def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_EVASION, FF6VWF_STATS_TILE_COUNT_MAGIC_EVASION, -1
+.word $7cbd
+    .byte $d5, $00
+.word $7d3d
+    .byte $d5, $00
+.word $7dbd
+    .byte $d5, $00
+.word $7e3d
+    .byte $d5, $00
+.word $7f3d
+    .byte $d5, $00
+.word $7fbd
+    .byte $d5, $00
+.word $7ebd
+    .byte $d5, $00
+.word $803d
+    .byte $d5, $00
+.word $80bd
+    .byte $d5, $00
+.word $7d29
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_SPEED, FF6VWF_STATS_TILE_COUNT_SPEED, -1
+    .byte $ff, 0                        ; "Speed"
+.word $7ea9
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_ATTACK, FF6VWF_STATS_TILE_COUNT_ATTACK, -1
+    .byte $ff, $ff, $ff, 0              ; "Bat.Pwr"
+.word $7f29
+    def_static_text_tiles EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_DEFENSE, FF6VWF_STATS_TILE_COUNT_DEFENSE, -1
+    .byte $ff, $ff, 0                   ; "Defense"
+.word $8029                             ; "Mag.Def"
+    def_static_text_tiles_z EQUIP_MENU_FIRST_STATS_TILE+FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE, .strlen("Mag.Def"), 6
+.word $7923
+    ff6_def_charset_string_z "     "
+.word $7921
+    ff6_def_charset_string_z "       "
+.word $79a3
+    ff6_def_charset_string_z "     "
+.word $79a1
+    ff6_def_charset_string_z "       "
+.word $7a15
+    def_static_text_tiles_z 11, .strlen("Equipment changed."), -1
 
 ; Constant data
 
@@ -1140,12 +1150,13 @@ ff6vwf_relic_menu_static_text_descriptor:
 ff6vwf_relic_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_relic_menu_label, RELIC_MENU_STRING_COUNT
 
-ff6vwf_relic_menu_tile_counts: .byte 10, 10, 10
-ff6vwf_relic_menu_start_tiles: .byte  0, 10, 20
+ff6vwf_relic_menu_tile_counts: .byte 3, 5, 3, 20
+ff6vwf_relic_menu_start_tiles: .byte 0, 3, 8, 11
 
-ff6vwf_relic_menu_label_0:  .asciiz "Equip"         ; 10 tiles, 8-18
-ff6vwf_relic_menu_label_1:  .asciiz "Remove"        ; 10 tiles, 18-28
-ff6vwf_relic_menu_label_2:  .asciiz "Relic"         ; 10 tiles, 28-38
+ff6vwf_relic_menu_label_0: .asciiz "Equip"
+ff6vwf_relic_menu_label_1: .asciiz "Remove"
+ff6vwf_relic_menu_label_2: .asciiz "Relic"
+ff6vwf_relic_menu_label_3: .asciiz "The available equipment changed."
 
 ff6vwf_stats_static_text_descriptor_bg3:
     .byte FF6VWF_STATS_STRING_COUNT         ; count
