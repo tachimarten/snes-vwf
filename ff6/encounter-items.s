@@ -255,7 +255,8 @@ ff6_tool_display_list_right = $7e5760
 
     ; Draw item icon.
     tax
-    ldy #FF6_SHORT_ITEM_LENGTH
+    lda f:ff6_short_item_name_length
+    tay
     jsr std_mul8
     lda ff6_short_item_names,x
     tax                             ; tile_to_draw
@@ -282,7 +283,8 @@ ff6_tool_display_list_right = $7e5760
     sta outgoing_args+4                 ; string_ptr bank byte
     lda #2
     sta outgoing_args+1                 ; blank_tiles_at_end
-    lda #FF6_SHORT_ITEM_LENGTH
+    lda f:ff6_short_item_name_length
+    sub #3
     sta outgoing_args+0                 ; max_tile_count
     ldx dest_tilemap_offset             ; dest_tilemap_offset
     ldy first_tile_id                   ; first_tile_id

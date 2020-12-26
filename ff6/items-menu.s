@@ -227,7 +227,8 @@ begin_locals
     ; Draw tiles.
     ldx first_tile_id
     ldy #10
-    lda #FF6_SHORT_ITEM_LENGTH - 10
+    lda f:ff6_short_item_name_length
+    sub #10
     sta outgoing_args+0                 ; blanks_count
     lda #1
     sta outgoing_args+1                 ; initial_offset
@@ -686,7 +687,8 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
 
 ; nearproc void ff6vwf_menu_draw_item_icon(uint8 item_id)
 .proc ff6vwf_menu_draw_item_icon
-    ldy #FF6_SHORT_ITEM_LENGTH
+    lda f:ff6_short_item_name_length
+    tay
     jsr std_mul8
     lda ff6_short_item_names,x
     sta ff6_menu_string_buffer

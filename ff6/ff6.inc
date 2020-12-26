@@ -26,7 +26,6 @@ FF6VWF_DMA_STRUCT_SIZE = 6
 FF6VWF_DMA_SCHEDULE_FLAGS_4BPP  = $01   ; Set if 4bpp. Otherwise, 2bpp.
 FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it's an encounter.
 
-FF6_SHORT_ITEM_LENGTH               = 13        ; In TWUE
 FF6_SHORT_KEY_ITEM_NAME_LENGTH      = 13        ; In TWUE
 FF6_SHORT_ENEMY_NAME_LENGTH         = 10
 FF6_SHORT_COMMAND_NAME_LENGTH       = 7
@@ -63,6 +62,7 @@ FF6VWF_STATS_TOTAL_TILE_COUNT = FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE + FF6VWF_S
 ; Globals
 
 ff6_encounter_active_character  = $7e62ca
+
 ff6_menu_bg_attrs               = $7e0029
 ff6_menu_queued_hdma            = $7e0043
 ff6_menu_actor_address          = $7e0067
@@ -71,6 +71,8 @@ ff6_menu_bg1_data               = $7e3849
 ff6_menu_bg3_data               = $7e7849
 ff6_menu_positioned_text_ptr    = $7e9e89
 ff6_menu_string_buffer          = $7e9e8b
+
+ff6_short_item_name_length      = $c3900e
 ff6_short_item_names            = $d2b300
 ff6_short_spell_names           = $e6f567
 

@@ -167,7 +167,8 @@ begin_locals
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy #FF6_SHORT_ITEM_LENGTH
+    lda f:ff6_short_item_name_length
+    tay
     stz outgoing_args+0             ; blanks_count
     lda #1
     sta outgoing_args+1             ; initial_offset
