@@ -1269,7 +1269,6 @@ ff6vwf_menu_needed_string: .asciiz "needed"
 ff6vwf_skills_menu_static_text_descriptor:
     .byte SKILLS_MENU_STRING_COUNT              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_skills_menu_labels          ; strings
     .faraddr ff6vwf_skills_menu_tile_counts     ; tile counts
     .faraddr ff6vwf_skills_menu_start_tiles     ; start tiles
@@ -1293,7 +1292,6 @@ ff6vwf_skills_menu_label_6:  .asciiz "Dance"
 ff6vwf_esper_info_menu_static_text_descriptor:
     .byte ESPER_INFO_MENU_STRING_COUNT                                      ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_esper_info_menu_labels                                  ; strings
     .faraddr ff6vwf_esper_info_menu_tile_counts                             ; tile counts
     .faraddr ff6vwf_esper_info_menu_start_tiles                             ; start tiles

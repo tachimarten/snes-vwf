@@ -1669,9 +1669,8 @@ ff6_dma_size_to_transfer = $10
     a8
     beq :+
     ldx enemy_index
-    ldy #VWF_ENCOUNTER_TILE_BASE_ADDR
-    lda #0
-    sta outgoing_args+0     ; use_bpp4
+    ldy #10                 ; max_line_byte_size; FIXME(tachiweasel): Seems dubious!
+    stz outgoing_args+0     ; flags = 0
     jsr ff6vwf_schedule_text_dma
 :   inc enemy_index
     lda enemy_index

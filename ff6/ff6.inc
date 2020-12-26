@@ -18,15 +18,6 @@ VWF_TILE_BYTE_SIZE_4BPP = 2 * 8 * 2
 ; First tile we use for VWF.
 FF6VWF_FIRST_TILE = 8
 
-; Address in VRAM where characters begin, for BG1 on the menu.
-VWF_MENU_TILE_BG1_BASE_ADDR = $a000
-; Address in VRAM where characters begin, for BG3 on the menu.
-VWF_MENU_TILE_BG3_BASE_ADDR = $c000
-; Address in VRAM where characters begin, for BG3 during encounters.
-VWF_ENCOUNTER_TILE_BASE_ADDR = $b000
-; Address in VRAM where characters begin, for the menu portion of BG1 during encounters.
-VWF_ENCOUNTER_BG1_TILE_BASE_ADDR = $8000
-
 ; List item is a Key Item.
 FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
 

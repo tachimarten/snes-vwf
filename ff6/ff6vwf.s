@@ -98,7 +98,6 @@ begin_locals
     decl_local outgoing_args, 7
     decl_local first_tile_id, 1
     decl_local text_line_chardata_ptr, 3    ; chardata far *
-    decl_local tile_base_addr, 2            ; vram near *
     decl_local max_line_byte_size, 2
     decl_local bytes_to_skip, 1
     decl_local bytes_rendered, 2            ; uint16
@@ -114,15 +113,6 @@ begin_args_nearcall
     sta first_tile_id
     tya
     sta max_tile_count
-
-    ; Look up tile base address.
-    lda flags
-    a16
-    and #$0003
-    asl
-    tax
-    lda f:_ff6vwf_render_string_base_addresses,x
-    sta tile_base_addr
 
     ; Compute pointer into the character map.
     tdc
@@ -182,12 +172,10 @@ begin_args_nearcall
 @overflow:
 
     ; Schedule the upload.
-    ldx max_line_byte_size
-    stx outgoing_args+0
-    ldx first_tile_id
-    ldy tile_base_addr
     lda flags
-    sta outgoing_args+2
+    sta outgoing_args+0
+    ldy max_line_byte_size
+    ldx first_tile_id
     jsr ff6vwf_schedule_text_dma
 
     leave __FRAME_SIZE__
@@ -196,15 +184,7 @@ begin_args_nearcall
 
 .export ff6vwf_render_string
 
-; Maps flags to VRAM base addresses.
-_ff6vwf_render_string_base_addresses:
-.word VWF_ENCOUNTER_TILE_BASE_ADDR          ; encounter, 2BPP
-.word VWF_ENCOUNTER_BG1_TILE_BASE_ADDR      ; encounter, 4BPP
-.word VWF_MENU_TILE_BG3_BASE_ADDR           ; menu, 2BPP
-.word VWF_MENU_TILE_BG1_BASE_ADDR           ; menu, 4BPP
-
 ; nearproc void ff6vwf_schedule_text_dma(uint8 first_tile_id,
-;                                        vram near *tile_base_addr,
 ;                                        uint16 max_line_byte_size,
 ;                                        uint8 flags)
 ;
@@ -217,8 +197,8 @@ begin_locals
     decl_local tile_base_addr, 2        ; vram near *
     decl_local first_tile_id, 1         ; uint8
     decl_local src_addr, 3              ; chardata far *
+    decl_local max_line_byte_size, 2    ; uint16
 begin_args_nearcall
-    decl_arg max_line_byte_size, 2      ; uint16
     decl_arg flags, 1                   ; uint8
 
     enter __FRAME_SIZE__
@@ -226,7 +206,17 @@ begin_args_nearcall
     ; Initialize locals.
     txa
     sta first_tile_id
-    sty tile_base_addr
+    sty max_line_byte_size
+
+    ; Look up tile base address.
+    lda flags
+    a16
+    and #$0003
+    asl
+    tax
+    lda f:_ff6vwf_schedule_text_dma_base_addresses,x
+    sta tile_base_addr
+    a8
 
     ; Lock the DMA stack pointer.
     lda flags
@@ -331,6 +321,13 @@ begin_args_nearcall
 .endproc
 
 .export ff6vwf_schedule_text_dma
+
+; Maps flags to VRAM base addresses.
+_ff6vwf_schedule_text_dma_base_addresses:
+.word $b000     ; encounter, 2BPP
+.word $8000     ; encounter, 4BPP
+.word $c000     ; menu, 2BPP
+.word $a000     ; menu, 4BPP
 
 ; nearproc void _ff6vwf_tile_id_to_wram_addr(chardata far *near *out_tile_addr,
 ;                                            uint8 tile_id,

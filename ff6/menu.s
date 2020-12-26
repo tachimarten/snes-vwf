@@ -30,7 +30,6 @@
 .struct static_text
     count .byte                 ; count
     dma_flags .byte             ; dma_flags
-    base_addr .word             ; vram near *
     strings .faraddr            ; const char far **
     tile_counts .faraddr        ; const uint8 far *
     start_tiles .faraddr        ; const uint8 far *
@@ -998,16 +997,6 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     .word $1578, $4578, $7578, $a578
 .endproc
 
-;   struct static_text {
-;       uint8 count;
-;       uint8 first_tile;
-;       uint8 dma_flags;
-;       vram near *base_addr;
-;       const char far **strings;
-;       const uint8 far *tile_counts;
-;       const uint8 far *start_tiles;
-;   };
-
 ; nearproc void ff6vwf_menu_render_static_strings(uint8 tile_offset,
 ;                                                 const struct static_text far *text_ptr)
 .proc ff6vwf_menu_render_static_strings
@@ -1950,7 +1939,6 @@ command_set_positioned_text:
 ff6vwf_main_menu_static_text_descriptor:
     .byte MAIN_MENU_STRING_COUNT                ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_main_menu_labels            ; strings
     .faraddr ff6vwf_main_menu_tile_counts       ; tile counts
     .faraddr ff6vwf_main_menu_start_tiles       ; start tiles
@@ -1989,7 +1977,6 @@ ff6vwf_main_menu_label_18: .asciiz "game?"
 ff6vwf_stats_static_text_descriptor_bg1:
     .byte FF6VWF_STATS_STRING_COUNT                                         ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_stats_labels                                            ; strings
     .faraddr ff6vwf_stats_tile_counts                                       ; tile counts
     .faraddr ff6vwf_stats_start_tiles                                       ; start tiles
@@ -2018,7 +2005,6 @@ ff6vwf_stats_label_8: .asciiz "Magic Def."
 ff6vwf_status_bg1_static_text_descriptor:
     .byte STATUS_BG1_STRING_COUNT                                           ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_status_bg1_labels                                       ; strings
     .faraddr ff6vwf_status_bg1_tile_counts                                  ; tile counts
     .faraddr ff6vwf_status_bg1_start_tiles                                  ; start tiles
@@ -2034,7 +2020,6 @@ ff6vwf_status_bg1_label_1:  .asciiz "EXP to Next Level"
 ff6vwf_status_bg3_static_text_descriptor:
     .byte STATUS_BG3_STRING_COUNT               ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_status_bg3_labels           ; strings
     .faraddr ff6vwf_status_bg3_tile_counts      ; tile counts
     .faraddr ff6vwf_status_bg3_start_tiles      ; start tiles
@@ -2086,7 +2071,6 @@ FF6VWF_STATUS_COMMAND_COUNT = ff6vwf_status_command_first_tiles_end - ff6vwf_sta
 ff6vwf_config_bg1_static_text_descriptor:
     .byte CONFIG_BG1_STRING_COUNT                                           ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_config_bg1_labels                                       ; strings
     .faraddr ff6vwf_config_bg1_tile_counts                                  ; tile counts
     .faraddr ff6vwf_config_bg1_start_tiles                                  ; start tiles
@@ -2141,7 +2125,6 @@ ff6vwf_config_bg1_label_31: .asciiz "Window"
 ff6vwf_config_bg3_static_text_descriptor:
     .byte CONFIG_BG3_STRING_COUNT               ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_config_bg3_labels           ; strings
     .faraddr ff6vwf_config_bg3_tile_counts      ; tile counts
     .faraddr ff6vwf_config_bg3_start_tiles      ; start tiles
@@ -2161,7 +2144,6 @@ ff6vwf_config_bg3_label_3: .asciiz "Player 2"
 ff6vwf_command_set_static_text_descriptor:
     .byte COMMAND_SET_STRING_COUNT              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_command_set_labels          ; strings
     .faraddr ff6vwf_command_set_tile_counts     ; tile counts
     .faraddr ff6vwf_command_set_start_tiles     ; start tiles
@@ -2179,7 +2161,6 @@ ff6vwf_command_set_label_0: .asciiz "D-Pad Config"
 ff6vwf_save_static_text_descriptor:
     .byte SAVE_STRING_COUNT                 ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
     .faraddr ff6vwf_save_labels             ; strings
     .faraddr ff6vwf_save_tile_counts        ; tile counts
     .faraddr ff6vwf_save_start_tiles        ; start tiles
@@ -2200,7 +2181,6 @@ ff6vwf_save_label_3: .asciiz "New Game"
 ff6vwf_colosseum_static_text_descriptor:
     .byte COLOSSEUM_STRING_COUNT            ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
     .faraddr ff6vwf_colosseum_labels        ; strings
     .faraddr ff6vwf_colosseum_tile_counts   ; tile counts
     .faraddr ff6vwf_colosseum_start_tiles   ; start tiles
@@ -2219,7 +2199,6 @@ ff6vwf_colosseum_label_2: .asciiz "Select the challenger."
 ff6vwf_pc_name_static_text_descriptor:
     .byte PC_NAME_STRING_COUNT                                              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_pc_name_labels                                          ; strings
     .faraddr ff6vwf_pc_name_tile_counts                                     ; tile counts
     .faraddr ff6vwf_pc_name_start_tiles                                     ; start tiles
@@ -2266,7 +2245,6 @@ ff6vwf_lineup_text_empty_groups_2_3_groups: .asciiz "Those groups are empty."
 ff6vwf_kefka_lineup_static_text_descriptor:
     .byte KEFKA_LINEUP_STRING_COUNT                                         ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP   ; DMA flags
-    .word VWF_MENU_TILE_BG1_BASE_ADDR                                       ; base address
     .faraddr ff6vwf_kefka_lineup_labels                                     ; strings
     .faraddr ff6vwf_kefka_lineup_tile_counts                                ; tile counts
     .faraddr ff6vwf_kefka_lineup_start_tiles                                ; start tiles

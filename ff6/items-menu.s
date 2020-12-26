@@ -1045,7 +1045,6 @@ ff6vwf_menu_owned_string: .asciiz "Owned:"
 ff6vwf_item_menu_static_text_descriptor:
     .byte ITEM_MENU_STRING_COUNT                ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_item_menu_labels            ; strings
     .faraddr ff6vwf_item_menu_tile_counts       ; tile counts
     .faraddr ff6vwf_item_menu_start_tiles       ; start tiles
@@ -1064,7 +1063,6 @@ ff6vwf_item_menu_can_be_used_by: .asciiz " can be used by:"
 ff6vwf_item_menu_offense_text_descriptor:
     .byte ITEM_MENU_OFFENSE_STRING_COUNT            ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU            ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR               ; base address
     .faraddr ff6vwf_item_menu_offense_labels        ; strings
     .faraddr ff6vwf_item_menu_offense_tile_counts   ; tile counts
     .faraddr ff6vwf_item_menu_offense_start_tiles   ; start tiles
@@ -1081,7 +1079,6 @@ ff6vwf_item_menu_offense_label_2:   .asciiz "Bushido"
 ff6vwf_item_menu_defense_text_descriptor:
     .byte ITEM_MENU_DEFENSE_STRING_COUNT            ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU            ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR               ; base address
     .faraddr ff6vwf_item_menu_defense_labels        ; strings
     .faraddr ff6vwf_item_menu_defense_tile_counts   ; tile counts
     .faraddr ff6vwf_item_menu_defense_start_tiles   ; start tiles
@@ -1101,7 +1098,6 @@ ff6vwf_item_menu_defense_label_3:   .asciiz "Weak against"
 ff6vwf_equip_menu_static_text_descriptor:
     .byte EQUIP_MENU_STRING_COUNT               ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_equip_menu_labels           ; strings
     .faraddr ff6vwf_equip_menu_tile_counts      ; tile counts
     .faraddr ff6vwf_equip_menu_start_tiles      ; start tiles
@@ -1126,7 +1122,6 @@ ff6vwf_equip_menu_label_7:  .asciiz "Body"          ; 3 tiles, 41-44
 ff6vwf_relic_menu_static_text_descriptor:
     .byte RELIC_MENU_STRING_COUNT           ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
     .faraddr ff6vwf_relic_menu_labels       ; strings
     .faraddr ff6vwf_relic_menu_tile_counts  ; tile counts
     .faraddr ff6vwf_relic_menu_start_tiles  ; start tiles
@@ -1145,7 +1140,6 @@ ff6vwf_relic_menu_label_3: .asciiz "The available equipment changed."
 ff6vwf_stats_static_text_descriptor_bg3:
     .byte FF6VWF_STATS_STRING_COUNT         ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU    ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR       ; base address
     .faraddr ff6vwf_stats_labels            ; strings
     .faraddr ff6vwf_stats_tile_counts       ; tile counts
     .faraddr ff6vwf_stats_start_tiles       ; start tiles

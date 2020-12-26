@@ -549,7 +549,6 @@ ff6_menu_shop_greeting_text:
 ff6vwf_shop_static_text_descriptor:
     .byte SHOP_STATIC_STRING_COUNT              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_static_shop_labels          ; strings
     .faraddr ff6vwf_static_shop_tile_counts     ; tile counts
     .faraddr ff6vwf_static_shop_start_tiles     ; start tiles
@@ -575,7 +574,6 @@ ff6vwf_static_shop_label_4: .asciiz "Gil"
 ff6vwf_buy_static_text_descriptor:
     .byte BUY_STATIC_STRING_COUNT               ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_static_buy_labels           ; strings
     .faraddr ff6vwf_static_buy_tile_counts      ; tile counts
     .faraddr ff6vwf_static_buy_start_tiles      ; start tiles
@@ -595,7 +593,6 @@ ff6vwf_static_buy_label_2: .asciiz "What would you like to buy?"
 ff6vwf_buy_quantity_static_text_descriptor:
     .byte BUY_QUANTITY_STATIC_STRING_COUNT              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU                ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR                   ; base address
     .faraddr ff6vwf_static_buy_quantity_labels          ; strings
     .faraddr ff6vwf_static_buy_quantity_tile_counts     ; tile counts
     .faraddr ff6vwf_static_buy_quantity_start_tiles     ; start tiles
@@ -616,7 +613,6 @@ ff6vwf_static_buy_quantity_label_2: .asciiz "How many are you buying?"
 ff6vwf_sell_static_text_descriptor:
     .byte SELL_STATIC_STRING_COUNT              ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU        ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR           ; base address
     .faraddr ff6vwf_static_sell_labels          ; strings
     .faraddr ff6vwf_static_sell_tile_counts     ; tile counts
     .faraddr ff6vwf_static_sell_start_tiles     ; start tiles
@@ -640,7 +636,6 @@ ff6vwf_static_sell_label_3: .asciiz "What would you like to sell?"
 ff6vwf_sell_quantity_static_text_descriptor:
     .byte SELL_QUANTITY_STATIC_STRING_COUNT             ; count
     .byte FF6VWF_DMA_SCHEDULE_FLAGS_MENU                ; DMA flags
-    .word VWF_MENU_TILE_BG3_BASE_ADDR                   ; base address
     .faraddr ff6vwf_static_sell_quantity_labels         ; strings
     .faraddr ff6vwf_static_sell_quantity_tile_counts    ; tile counts
     .faraddr ff6vwf_static_sell_quantity_start_tiles    ; start tiles
