@@ -64,6 +64,7 @@ FF6VWF_STATS_TOTAL_TILE_COUNT = FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE + FF6VWF_S
 
 ff6_menu_bg_attrs               = $7e0029
 ff6_menu_queued_hdma            = $7e0043
+ff6_menu_actor_address          = $7e0067
 ff6_menu_list_slot              = $7e00e5
 ff6_menu_bg1_data               = $7e3849
 ff6_menu_bg3_data               = $7e7849
