@@ -238,6 +238,7 @@ begin_locals
 ;   uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_command_name_from_display_list
 begin_locals
+    decl_local outgoing_args, 2
     decl_local dest_tilemap_offset, 2       ; uint16
     decl_local command_slot, 1              ; uint8
     decl_local tiles_to_draw, 1             ; uint8
@@ -275,14 +276,10 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     bne @got_a_command
 
     ; Fill with blanks.
-    lda #FF6_SHORT_COMMAND_NAME_LENGTH+1
-    sta tiles_to_draw
-    ldx dest_tilemap_offset
-:   txy                         ; dest_tilemap_offset
-    ldx #$ffff                  ; space
-    jsr _ff6vwf_encounter_draw_enemy_name_tile
-    dec tiles_to_draw
-    bne :-
+    stz outgoing_args+0                     ; save_tiles_to_draw
+    ldy #FF6_SHORT_COMMAND_NAME_LENGTH+1    ; tiles_to_draw
+    ldx dest_tilemap_offset                 ; dest_tilemap_offset
+    jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
     stx dest_tilemap_offset
     bra @out
 
@@ -298,13 +295,14 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     ; Draw tiles.
     lda #FF6_SHORT_COMMAND_NAME_LENGTH
     sta tiles_to_draw
-    ldx dest_tilemap_offset
-:   txy                                 ; dest_tilemap_offset
-    ldx current_tile_index              ; tile_to_draw
-    jsr _ff6vwf_encounter_draw_enemy_name_tile
-    inc current_tile_index
-    dec tiles_to_draw
-    bne :-
+    a16
+    tdc
+    add #tiles_to_draw
+    sta outgoing_args+0         ; tiles_to_draw_ptr
+    a8
+    ldy dest_tilemap_offset     ; dest_tilemap_offset
+    ldx current_tile_index      ; current_tile_index
+    jsr _ff6vwf_encounter_draw_enemy_name_tiles
     stx dest_tilemap_offset
 
 @out:
@@ -500,17 +498,12 @@ ff6_enemy_name_table  = $cfc050
     bne @name_not_empty
 
     ; Fill with blanks.
-    lda #11
-    sta tiles_to_draw
+    lda #1
+    sta outgoing_args+0     ; save_tiles_to_draw
+    ldy #11                 ; tiles_to_draw
     ldx dest_tilemap_offset
-:   txy                         ; dest_tilemap_offset
-    ldx #$ffff                  ; space
-    jsr _ff6vwf_encounter_draw_enemy_name_tile
-    dec tiles_to_draw
-    bne :-
+    jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
     stx dest_tilemap_offset
-    lda tiles_to_draw
-    sta ff6_tiles_to_draw       ; Save this.
     jmp @return
 
 @name_not_empty:
@@ -594,6 +587,7 @@ name_pointer    = $7e0010
     tax
     ldy #FF6_SHORT_PC_NAME_LENGTH
     jsr ff6vwf_calculate_first_tile_id_simple
+    txa
     add #PARTY_MEMBERS_FIRST_TILE
     sta current_tile_index
 
@@ -885,6 +879,44 @@ ff6_dest_tile_attributes = $7e004e
     iny
 
     tyx
+    leave __FRAME_SIZE__
+    rts
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_blank_enemy_name_tiles(uint16 dest_tilemap_offset,
+;                                                               uint8 tiles_to_draw,
+;                                                               bool save_tiles_to_draw)
+;
+; If `save_tiles_to_draw` is true, saves `tiles_to_draw` in `ff6_tiles_to_draw` before returning.
+;
+; Returns the dest tilemap offset.
+.proc _ff6vwf_encounter_draw_blank_enemy_name_tiles
+begin_locals
+    decl_local tiles_to_draw, 1         ; uint8
+begin_args_nearcall
+    decl_arg save_tiles_to_draw, 1      ; bool
+
+    enter __FRAME_SIZE__
+
+    tya
+    sta tiles_to_draw
+
+    lda tiles_to_draw
+:   beq @loop_done
+    txy                         ; dest_tilemap_offset
+    ldx #$ffff                  ; space
+    jsr _ff6vwf_encounter_draw_enemy_name_tile
+    dec tiles_to_draw
+    bra :-
+@loop_done:
+
+    ; Save `tiles_to_draw` if necessary.
+    lda save_tiles_to_draw
+    beq @out
+    lda tiles_to_draw
+    sta f:ff6_tiles_to_draw
+
+@out:
     leave __FRAME_SIZE__
     rts
 .endproc
