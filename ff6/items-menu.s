@@ -149,6 +149,12 @@ ff6_menu_draw_equipped_item:
     jsl _ff6vwf_menu_store_text_line_slot_for_gear_overview
     nopx 16
 
+.segment "PTEXTMENUDRAWMEMBERNAMEINGEAROVERVIEWA"   ; $c38f28
+    ldy #$790d      ; Text position
+
+.segment "PTEXTMENUDRAWMEMBERNAMEINGEAROVERVIEWB"   ; $c38f42
+    ldy #$7b0d      ; Text position
+
 .segment "PTEXTMENUDRAWITEMTOBEUSED"        ; $c38a0e
     jsl _ff6vwf_menu_draw_item_to_be_used
     nopx 7

@@ -475,14 +475,14 @@ _ff6vwf_menu_pc_name_address_table:
     .byte 60        ; $c3675b -- Naming menu
 .word $3adb
     .byte 60        ; $c37953 -- Lineup menu
-.word $390d
-    .byte 80+6*0    ; $c38f1c -- Party gear overview, member 1
-.word $3b0d
-    .byte 80+6*1    ; $c38f36 -- Party gear overview, member 2
+.word $790d
+    .byte $eb       ; $c38f1c -- Party gear overview, member 1
+.word $7b0d
+    .byte $fb       ; $c38f36 -- Party gear overview, member 2
 .word $3d0d
-    .byte 80+6*2    ; $c38f52 -- Party gear overview, member 3
+    .byte $eb       ; $c38f52 -- Party gear overview, member 3
 .word $3f0d
-    .byte 80+6*3    ; $c38f6e -- Party gear overview, member 3
+    .byte $fb       ; $c38f6e -- Party gear overview, member 3
 .word $7bb7
     .byte $eb       ; $c393e5 -- Equip or Relic menu
 .word $7c11
