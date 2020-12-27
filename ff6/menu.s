@@ -303,14 +303,17 @@ ff6_load_bg1_font_gfx = $c36b37
 .proc _ff6vwf_menu_draw_pc_name_general
 .struct locals
     .org 1
-    outgoing_args .byte 2
+    outgoing_args .byte 6
 .endstruct
+
+TILEMAP_DEST_LINEUP = $3adb
+TILEMAP_DEST_NAMING = $4229
 
     enter .sizeof(locals)
 
     ; If this is the Lineup menu, then don't redraw the name if we've already drawn it, to avoid
     ; flicker.
-    cpy #$3adb
+    cpy #TILEMAP_DEST_LINEUP
     bne @not_lineup
     a16
     lda f:ff6_menu_actor_address
@@ -327,8 +330,32 @@ ff6_load_bg1_font_gfx = $c36b37
     jsr ff6vwf_menu_draw_vwf_tiles
     bra @return
 
-    ; Store positioned text pointer.
+    ; If this is the PC naming menu, don't use the VWF to emphasize the name length limit.
 @not_lineup:
+    cpy #TILEMAP_DEST_NAMING
+    bne @not_lineup_or_naming
+
+    a16
+    tya
+    sta f:ff6_menu_positioned_text_ptr
+
+    lda f:ff6_current_character_data
+    add #2
+    sta locals::outgoing_args+3     ; src_ptr
+    lda #.loword(ff6_menu_string_buffer)
+    sta locals::outgoing_args+0     ; dest_ptr
+    a8
+    lda #$7e
+    sta locals::outgoing_args+5     ; src_ptr, bank byte
+    sta locals::outgoing_args+2     ; dest_ptr, bank byte
+    jsr std_memcpy
+
+    lda #0
+    sta f:ff6_menu_string_buffer+6  ; Null terminate.
+    bra @return
+
+    ; Store positioned text pointer.
+@not_lineup_or_naming:
     a16
     tya
     sta f:ff6_menu_positioned_text_ptr
@@ -471,8 +498,6 @@ _ff6vwf_menu_pc_name_address_table:
     .byte 60+6*3    ; $c3486b -- Controller menu text, member 4
 .word $398f
     .byte $4e       ; $c35fbb -- Status menu
-.word $4229
-    .byte 60        ; $c3675b -- Naming menu
 .word $3adb
     .byte 60        ; $c37953 -- Lineup menu
 .word $790d
