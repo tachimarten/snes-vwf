@@ -67,8 +67,8 @@ ff6vwf_last_lineup_pc_addr: .res 2
 ff6vwf_menu_kefka_lineup_drawn_pc_names: .res 2
 ; Stack of DMA structures, just like the encounter ones.
 ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
-; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
-; to VRAM.
+; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be
+; uploaded to VRAM.
 ff6vwf_menu_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
 ; The slot to use when drawing current equipment.
 ff6vwf_current_equipment_text_slot: .res 1
@@ -93,6 +93,11 @@ ff6vwf_menu_redraw_needed: .res 1
 
 .segment "PTEXTMENUINIT"
     jml _ff6vwf_menu_init
+
+; Part of the code that initializes the main menu. We patch it to reload BG1 graphics, since the
+; submenus might have trashed them.
+.segment "PTEXTMENUMAINMENUINIT"            ; $c31a96
+    jsl _ff6vwf_menu_main_menu_init
 
 ; Note that the Kefka lineup code will jump into the middle of this instruction without the
 ; special-case `_ff6vwf_menu_draw_pc_name_for_kefka_lineup`.
@@ -277,6 +282,21 @@ ff6_reset_vars = $d4cdf3
 
     ; Return.
     jml $c368fe
+.endproc
+
+; farproc void _ff6vwf_menu_main_menu_init()
+.proc _ff6vwf_menu_main_menu_init
+ff6_load_bg1_font_gfx = $c36b37
+
+    ; Stuff the original function did:
+    lda f:$7e0043
+    ora #$04
+    sta f:$7e0043   ; Queue Win1 HDMA
+
+    ply
+    pla
+    phy                                 ; Remove bank byte.
+    jml f:ff6_load_bg1_font_gfx         ; Draw item name.
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_pc_name_general(uint8 unused, tiledata near *tilemap_addr)
@@ -464,7 +484,7 @@ _ff6vwf_menu_pc_name_address_table:
 .word $3f0d
     .byte 80+6*3    ; $c38f6e -- Party gear overview, member 3
 .word $7bb7
-    .byte $e3       ; $c393e5 -- Equip or Relic menu
+    .byte $eb       ; $c393e5 -- Equip or Relic menu
 .word $7c11
     .byte 80        ; $c3aed9 -- Shadow at Colosseum
 .word $7c75

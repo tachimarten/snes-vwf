@@ -69,6 +69,6 @@ ff6/ff6twuevwf.smc:	ff6/ff6twue.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
 .PHONY:	clean ff6
 
 clean:
-	rm -f *.o demo.smc ff6/ff6vwf.smc ff6/ff6twuevwf.smc
+	rm -f ff6/enemy-names.s ff6/item-names.s font.inc *.o ff6/*.o demo.smc ff6/ff6vwf.smc ff6/ff6twuevwf.smc
 
 ff6:	ff6/ff6vwf.smc
