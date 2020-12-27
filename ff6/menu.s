@@ -114,6 +114,14 @@ ff6vwf_menu_redraw_needed: .res 1
     jsl _ff6vwf_menu_draw_pc_name_general
     rts
 
+.segment "PTEXTMENUDRAWSTATUSLABELS"    ; $c35d5c
+    jsl _ff6vwf_menu_draw_status_title
+    ldx #$6437      ; Text ptrs loc
+    ldy #$001e      ; Strings: 15
+    jsr $69ba       ; Draw Vigor, etc.
+    lda #$24        ; Palette 3
+    sta $29         ; Color: Blue
+
 .segment "PTEXTMENUDRAWSTATUSSTATS"     ; $c35fc2
 ff6_menu_draw_attack_string     = $0486
 ff6_menu_draw_string_number     = $04c0
@@ -1022,6 +1030,34 @@ begin_locals
 
 .export _ff6vwf_menu_draw_status_menu
 
+; farproc void _ff6vwf_menu_draw_status_title()
+.proc _ff6vwf_menu_draw_status_title
+.struct locals
+    .org 1
+    outgoing_args .byte .sizeof(args_ff6vwf_menu_draw_multiple_strings)
+    offset        .word    ; uint16
+.endstruct
+
+    enter .sizeof(locals)
+
+    lda #$2c                    ; Color: Blue
+    sta f:ff6_menu_bg_attrs
+
+    a16
+    lda #.loword(_ff6vwf_menu_status_tilemap_string)
+    sta f:ff6_menu_src_ptr+0
+    a8
+    lda #^_ff6vwf_menu_status_tilemap_string
+    sta f:ff6_menu_src_ptr+2
+    jsl _ff6_menu_draw_string_trampoline
+
+    lda #$24
+    sta f:ff6_menu_bg_attrs
+
+    leave .sizeof(locals)
+    rtl
+.endproc
+
 ; farproc void _ff6vwf_menu_draw_status_command_name()
 .proc _ff6vwf_menu_draw_status_command_name
 begin_locals
@@ -1415,15 +1451,15 @@ _ff6_menu_draw_string_trampoline:
     def_static_text_tiles_z 40+31, .strlen("Order"), 4
 
 .segment "PTEXTMENUSTATUSPOSITIONEDTEXT"   ; $c3646f
-.word $78cd
-    def_static_text_tiles_z $e3, .strlen("Status"), 4
+.word $0000
+    .byte 0, 0, 0, 0, 0, 0, 0
 .word $3a6b
     ff6_def_charset_string_z "/"
 .word $3aab
     ff6_def_charset_string_z "/"
-.word $7f83
+.word bg1_position 15, 24
     ff6_def_charset_string_z "%"
-.word $8883
+.word bg1_position 15, 25
     ff6_def_charset_string_z "%"
 .word $3a1d
     ff6_def_charset_string_z "LV"
@@ -1904,6 +1940,12 @@ ff6vwf_save_label_0: .asciiz "Empty"
 ff6vwf_save_label_1: .asciiz "Time"
 ff6vwf_save_label_2: .asciiz "Save"
 ff6vwf_save_label_3: .asciiz "New Game"
+
+; Positioned text for the Status menu
+
+_ff6vwf_menu_status_tilemap_string:
+.word $78cd
+    def_static_text_tiles_z $e3, .strlen("Status"), 4
 
 ; Positioned text for the Save menu
 
