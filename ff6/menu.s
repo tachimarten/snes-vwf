@@ -56,8 +56,15 @@ STATUS_FIRST_LABEL_TILE     = 50
 
 ; Current of the stack *in bytes*.
 ff6vwf_menu_text_dma_stack_size: .res 1
-; Last party member drawn in Lineup. This avoids uploading every frame, which causes flicker.
-ff6vwf_last_lineup_party_member: .res 1
+; The party member ID corresponding to the last character class drawn in the Lineup menu. This
+; avoids uploading every frame, which causes flicker.
+ff6vwf_last_lineup_class: .res 1
+; The address of the PC info corresponding to the last character name drawn in the Lineup menu.
+; This avoids uploading every frame, which causes flicker.
+ff6vwf_last_lineup_pc_addr: .res 2
+; A bitset of PC names that have been drawn in the Kefka lineup menu. Like the Lineup menu, it
+; redraws PC names every frame, so we need to work around this to avoid lag.
+ff6vwf_menu_kefka_lineup_drawn_pc_names: .res 2
 ; Stack of DMA structures, just like the encounter ones.
 ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
 ; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be uploaded
@@ -70,12 +77,13 @@ ff6vwf_current_equipment_bg3: .res 1
 ; True if we need to redraw the current menu, false otherwise.
 ff6vwf_menu_redraw_needed: .res 1
 
-.export ff6vwf_menu_text_dma_stack_base:    far
-.export ff6vwf_menu_text_tiles:             far
-.export ff6vwf_menu_text_dma_stack_size:    far
-.export ff6vwf_current_equipment_text_slot: far
-.export ff6vwf_current_equipment_bg3:       far
-.export ff6vwf_menu_redraw_needed:          far
+.export ff6vwf_menu_kefka_lineup_drawn_pc_names:    far
+.export ff6vwf_menu_text_dma_stack_base:            far
+.export ff6vwf_menu_text_tiles:                     far
+.export ff6vwf_menu_text_dma_stack_size:            far
+.export ff6vwf_current_equipment_text_slot:         far
+.export ff6vwf_current_equipment_bg3:               far
+.export ff6vwf_menu_redraw_needed:                  far
 
 .reloc 
 
@@ -259,8 +267,11 @@ ff6_reset_vars = $d4cdf3
     ; Initialize globals.
     lda #0
     sta f:ff6vwf_menu_text_dma_stack_size
-    lda #$ff
-    sta f:ff6vwf_last_lineup_party_member
+    a16
+    lda #$ffff
+    sta f:ff6vwf_last_lineup_pc_addr
+    a8
+    sta f:ff6vwf_last_lineup_class
     lda #0
     sta f:ff6vwf_menu_redraw_needed
 
@@ -270,11 +281,34 @@ ff6_reset_vars = $d4cdf3
 
 ; farproc void _ff6vwf_menu_draw_pc_name_general(uint8 unused, tiledata near *tilemap_addr)
 .proc _ff6vwf_menu_draw_pc_name_general
-begin_locals
+.struct locals
+    .org 1
+    outgoing_args .byte 2
+.endstruct
 
-    enter __FRAME_SIZE__
+    enter .sizeof(locals)
+
+    ; If this is the Lineup menu, then don't redraw the name if we've already drawn it, to avoid
+    ; flicker.
+    cpy #$3adb
+    bne @not_lineup
+    a16
+    lda f:ff6_menu_actor_address
+    cmp f:ff6vwf_last_lineup_pc_addr
+    sta f:ff6vwf_last_lineup_pc_addr
+    a8
+    bne @not_lineup
+
+    ; Just draw tiles; don't render or upload the name.
+    ldx #60
+    ldy #FF6_SHORT_PC_NAME_LENGTH
+    stz locals::outgoing_args+0         ; blanks_count
+    stz locals::outgoing_args+1         ; initial_offset
+    jsr ff6vwf_menu_draw_vwf_tiles
+    bra @return
 
     ; Store positioned text pointer.
+@not_lineup:
     a16
     tya
     sta f:ff6_menu_positioned_text_ptr
@@ -300,7 +334,8 @@ begin_locals
     tax     ; first_tile_id
     jsr ff6vwf_menu_draw_pc_name
 
-    leave __FRAME_SIZE__
+@return:
+    leave .sizeof(locals)
     ply
     pla
     phy                                 ; Remove bank byte.
@@ -465,8 +500,8 @@ _ff6vwf_menu_pc_name_address_table:
 .word bg3_position 23, 31
     .byte 0         ; $c38623 -- Gear info, "can be used by:", PC 15 (unused)
 
-; TODO(tachiweasel): Kefka menu
 ; TODO(tachiweasel): Colosseum members
+
 _ff6vwf_menu_pc_name_address_table_end:
 
 ; nearproc void ff6vwf_menu_draw_vwf_tiles(uint8 first_tile_id,
@@ -742,11 +777,11 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     ; in the Lineup menu, which calls this function every frame...
     lda #LAST_TEXT_LINE_SLOT
     sta text_line_slot
-    lda f:ff6vwf_last_lineup_party_member
+    lda f:ff6vwf_last_lineup_class
     cmp party_member_id
     beq @draw_tiles
     lda party_member_id
-    sta f:ff6vwf_last_lineup_party_member
+    sta f:ff6vwf_last_lineup_class
 
 @found_text_line_slot:
     ; Compute string pointer.

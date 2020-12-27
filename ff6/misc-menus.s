@@ -12,16 +12,17 @@
 
 .import std_mul8:                               near
 
-.import ff6vwf_calculate_first_tile_id_simple:  near
-.import ff6vwf_get_long_item_name:              near
-.import ff6vwf_long_enemy_names:                far
-.import ff6vwf_long_item_names:                 far
-.import ff6vwf_menu_draw_item_icon:             near
-.import ff6vwf_menu_draw_pc_name:               near
-.import ff6vwf_menu_draw_vwf_tiles:             near
-.import ff6vwf_menu_force_nmi_trampoline:       far
-.import ff6vwf_menu_render_static_strings:      near
-.import ff6vwf_render_string:                   near
+.import ff6vwf_calculate_first_tile_id_simple:      near
+.import ff6vwf_get_long_item_name:                  near
+.import ff6vwf_long_enemy_names:                    far
+.import ff6vwf_long_item_names:                     far
+.import ff6vwf_menu_draw_item_icon:                 near
+.import ff6vwf_menu_draw_pc_name:                   near
+.import ff6vwf_menu_draw_vwf_tiles:                 near
+.import ff6vwf_menu_force_nmi_trampoline:           far
+.import ff6vwf_menu_kefka_lineup_drawn_pc_names:    far
+.import ff6vwf_menu_render_static_strings:          near
+.import ff6vwf_render_string:                       near
 
 ; Constants
 
@@ -403,24 +404,37 @@ begin_locals
     lda #$20                    ; Palette 0
     sta f:ff6_menu_bg_attrs     ; Color: User's
 
+    ; Reset our bit map.
+    a16
+    lda #0
+    sta f:ff6vwf_menu_kefka_lineup_drawn_pc_names
+    a8
+
     ; Stuff the original function did:
     leave __FRAME_SIZE__
     rtl
 .endproc
 
+.export _ff6vwf_menu_draw_kefka_lineup
+
 ; farproc void ff6vwf_menu_draw_pc_name_for_kefka_lineup(uint8 unused, tiledata near *tilemap_addr)
 .proc _ff6vwf_menu_draw_pc_name_for_kefka_lineup
-begin_locals
-    decl_local party_member_id, 1
+.struct locals
+    .org 1
+    outgoing_args   .byte 2
+    party_member_id .byte   ; uint8
+    first_tile_id   .byte   ; uint8
+    bitmask         .word   ; uint16
+.endstruct
 
 ff6_menu_party_member_infos = $c36969
 
     tax                     ; Actor ID
-    enter __FRAME_SIZE__
+    enter .sizeof(locals)
 
     ; Save party member ID.
     txa
-    sta party_member_id
+    sta locals::party_member_id
 
     ; Put party member info in X.
     a16
@@ -431,18 +445,49 @@ ff6_menu_party_member_infos = $c36969
     sta f:ff6_menu_actor_address
     a8
 
-    ; Calculate first tile ID and put in X.
-    ldx party_member_id
+    ; Calculate first tile ID.
+    ldx locals::party_member_id
     ldy #6
     jsr std_mul8
     txa
     add #FF6VWF_FIRST_TILE + 30
+    sta locals::first_tile_id
+
+    ; Have we already drawn the name?
+    lda locals::party_member_id
+    a16
+    and #$00ff
     tax
+    lda #1
+    cpx #0
+:   beq @check_bit
+    asl
+    dex
+    bra :-
+@check_bit:
+    sta locals::bitmask
+    and f:ff6vwf_menu_kefka_lineup_drawn_pc_names
+    beq @draw_it
+
+    ; Just draw tiles. Don't render or upload the name.
+    ldx locals::first_tile_id
+    ldy #FF6_SHORT_PC_NAME_LENGTH
+    stz locals::outgoing_args+0         ; blanks_count
+    stz locals::outgoing_args+1         ; initial_offset
+    jsr ff6vwf_menu_draw_vwf_tiles
+    bra @return
 
     ; Draw name.
+@draw_it:
+    ldx locals::first_tile_id
     jsr ff6vwf_menu_draw_pc_name
 
-    leave __FRAME_SIZE__
+    lda f:ff6vwf_menu_kefka_lineup_drawn_pc_names
+    ora locals::bitmask
+    sta f:ff6vwf_menu_kefka_lineup_drawn_pc_names
+
+@return:
+    leave .sizeof(locals)
     rtl
 .endproc
 
