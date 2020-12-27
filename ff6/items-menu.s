@@ -93,6 +93,9 @@ ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
     jsl _ff6vwf_menu_draw_gear_info_text
     nopx 2
 
+.segment "PTEXTMENUDRAWWEAPONPROPERTIES"    ; $c38779
+    ldy #.loword(_weapon_properties_two_handed_string)
+
 .segment "PTEXTMENUDRAWRIGHTHANDEQUIPMENT"  ; $c39408
     jsr ff6_menu_draw_equipped_item
     nopx 3
@@ -928,9 +931,10 @@ begin_locals
 .word $822F
     def_static_text_tiles_z 21, .strlen("SwdTech"), -1
 .word $82AF
-    def_static_text_tiles_z 10, .strlen("Runic"), 4
+    def_static_text_tiles_z 10, 4, -1    ; "Runic"
+_weapon_properties_two_handed_string:
 .word $832F
-    def_static_text_tiles_z 14, .strlen("2-hand"), -1
+    def_static_text_tiles_z 14, 7, -1    ; "2-hand"/"Two-handed"
 
 .segment "PTEXTMENUEQUIPMENUPOSITIONEDTEXTA"    ; $c3a2ba
 _equip_menu_positioned_text_a:
