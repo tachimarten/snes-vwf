@@ -43,6 +43,9 @@ SAVE_STRING_COUNT           = 4
 
 STATUS_FIRST_LABEL_TILE     = 50
 
+SAVE_TILEMAP_STRING_COUNT   = 5
+LOAD_TILEMAP_STRING_COUNT   = 5
+
 ; FF6-specific macros
 
 .define bg1_position(col, row)  .loword(ff6_menu_bg1_data) + row * $40 + col * 2
@@ -86,6 +89,12 @@ ff6vwf_menu_redraw_needed: .res 1
 .export ff6vwf_menu_redraw_needed:                  far
 
 .reloc 
+
+; Function prototypes
+
+.struct args_ff6vwf_menu_draw_multiple_strings
+    tilemaps .faraddr           ; void near *far *
+.endstruct
 
 ; Patches to Final Fantasy 6 functions
 
@@ -216,18 +225,25 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_config_menu
     nop
 
-;.segment "PTEXTMENUDRAWCOMMANDSETMENU"  ; $c34478
-.segment "PTEXTMENUDRAWCOMMANDSETMENU"  ; $c3442f
+.segment "PTEXTMENUDRAWCOMMANDSETMENU"      ; $c3442f
     jsl _ff6vwf_menu_draw_command_set_menu
     nopx 2
 
-.segment "PTEXTMENUDRAWSAVEMENU"        ; $c315ff
+.segment "PTEXTMENUDRAWSAVEMENU"            ; $c315ff
     jsl _ff6vwf_menu_draw_save_menu
     nopx 2
 
-.segment "PTEXTMENUDRAWLOADMENU"        ; $c31629
+.segment "PTEXTMENUDRAWLOADMENU"            ; $c31629
     jsl _ff6vwf_menu_draw_load_menu
     nopx 2
+
+.segment "PTEXTMENUDRAWSAVECONFIRMATION"    ; $c331d7
+    jsl _ff6vwf_menu_draw_save_confirmation
+    rts
+
+.segment "PTEXTMENUDRAWLOADCONFIRMATION"    ; $c331e5
+    jsl _ff6vwf_menu_draw_load_confirmation
+    rts
 
 .segment "PTEXTMENUDRAWCLASSNAME"
     jsl _ff6vwf_menu_draw_class_name
@@ -1225,6 +1241,96 @@ begin_locals
     jml ff6_menu_draw_banner_message    ; Draw "New Game"
 .endproc
 
+.proc _ff6vwf_menu_draw_save_confirmation
+.struct locals
+    .org 1
+    outgoing_args .byte .sizeof(args_ff6vwf_menu_draw_multiple_strings)
+    offset        .word    ; uint16
+.endstruct
+
+    enter .sizeof(locals)
+
+    lda #$20
+    sta f:ff6_menu_bg_attrs
+
+    lda #^_ff6vwf_menu_save_tilemap_strings
+    sta locals::outgoing_args+args_ff6vwf_menu_draw_multiple_strings::tilemaps+2
+    ldx #.loword(_ff6vwf_menu_save_tilemap_strings)
+    stx locals::outgoing_args+args_ff6vwf_menu_draw_multiple_strings::tilemaps+0
+    ldx #SAVE_TILEMAP_STRING_COUNT
+    jsr _ff6vwf_menu_draw_multiple_strings
+
+    leave .sizeof(locals)
+    rtl
+.endproc
+
+.proc _ff6vwf_menu_draw_load_confirmation
+.struct locals
+    .org 1
+    outgoing_args .byte .sizeof(args_ff6vwf_menu_draw_multiple_strings)
+    offset        .word    ; uint16
+.endstruct
+
+    enter .sizeof(locals)
+
+    lda #$20
+    sta f:ff6_menu_bg_attrs
+
+    lda #^_ff6vwf_menu_load_tilemap_strings
+    sta locals::outgoing_args+args_ff6vwf_menu_draw_multiple_strings::tilemaps+2
+    ldx #.loword(_ff6vwf_menu_load_tilemap_strings)
+    stx locals::outgoing_args+args_ff6vwf_menu_draw_multiple_strings::tilemaps+0
+    ldx #LOAD_TILEMAP_STRING_COUNT
+    jsr _ff6vwf_menu_draw_multiple_strings
+
+    leave .sizeof(locals)
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_multiple_strings(uint8 string_count, void near *far *tilemaps)
+.proc _ff6vwf_menu_draw_multiple_strings
+.struct locals
+    .org 1
+    current_offset      .word       ; uint16
+    last_string_offset  .word       ; uint16
+.endstruct
+args = .sizeof(locals) + .sizeof(nearcall_frame) + 1
+
+    enter .sizeof(locals)
+
+    ; Initialize locals.
+    a16
+    stz locals::current_offset
+    txa
+    and #$00ff
+    asl
+    sta locals::last_string_offset  ; last_string_offset = current_offset * 2
+    a8
+
+    ; Save bank byte.
+    lda args+args_ff6vwf_menu_draw_multiple_strings::tilemaps+2
+    sta f:ff6_menu_src_ptr+2
+
+    ; Draw strings.
+    a16
+    ldy locals::current_offset
+:   lda [args+args_ff6vwf_menu_draw_multiple_strings::tilemaps],y
+    sta f:ff6_menu_src_ptr
+    a8
+    jsl _ff6_menu_draw_string_trampoline
+    a16
+    ldy locals::current_offset
+    iny
+    iny
+    sty locals::current_offset
+    cpy locals::last_string_offset
+    bne :-
+    a8
+
+    leave .sizeof(locals)
+    rts
+.endproc
+
 ; This is the existing FF6 DMA setup during NMI for the menu, factored out into this bank to give
 ; us some space for a patch.
 .proc _ff6vwf_menu_run_dma_setup
@@ -1297,25 +1403,18 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles_z 40+26, .strlen("Steps"), 3
 .word $7e77
     def_static_text_tiles_z 40+29, .strlen("Gp"), -1
-; TODO(tachiweasel): Actually draw these strings!
 .word $7abd
     def_static_text_tiles_z 40+35, .strlen("Yes"), 2
 .word $7b3d
     def_static_text_tiles_z 40+37, .strlen("No"), -1
-.word $7937
-    def_static_text_tiles_z 40+58, .strlen("This"), -1
-.word $79b7
-    def_static_text_tiles_z 40+65, .strlen("data?"), -1
-.word $7937
-    def_static_text_tiles_z 40+39, .strlen("Erasing"), 6
-.word $79b7
-    def_static_text_tiles_z 40+46, .strlen("data."), -1
-.word $7a37
-    def_static_text_tiles_z 40+52, .strlen("Okay?"), -1
+; Put a trampoline here to overwrite "This data?"
+_ff6_menu_draw_string_trampoline:
+    def_trampoline $02ff
+.res 31
 .word $813d
     def_static_text_tiles_z 40+31, .strlen("Order"), 4
 
-.segment "PTEXTMENUSTATUSPOSITIONEDTEXT"    ; $c3646f
+.segment "PTEXTMENUSTATUSPOSITIONEDTEXT"   ; $c3646f
 .word $78cd
     def_static_text_tiles_z $e3, .strlen("Status"), 4
 .word $3a6b
@@ -1805,3 +1904,45 @@ ff6vwf_save_label_0: .asciiz "Empty"
 ff6vwf_save_label_1: .asciiz "Time"
 ff6vwf_save_label_2: .asciiz "Save"
 ff6vwf_save_label_3: .asciiz "New Game"
+
+; Positioned text for the Save menu
+
+_ff6vwf_menu_save_tilemap_strings:
+ff6vwf_def_pointer_array _ff6vwf_menu_save_tilemap_string, SAVE_TILEMAP_STRING_COUNT
+
+_ff6vwf_menu_save_tilemap_string_0:
+    .word $7abd
+        def_static_text_tiles_z 40+35, 2, -1    ; "Yes"
+_ff6vwf_menu_save_tilemap_string_1:
+    .word $7b3d
+        def_static_text_tiles_z 40+37, 2, -1    ; "No"
+_ff6vwf_menu_save_tilemap_string_2:
+    .word $7937
+        def_static_text_tiles_z 40+39, 7, -1    ; "Overwriting"
+_ff6vwf_menu_save_tilemap_string_3:
+    .word $79b7
+        def_static_text_tiles_z 40+46, 6, -1    ; "game. Are"
+_ff6vwf_menu_save_tilemap_string_4:
+    .word $7a37
+        def_static_text_tiles_z 40+52, 6, -1    ; "you sure?"
+
+; Positioned text for the Load menu
+
+_ff6vwf_menu_load_tilemap_strings:
+ff6vwf_def_pointer_array _ff6vwf_menu_load_tilemap_string, LOAD_TILEMAP_STRING_COUNT
+
+_ff6vwf_menu_load_tilemap_string_0:
+    .word $7abd
+        def_static_text_tiles_z 40+35, 2, -1
+_ff6vwf_menu_load_tilemap_string_1:
+    .word $7b3d
+        def_static_text_tiles_z 40+37, 2, -1
+_ff6vwf_menu_load_tilemap_string_2:
+    .word $7937
+        def_static_text_tiles_z 40+58, 7, -1
+_ff6vwf_menu_load_tilemap_string_3:
+    .word $79b7
+        def_static_text_tiles_z 40+65, 6, -1
+_ff6vwf_menu_load_tilemap_string_4:
+    .word $7a37
+        def_static_text_tiles_z 40+71, 4, -1

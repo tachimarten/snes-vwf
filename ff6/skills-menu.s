@@ -56,7 +56,6 @@ ff6_menu_page_height                = $7e005a
 ff6_menu_page_width                 = $7e005b
 ff6_menu_max_page_scroll_pos        = $7e005c
 ff6_menu_bg1_write_row              = $7e00e6
-ff6_menu_src_ptr                    = $7e00e7
 ff6_menu_dest_ptr                   = $7e00eb
 ff6_menu_horizontal_movement_speed  = $7e34ca
 ff6_menu_vertical_movement_speed    = $7e354a

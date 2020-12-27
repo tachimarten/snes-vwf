@@ -67,6 +67,7 @@ ff6_menu_bg_attrs               = $7e0029
 ff6_menu_queued_hdma            = $7e0043
 ff6_menu_actor_address          = $7e0067
 ff6_menu_list_slot              = $7e00e5
+ff6_menu_src_ptr                = $7e00e7
 ff6_menu_bg1_data               = $7e3849
 ff6_menu_bg3_data               = $7e7849
 ff6_menu_positioned_text_ptr    = $7e9e89
@@ -135,6 +136,18 @@ ff6_menu_draw_string            = $c37fd9
 .repeat count, i
     .word .loword(.ident(.concat(.concat(.string(prefix), "_"), .string(i))))
 .endrepeat
+.endmacro
+
+; Declares a trampoline that allows our VWF code to call back to FF6.
+;
+; Bytes: 10
+.macro def_trampoline target
+    phd
+    pea $0
+    pld
+    jsr target
+    pld
+    rtl
 .endmacro
 
 ; A macro that does any DMA we need to do.

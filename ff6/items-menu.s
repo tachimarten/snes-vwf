@@ -31,18 +31,6 @@
 .import ff6vwf_stats_tile_counts:               far
 .import ff6vwf_stats_start_tiles:               far
 
-; Macros
-
-; Declares a trampoline that allows our VWF code to call back to FF6.
-.macro def_trampoline target
-    phd
-    pea $0
-    pld
-    jsr target
-    pld
-    rtl
-.endmacro
-
 ; Constants
 
 ITEM_MENU_STRING_COUNT  = 4

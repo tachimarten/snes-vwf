@@ -61,6 +61,11 @@ RDMPYH   = $4217
 .ident(.concat("DASB", .string(i)))     = $4307 | i<<4
 .endrepeat
 
+.struct nearcall_frame
+    dp .addr
+    ra .addr
+.endstruct
+
 .macro a16
     rep #$20
     .a16
