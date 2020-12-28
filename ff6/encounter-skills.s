@@ -337,6 +337,11 @@ dest_ptr = $7e5755
     jsr std_memcpy
 
     leave __FRAME_SIZE__
+    a16         ; Needed to avoid corrupting the display list...
+    lda #0
+    ldx #0
+    ldy #0
+    a8
     rtl
 .endproc
 
@@ -354,8 +359,6 @@ begin_locals
 FIRST_TILE_ID = 90
 
 display_list_ptr = $7e004f
-
-    tax                         ; Save Esper ID in X.
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
