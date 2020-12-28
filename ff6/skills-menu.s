@@ -1299,6 +1299,21 @@ out:
     def_static_text_tiles_z 30, .strlen("Learn.Rate"), -1
     def_static_text_tiles 40, .strlen("At level up..."), 9
 
+.segment "PTEXTMENUSKILLSMENUPOSITIONEDTEXTTWUE"    ; $c3f0f0
+
+.word $81b7
+    def_static_text_tiles_z 4*10, 9, .strlen("Lore")
+.word $81b7
+    def_static_text_tiles_z 5*10, 9, .strlen("Rage")
+.word $81b7
+    def_static_text_tiles_z 6*10, 7, .strlen("Dance")
+.word $81b7
+    def_static_text_tiles_z 0*10, 8, .strlen("Espers")
+.word $81b7
+    def_static_text_tiles_z 3*10, 8, .strlen("Blitz")
+.word $81b7
+    def_static_text_tiles_z 2*10, 9, .strlen("Bushido")
+
 .segment "PTEXTMENUMPNEEDEDPOSITIONEDTEXT"  ; $c35889
 
 .word $7a15
