@@ -103,8 +103,8 @@ ff6vwf_menu_redraw_needed: .res 1
 .segment "PTEXTMENUINIT"
     jml _ff6vwf_menu_init
 
-; Part of the code that initializes the main menu. We patch it to reload BG1 graphics, since the
-; submenus might have trashed them.
+; Part of the code that initializes the main menu. We patch it to reload BG1 and BG3 graphics,
+; since the submenus might have trashed them.
 .segment "PTEXTMENUMAINMENUINIT"            ; $c31a96
     jsl _ff6vwf_menu_main_menu_init
 
@@ -310,17 +310,19 @@ ff6_reset_vars = $d4cdf3
 
 ; farproc void _ff6vwf_menu_main_menu_init()
 .proc _ff6vwf_menu_main_menu_init
-ff6_load_bg1_font_gfx = $c36b37
+ff6_load_bg3_font_gfx = $c36b13
 
     ; Stuff the original function did:
     lda f:$7e0043
     ora #$04
     sta f:$7e0043   ; Queue Win1 HDMA
 
+    jsl _ff6_menu_load_bg1_font_gfx
+
     ply
     pla
     phy                                 ; Remove bank byte.
-    jml f:ff6_load_bg1_font_gfx         ; Draw item name.
+    jml f:ff6_load_bg3_font_gfx         ; Draw BG3 font gfx.
 .endproc
 
 ; farproc void _ff6vwf_menu_draw_pc_name_general(uint8 unused, tiledata near *tilemap_addr)
@@ -1434,10 +1436,12 @@ ff6_menu_bg3_ypos = $3f
     def_static_text_tiles_z 40+35, .strlen("Yes"), 2
 .word $7b3d
     def_static_text_tiles_z 40+37, .strlen("No"), -1
-; Put a trampoline here to overwrite "This data?"
+; Put a couple of trampolines here to overwrite "This data?"
 _ff6_menu_draw_string_trampoline:
     def_trampoline $02ff
-.res 31
+_ff6_menu_load_bg1_font_gfx:
+    def_trampoline $6b37
+.res 21
 .word $813d
     def_static_text_tiles_z 40+31, .strlen("Order"), 4
 
@@ -1552,7 +1556,6 @@ menu_config_slow_tiles:
 menu_config_cursor_tiles:
 .word $3d8f
     def_static_text_tiles_z $2d, .strlen("Cursor"), 4
-    ;def_static_text_tiles_z $40, .strlen("Cursor"), -1
 
 .segment "PTEXTMENUCONFIGPOSITIONEDTEXTB"   ; $c34993
 
