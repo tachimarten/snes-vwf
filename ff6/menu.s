@@ -253,7 +253,7 @@ ff6_stats_magic_defense         = $7e11bb
     jsl _ff6vwf_menu_draw_load_confirmation
     rts
 
-.segment "PTEXTMENUDRAWCLASSNAME"
+.segment "PTEXTMENUDRAWCLASSNAME"           ; $c3f0a6
     jsl _ff6vwf_menu_draw_class_name
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
@@ -810,7 +810,6 @@ begin_locals
     decl_local string_ptr, 2
     decl_local icon_position, 2     ; uint16
     decl_local party_member_id, 1
-    decl_local text_line_slot, 1
     decl_local first_tile_id, 1
 
     enter __FRAME_SIZE__, STACK_LIMIT
@@ -824,35 +823,36 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     lda 0,y
     sta party_member_id
 
-    ; Determine which text line slot to use.
+    ; Calculate first tile ID.
     a16
     lda f:ff6_icon_position
-    sta icon_position
-    a8
     ldx #0
-    stz text_line_slot
-:   a16
-    lda f:@party_member_icon_positions,x
-    cmp icon_position
     a8
-    beq @found_text_line_slot
-    inc text_line_slot
-    inx
-    inx
-    cpx #8
+:   a16
+    cmp f:@party_member_icon_positions,x
+    a8
+    beq @found_tile_id
+    addix 3
+    cpx #@party_member_icon_positions_end - @party_member_icon_positions
     bne :-
 
-    ; Special case: If we've already drawn this party member's class, bail out. This avoids flicker
-    ; in the Lineup menu, which calls this function every frame...
-    lda #LAST_TEXT_LINE_SLOT
-    sta text_line_slot
+    ; This is an unhandled menu. We have some special case logic here to bail out if we've already
+    ; drawn this party member's class to avoid flicker in the Lineup menu.
+    lda #FF6VWF_FIRST_TILE
+    sta first_tile_id
     lda f:ff6vwf_last_lineup_class
     cmp party_member_id
     beq @draw_tiles
     lda party_member_id
     sta f:ff6vwf_last_lineup_class
+    bra @finished_calculating_tile_id
 
-@found_text_line_slot:
+@found_tile_id:
+    lda f:@party_member_icon_positions+2,x
+    add #FF6VWF_FIRST_TILE
+    sta first_tile_id
+
+@finished_calculating_tile_id:
     ; Compute string pointer.
     lda party_member_id
     a16
@@ -863,13 +863,6 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     sta string_ptr
     a8
 
-    ; Calculate first tile ID.
-    ldx text_line_slot
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
-    txa                     ; first_tile_id
-    sta first_tile_id
-
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta outgoing_args+0     ; 4bpp
@@ -877,6 +870,7 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     sty outgoing_args+1     ; string ptr
     lda #^ff6vwf_long_enemy_names
     sta outgoing_args+3     ; string ptr bank
+    ldx first_tile_id       ; first_tile_id
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
@@ -895,7 +889,17 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     rtl
 
 @party_member_icon_positions:
-    .word $1578, $4578, $7578, $a578
+    .word $1578     ; Main menu, party member 0
+        .byte 0*10
+    .word $4578     ; Main menu, party member 1
+        .byte 1*10
+    .word $7578     ; Main menu, party member 2
+        .byte 2*10
+    .word $a578     ; Main menu, party member 3
+        .byte 3*10
+    .word $4f50     ; Espers menu
+        .byte $68
+@party_member_icon_positions_end:
 .endproc
 
 ; nearproc void ff6vwf_menu_render_static_strings(uint8 tile_offset,

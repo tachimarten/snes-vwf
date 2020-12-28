@@ -93,6 +93,18 @@ RDMPYH   = $4217
     sbc operand
 .endmacro
 
+.macro addix value
+.repeat value
+    inx
+.endrepeat
+.endmacro
+
+.macro addiy value
+.repeat value
+    iny
+.endrepeat
+.endmacro
+
 .macro not8
     eor #$ff
 .endmacro
