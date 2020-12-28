@@ -253,6 +253,7 @@ ff6_tool_display_list_right = $7e5760
     sta first_tile_id
 
     ; Draw item icon.
+    lda (item_id_ptr)
     tax
     lda f:ff6_short_item_name_length
     tay

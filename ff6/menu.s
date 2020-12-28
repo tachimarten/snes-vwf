@@ -337,6 +337,12 @@ TILEMAP_DEST_NAMING = $4229
 
     enter .sizeof(locals), STACK_LIMIT
 
+    ; Store tilemap pointer.
+    a16
+    tya
+    sta f:ff6_menu_positioned_text_ptr
+    a8
+
     ; If this is the Lineup menu, then don't redraw the name if we've already drawn it, to avoid
     ; flicker.
     cpy #TILEMAP_DEST_LINEUP
@@ -362,9 +368,6 @@ TILEMAP_DEST_NAMING = $4229
     bne @not_lineup_or_naming
 
     a16
-    tya
-    sta f:ff6_menu_positioned_text_ptr
-
     lda f:ff6_current_character_data
     add #2
     sta locals::outgoing_args+3     ; src_ptr
@@ -401,7 +404,6 @@ TILEMAP_DEST_NAMING = $4229
     a8
     lda f:_ff6vwf_menu_pc_name_address_table+2,x
 @store_tile_id:
-
     tax     ; first_tile_id
     jsr ff6vwf_menu_draw_pc_name
 
@@ -411,6 +413,7 @@ TILEMAP_DEST_NAMING = $4229
     pla
     phy                                 ; Remove bank byte.
     jml ff6_menu_draw_string            ; Draw item name.
+    ;rtl
 .endproc
 
 ; nearproc void ff6vwf_menu_draw_pc_name(uint8 first_tile_id)
@@ -823,11 +826,27 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     lda 0,y
     sta party_member_id
 
-    ; Calculate first tile ID.
+    ; Is this the Lineup menu?
     a16
     lda f:ff6_icon_position
-    ldx #0
+    cmp #$3048
     a8
+    bne @not_lineup
+
+    ; This is the Lineup menu. We have some special case logic here to bail out if we've already
+    ; drawn this party member's class in order to avoid flicker.
+    lda #FF6VWF_FIRST_TILE + $1c
+    sta first_tile_id
+    lda f:ff6vwf_last_lineup_class
+    cmp party_member_id
+    beq @draw_tiles
+    lda party_member_id
+    sta f:ff6vwf_last_lineup_class
+    bra @finished_calculating_tile_id
+
+    ; Calculate first tile ID.
+@not_lineup:
+    ldx #0
 :   a16
     cmp f:@party_member_icon_positions,x
     a8
@@ -836,15 +855,9 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     cpx #@party_member_icon_positions_end - @party_member_icon_positions
     bne :-
 
-    ; This is an unhandled menu. We have some special case logic here to bail out if we've already
-    ; drawn this party member's class to avoid flicker in the Lineup menu.
+    ; Default to the first valid tile ID.
     lda #FF6VWF_FIRST_TILE
     sta first_tile_id
-    lda f:ff6vwf_last_lineup_class
-    cmp party_member_id
-    beq @draw_tiles
-    lda party_member_id
-    sta f:ff6vwf_last_lineup_class
     bra @finished_calculating_tile_id
 
 @found_tile_id:
