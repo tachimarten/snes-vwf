@@ -170,7 +170,7 @@ esper_label_tilemap:
 begin_locals
     decl_local skill_id_ptr, 2  ; near *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     stx skill_id_ptr
 
@@ -227,7 +227,7 @@ ff6_spell_display_list_right = $7e5760
 ; vanilla or TWUE.
 ff6_spell_name_length = $c1601b
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -312,7 +312,7 @@ begin_locals
 
 dest_ptr = $7e5755
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Render string.
     stz outgoing_args+0                             ; 2bpp
@@ -357,7 +357,7 @@ display_list_ptr = $7e004f
 
     tax                         ; Save Esper ID in X.
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -410,7 +410,7 @@ begin_locals
 
 display_list_ptr = $7e004f
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -456,7 +456,7 @@ begin_locals
 
 display_list_ptr = $7e004f
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -510,7 +510,7 @@ begin_args_nearcall
     decl_arg dest_tilemap_offset, 2         ; uint16
     decl_arg name_list, 3                   ; const char near *far *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -574,7 +574,7 @@ begin_locals
 ; vanilla or TWUE.
 ff6_dance_name_length = $c16611
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
     tyx
     ldy #.loword(ff6vwf_long_dance_names)
     sty outgoing_args+0
@@ -600,7 +600,7 @@ begin_locals
 ; running in vanilla or TWUE.
 ff6_magitek_name_length = $c16500
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     tyx
     ldy #.loword(ff6vwf_long_magitek_names)
@@ -631,7 +631,7 @@ ff6_enemy_ability_names = $e6f7b9
 
     tax                         ; Save enemy ability in X.
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -701,8 +701,6 @@ ff6_enemy_ability_names = $e6f7b9
     rtl
 .endproc
 
-.export _ff6vwf_encounter_draw_control_name
-
 ; nearproc uint16 _ff6vwf_encounter_draw_dance_or_magitek_name(uint16 dest_tilemap_offset,
 ;                                                              uint8 name_length,
 ;                                                              const char far *name_list)
@@ -721,7 +719,7 @@ begin_args_nearcall
 
 ff6_display_list_ptr    = $7e004f
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     stx dest_tilemap_offset

@@ -59,7 +59,7 @@ begin_args_nearcall
     decl_arg dest_ptr, 3    ; char far *
     decl_arg src_ptr, 3     ; const ff6char far *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     stx length
 
@@ -95,24 +95,25 @@ begin_args_nearcall
 ; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
 .proc ff6vwf_render_string
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 6
     decl_local first_tile_id, 1
     decl_local text_line_chardata_ptr, 3    ; chardata far *
     decl_local max_line_byte_size, 2
-    decl_local bytes_to_skip, 1
-    decl_local bytes_rendered, 2            ; uint16
-    decl_local max_tile_count, 1            ; uint8
 begin_args_nearcall
     decl_arg flags, 1
     decl_arg string_ptr, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
     sta first_tile_id
-    tya
-    sta max_tile_count
+
+    ; Compute max line byte size.
+    tyx
+    ldy flags
+    jsr _ff6vwf_tile_count_to_byte_count
+    stx max_line_byte_size
 
     ; Compute pointer into the character map.
     tdc
@@ -124,12 +125,6 @@ begin_args_nearcall
     sta outgoing_args+0
     jsr _ff6vwf_tile_id_to_wram_addr
 
-    ; Compute max line byte size.
-    ldx max_tile_count
-    ldy flags
-    jsr _ff6vwf_tile_count_to_byte_count
-    stx max_line_byte_size
-
     ; Compute bytes to skip.
     lda flags
     and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
@@ -139,7 +134,7 @@ begin_args_nearcall
 @have_4bpp:
     lda #16
 @store_bytes_to_skip:
-    sta bytes_to_skip
+    tax                             ; X = bytes_to_skip
 
     ; Render string.
     lda string_ptr+2
@@ -150,7 +145,6 @@ begin_args_nearcall
     sta outgoing_args+2
     ldy z:text_line_chardata_ptr+0
     sty outgoing_args+0             ; dest_ptr
-    ldx bytes_to_skip               ; bytes_to_skip
     jsl vwf_render_string
 
     ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
@@ -161,15 +155,14 @@ begin_args_nearcall
     a16
     txa
     sub z:text_line_chardata_ptr+0
-    sta bytes_rendered
-    lda max_line_byte_size
-    sub bytes_rendered
-    ble @overflow                   ; Overflow?
+    sub max_line_byte_size          ; bytes_rendered - max_line_byte_size
+    bgt overflow                    ; Overflow?
+    neg16                           ; Negate, so we have `max_line_byte_size - bytes_rendered`
     tay                             ; count
     a8
     ldx #0                          ; value
     jsr std_memset
-@overflow:
+overflow:
 
     ; Schedule the upload.
     lda flags
@@ -201,7 +194,7 @@ begin_locals
 begin_args_nearcall
     decl_arg flags, 1                   ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -340,7 +333,7 @@ begin_locals
 begin_args_nearcall
     decl_arg flags, 1               ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     stx out_tile_addr
     tya
@@ -380,7 +373,7 @@ begin_locals
 begin_args_nearcall
     decl_arg flags, 1       ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     stx base_addr
 
@@ -435,7 +428,7 @@ begin_args_nearcall
     decl_arg dma_stack_size_ptr, 3      ; uint8 far *
     decl_arg dma_stack_capacity, 1      ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Store arguments.
     stx out_dma_stack_ptr

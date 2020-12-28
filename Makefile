@@ -1,6 +1,6 @@
 AS65?=ca65
 LD65?=ld65
-ASFLAGS?=
+ASFLAGS+=-I ff6 -g
 
 FF6VWF_OBJS=\
 	ff6/ff6vwf.o \
@@ -27,29 +27,29 @@ demo.smc:	demo.o vwf.o demo.cfg
 
 stdsnes.o:	snes.inc
 
-vwf.o:	font.inc snes.inc
+vwf.o:	font.inc snes.inc ff6/snesconfig.inc
 
 ff6/ff6.o:	ff6/ff6.s ff6/ff6.smc
 
 ff6/ff6twue.o:	ff6/ff6twue.s ff6/ff6twue.smc
 
-ff6/ff6vwf.o:	font.inc snes.inc ff6/ff6.inc
+ff6/ff6vwf.o:	font.inc snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/encounter.o:	snes.inc ff6/ff6.inc
+ff6/encounter.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/encounter-items.o:	snes.inc ff6/ff6.inc
+ff6/encounter-items.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/encounter-skills.o:	snes.inc ff6/ff6.inc
+ff6/encounter-skills.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/menu.o:	snes.inc ff6/ff6.inc
+ff6/menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/shop.o:	snes.inc ff6/ff6.inc
+ff6/shop.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/skills-menu.o:	snes.inc ff6/ff6.inc
+ff6/skills-menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/items-menu.o:	snes.inc ff6/ff6.inc
+ff6/items-menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/misc-menus.o:	snes.inc ff6/ff6.inc
+ff6/misc-menus.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
 font.inc:	gen-font.rb font.tga
 	./gen-font.rb font.tga > $@
@@ -61,10 +61,10 @@ ff6/item-names.s:	ff6/encode-item-names.rb ff6/items.csv
 	ff6/encode-item-names.rb ff6/items.csv > $@
 
 ff6/ff6vwf.smc:	ff6/ff6.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
-	$(LD65) -C ff6/ff6vwf.cfg -o $@ -m ff6/ff6vwf.map -vm $(FF6VWF_OBJS) $<
+	$(LD65) -C ff6/ff6vwf.cfg -o $@ --dbgfile ff6/ff6vwf.dbg -m ff6/ff6vwf.map -vm $(FF6VWF_OBJS) $<
 
 ff6/ff6twuevwf.smc:	ff6/ff6twue.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
-	$(LD65) -C ff6/ff6vwf.cfg -o $@ -m ff6/ff6twuevwf.map -vm $(FF6VWF_OBJS) $<
+	$(LD65) -C ff6/ff6vwf.cfg -o $@ --dbgfile ff6/ff6twuevwf.dbg -m ff6/ff6twuevwf.map -vm $(FF6VWF_OBJS) $<
 
 .PHONY:	clean ff6
 

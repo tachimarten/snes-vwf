@@ -333,7 +333,7 @@ ff6_load_bg1_font_gfx = $c36b37
 TILEMAP_DEST_LINEUP = $3adb
 TILEMAP_DEST_NAMING = $4229
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     ; If this is the Lineup menu, then don't redraw the name if we've already drawn it, to avoid
     ; flicker.
@@ -421,7 +421,7 @@ begin_locals
     decl_local dma_flags, 1
     decl_local name_buffer, 7       ; char[7]
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Store arguments.
     txa
@@ -585,7 +585,7 @@ begin_args_nearcall
     decl_arg blanks_count, 1
     decl_arg offset, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -706,7 +706,7 @@ begin_args_nearcall
 
 ff6_esper_list = $7e9d89
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save arguments.
     txa
@@ -813,7 +813,7 @@ begin_locals
     decl_local text_line_slot, 1
     decl_local first_tile_id, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
 ff6_party_characters = $7e0000
 ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0-3 respectively
@@ -911,7 +911,7 @@ begin_args_nearcall
 
 ff6_update_config_menu_arrow = $c33980
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save tile offset.
     txa
@@ -977,7 +977,7 @@ ff6_update_config_menu_arrow = $c33980
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_main_menu_static_text_descriptor)
     stx outgoing_args+0
@@ -998,7 +998,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload BG1 labels.
     ldx #.loword(ff6vwf_status_bg1_static_text_descriptor)
@@ -1028,8 +1028,6 @@ begin_locals
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_status_menu
-
 ; farproc void _ff6vwf_menu_draw_status_title()
 .proc _ff6vwf_menu_draw_status_title
 .struct locals
@@ -1038,7 +1036,7 @@ begin_locals
     offset        .word    ; uint16
 .endstruct
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     lda #$2c                    ; Color: Blue
     sta f:ff6_menu_bg_attrs
@@ -1068,7 +1066,7 @@ begin_locals
 
 command_name = $7e00e2
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Store dest tilemap position
     a16
@@ -1130,8 +1128,6 @@ command_name = $7e00e2
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_status_command_name
-
 _ff6vwf_status_command_positions:
 .word $79ad     ; $c344b4 -- Cmd.Set menu, character 0, position 0
     .byte 0*6
@@ -1185,7 +1181,7 @@ begin_locals
 
 ff6_update_config_menu_arrow = $c33980
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_config_bg1_static_text_descriptor)
     stx outgoing_args+0
@@ -1209,13 +1205,11 @@ ff6_update_config_menu_arrow = $c33980
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_config_menu
-
 .proc _ff6vwf_menu_draw_command_set_menu
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_command_set_static_text_descriptor)
     stx outgoing_args+0
@@ -1237,7 +1231,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_save_static_text_descriptor)
     stx outgoing_args+0
@@ -1259,7 +1253,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_save_static_text_descriptor)
     stx outgoing_args+0
@@ -1284,7 +1278,7 @@ begin_locals
     offset        .word    ; uint16
 .endstruct
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     lda #$20
     sta f:ff6_menu_bg_attrs
@@ -1307,7 +1301,7 @@ begin_locals
     offset        .word    ; uint16
 .endstruct
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     lda #$20
     sta f:ff6_menu_bg_attrs
@@ -1332,7 +1326,7 @@ begin_locals
 .endstruct
 args = .sizeof(locals) + .sizeof(nearcall_frame) + 1
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     ; Initialize locals.
     a16
@@ -1410,8 +1404,6 @@ ff6_menu_bg3_ypos = $3f
     ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_size, 0, 250
     rtl
 .endproc
-
-.export _ff6vwf_menu_run_dma
 
 ; ROM data patches
 

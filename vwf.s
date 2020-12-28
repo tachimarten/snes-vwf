@@ -15,6 +15,12 @@
 
 .segment "TEXT"
 
+.struct renderer
+    glyph_canvas        .byte 16    ; chardata[16]
+    shadow_buffer       .byte       ; uint8
+    bytes_between_tiles .byte       ; uint8
+.endstruct
+
 ; farproc chardata near *vwf_render_string(uint8 bytes_between_tiles,
 ;                                          chardata far *dest_ptr,
 ;                                          const char far *string_ptr)
@@ -23,33 +29,34 @@
 ; tile (the tile one past the end of the last one we rendered to).
 .proc vwf_render_string
 begin_locals
-    decl_local outgoing_args, 7
-    decl_local tile_sub_x, 1            ; uint8
-    decl_local current_glyph, 1         ; uint8
-    decl_local glyph_image_ptr, 3       ; const chardata far *
-    decl_local shadow_buffer, 1         ; uint8
-    decl_local bytes_between_tiles, 1   ; uint8
-    decl_local glyph_canvas, 16         ; chardata[16]
+    decl_local outgoing_args, 3
+    decl_local tile_sub_x, 1                ; uint8
+    decl_local current_glyph, 1             ; uint8
+    decl_local glyph_image_ptr, 3           ; const chardata far *
+    decl_local renderer, .sizeof(renderer)  ; struct renderer
 begin_args_farcall
     decl_arg dest_ptr, 3                ; chardata far *
     decl_arg string_ptr, 3              ; const char far *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Init local variables.
-    txa
-    sta bytes_between_tiles 
     lda #^glyph_images
     sta glyph_image_ptr+2  ; bank byte
     lda #0
     sta tile_sub_x
-    sta shadow_buffer
+
+    ; Create renderer.
+    stz z:renderer+renderer::shadow_buffer
+    txa
+    sta z:renderer+renderer::bytes_between_tiles
 
     ; Clear out our tiles.
+    ; TODO(tachiweasel): Use memset.
     a16
     lda #0
     ldx #0
-:   sta glyph_canvas,x
+:   sta z:renderer+renderer::glyph_canvas,x
     inx
     inx
     cpx #16
@@ -98,11 +105,11 @@ begin_args_farcall
     ; Write glyph row.
     tyx
     a8
-    ora z:glyph_canvas+8,x  ; Little-endian, so low byte is 2nd glyph tile.
-    sta z:glyph_canvas+8,x
+    ora z:renderer+renderer::glyph_canvas+8,x  ; Little-endian, so low byte is 2nd glyph tile.
+    sta z:renderer+renderer::glyph_canvas+8,x
     xba
-    ora z:glyph_canvas,x
-    sta z:glyph_canvas,x
+    ora z:renderer+renderer::glyph_canvas,x
+    sta z:renderer+renderer::glyph_canvas,x
     a16
     iny
     cpy #8
@@ -125,18 +132,13 @@ begin_args_farcall
     sta tile_sub_x
     a16
     tdc
-    add #shadow_buffer
-    tay                         ; uint8_t near *shadow_buffer
-    tdc
-    add #glyph_canvas
-    tax                         ; chardata near *src_ptr
+    add #renderer
+    tax                         ; struct renderer near *renderer_ptr
     lda dest_ptr
     sta outgoing_args+0         ; chardata far *dest_ptr
     a8
     lda dest_ptr+2
     sta outgoing_args+2         ; dest bank
-    lda bytes_between_tiles
-    sta outgoing_args+3
     jsr _vwf_flush_tile_image
     stx dest_ptr
 :
@@ -150,18 +152,13 @@ begin_args_farcall
     beq :+
     a16
     tdc
-    add #shadow_buffer
-    tay                     ; uint8_t near *shadow_buffer
-    tdc
-    add #glyph_canvas
-    tax                     ; chardata near *src_ptr
+    add #renderer
+    tax                         ; struct renderer near *renderer_ptr
     lda dest_ptr
-    sta outgoing_args+0     ; chardata far *dest_ptr
+    sta outgoing_args+0         ; chardata far *dest_ptr
     a8
     lda dest_ptr+2
     sta outgoing_args+2
-    lda bytes_between_tiles
-    sta outgoing_args+3
     jsr _vwf_flush_tile_image
     stx dest_ptr
 :
@@ -173,33 +170,29 @@ begin_args_farcall
     rtl
 .endproc
 
-; near *_vwf_flush_tile_image(chardata near *src_ptr,
-;                             chardata near *shadow_buffer_ptr,
-;                             chardata far *dest_ptr,
-;                             uint8 bytes_between_tiles)
+; chardata near *_vwf_flush_tile_image(struct renderer near *renderer_ptr, chardata far *dest_ptr)
 ;
 ; Returns the new destination pointer.
 .proc _vwf_flush_tile_image
 begin_locals
+    decl_local renderer_ptr, 2          ; struct renderer near *
     decl_local src_ptr, 2               ; chardata near *
-    decl_local shadow_buffer_ptr, 2     ; chardata near *
     decl_local last_row_image, 1        ; chardata
     decl_local last_col_image, 1        ; chardata
 begin_args_nearcall
     decl_arg dest_ptr, 3                ; chardata far *
-    decl_arg bytes_between_tiles, 1     ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
-    ; Initialize args.
+    ; Save renderer and source pointers.
+    stx renderer_ptr
     stx src_ptr
-    sty shadow_buffer_ptr
 
     ; Initialize last row and column image.
-    lda (shadow_buffer_ptr)
+    ldy #renderer::shadow_buffer
+    lda (renderer_ptr),y
     sta last_col_image
-    lda #0
-    sta last_row_image
+    stz last_row_image
 
     ; Enter main loop.
     ldx #8
@@ -243,17 +236,20 @@ begin_args_nearcall
 
     ; Save last column in shadow buffer.
     lda last_col_image
-    sta (shadow_buffer_ptr)
+    ldy #renderer::shadow_buffer
+    sta (renderer_ptr),y
 
     ; Pad out with zeroes to fill `bytes_between_tiles`.
-    ldy #0
-    lda bytes_between_tiles
+    ldy #renderer::bytes_between_tiles
+    lda (renderer_ptr),y
     a16
     and #$00ff
     tax
     a8
-:   beq :+
+    ldy #0
     lda #0
+    cpx #0
+:   beq :+
     sta [dest_ptr],y
     iny
     dex
@@ -261,7 +257,8 @@ begin_args_nearcall
 :
 
     ; Return the new dest pointer in X.
-    lda bytes_between_tiles
+    ldy #renderer::bytes_between_tiles
+    lda (renderer_ptr),y
     a16
     and #$00ff
     add dest_ptr
@@ -272,8 +269,5 @@ begin_args_nearcall
     rts
 
 .endproc
-
-; for debugging
-.export _vwf_flush_tile_image
 
 .include "font.inc"

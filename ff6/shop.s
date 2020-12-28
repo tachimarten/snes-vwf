@@ -113,7 +113,7 @@ begin_locals
 ff6_menu_item_for_sale = $7e00f1
 
     tax     ; Save item ID in X.
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save item ID.
     txa
@@ -150,7 +150,7 @@ begin_locals
 ff6_menu_item_for_sale = $7e00f1
 
     tax     ; Save item ID in X.
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save item ID.
     txa
@@ -201,7 +201,7 @@ begin_locals
 
 ff6_shop_id = $7e0201
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload static strings.
     ldx #.loword(ff6vwf_shop_static_text_descriptor)
@@ -250,7 +250,7 @@ ff6_shop_id = $7e0201
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload static strings.
     ldx #.loword(ff6vwf_buy_static_text_descriptor)
@@ -274,7 +274,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     ldx #.loword(ff6vwf_buy_quantity_static_text_descriptor)
@@ -302,7 +302,7 @@ begin_locals
 
 ff6_item_properties = $d85000
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     stx item_properties_index
 
@@ -337,7 +337,7 @@ ff6_item_properties = $d85000
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -364,7 +364,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -391,7 +391,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -418,7 +418,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -445,7 +445,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     ldx #.loword(ff6vwf_sell_static_text_descriptor)
@@ -469,7 +469,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload title.
     ldx #.loword(ff6vwf_sell_quantity_static_text_descriptor)

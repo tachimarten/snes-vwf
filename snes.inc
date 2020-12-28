@@ -3,6 +3,8 @@
 .ifndef SNES_INC
 .define SNES_INC 1
 
+.include "snesconfig.inc"
+
 ; PPU registers
 BGMODE   = $2015
 INIDISP  = $2100
@@ -130,6 +132,13 @@ RDMPYH   = $4217
     bcc label
 .endmacro
 
+.macro bgt label
+    .local L
+    beq L
+    bcs label
+L:
+.endmacro
+
 ; Creates a C-like function prolog. DP is set to point at the first local variable (so it's
 ; basically a frame pointer).
 ;
@@ -143,7 +152,7 @@ RDMPYH   = $4217
 ; Using a C-like calling convention is a bit weird on the SNES, but in our case it has the
 ; advantage of giving every function a private direct page. This reduces the chance of accidentally
 ; stomping on something the game was using.
-.macro enter frame_size
+.macro enter frame_size, stack_limit
     phd
 .if frame_size < 11
 .repeat frame_size / 2
@@ -161,6 +170,16 @@ RDMPYH   = $4217
     tcs
 .endif
     tcd
+
+.if stack_limit >= 0
+    ; Debug stack check!
+    a16
+    cmp #stack_limit
+    a8
+    bge :+
+    stp
+:
+.endif
 .endmacro
 
 ; Creates a matching C-like function epilog, restoring the old DP.

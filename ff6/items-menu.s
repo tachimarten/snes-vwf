@@ -178,7 +178,7 @@ begin_locals
 
     tax             ; Put item ID in X.
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -240,7 +240,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_long_key_item_names)
     stx outgoing_args+0
@@ -253,8 +253,6 @@ begin_locals
     leave __FRAME_SIZE__
     jml ff6_menu_draw_string
 .endproc
-
-.export _ff6vwf_menu_draw_key_item
 
 ; farproc void _ff6vwf_menu_draw_inventory_item_name_for_item_menu()
 .proc _ff6vwf_menu_draw_inventory_item_name_for_item_menu
@@ -311,7 +309,7 @@ begin_locals
     decl_local offense_defense_text, 3  ; const struct static_text far *
     decl_local buffer, 64
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save item ID.
     tyx
@@ -411,8 +409,6 @@ begin_locals
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_gear_info_text
-
 ; patch _ff6vwf_menu_draw_equipped_item(inreg(A) uint8 item_id)
 .proc _ff6vwf_menu_draw_equipped_item
 RIGHT_HAND_POSITION = $7a1b
@@ -476,7 +472,7 @@ ff6_menu_gear_overview_base_y       = $7e00e2
 ff6_menu_gear_overview_x_positions  = $c38fd5
 ff6_menu_gear_overview_y_positions  = $c38fdb
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     txa
     sta gear_slot
@@ -526,15 +522,13 @@ ff6_menu_gear_overview_y_positions  = $c38fdb
     rtl
 .endproc
 
-.export _ff6vwf_menu_store_text_line_slot_for_gear_overview
-
 ; nearproc uint8 _ff6vwf_menu_first_tile_id_for_list_item(uint8 text_line_slot,
 ;                                                         uint8 max_tile_count)
 .proc _ff6vwf_menu_first_tile_id_for_list_item
 begin_locals
     decl_local max_tile_count, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     tya
     sta max_tile_count
@@ -572,7 +566,7 @@ begin_locals
 
 FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     tya
@@ -640,8 +634,6 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     rts
 .endproc
 
-.export _ff6vwf_menu_draw_inventory_item_name ; for debugging
-
 ; farproc void _ff6vwf_menu_draw_item_to_be_used()
 .proc _ff6vwf_menu_draw_item_to_be_used
 begin_locals
@@ -651,7 +643,7 @@ TEXT_LINE_SLOT = 0
 
 ff6_menu_cursor_selected_inventory_slot = $7e004b
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     lda f:ff6_menu_cursor_selected_inventory_slot
     tax
@@ -698,7 +690,7 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_item_menu_static_text_descriptor)
     stx outgoing_args+0
@@ -719,7 +711,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload main labels.
     ldx #.loword(ff6vwf_equip_menu_static_text_descriptor)
@@ -749,7 +741,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Upload main labels.
     ldx #.loword(ff6vwf_relic_menu_static_text_descriptor)
@@ -784,7 +776,7 @@ begin_locals
     decl_local text_line_slot, 1
     decl_local first_tile_id, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa

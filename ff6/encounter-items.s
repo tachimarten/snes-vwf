@@ -62,8 +62,9 @@ ITEM_L_HAND_START_TILE = 76
     jml _ff6vwf_encounter_build_menu_item_for_throw
 
 ; FF6 routine to draw an item name during encounters.
-.segment "PTEXTENCOUNTERDRAWITEMNAME"
+.segment "PTEXTENCOUNTERDRAWITEMNAME"       ; $c16566
     jsl _ff6vwf_encounter_draw_item_name
+    txy     ; Put dest tilemap offset in Y.
     rts
 
 .segment "PTEXTENCOUNTERDRAWITEMTYPE"   ; $c1654b
@@ -116,7 +117,7 @@ ITEM_L_HAND_START_TILE = 76
 begin_locals
     decl_local outgoing_args, 5
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Render "R-Hand".
     stz outgoing_args+0                             ; 2bpp
@@ -183,15 +184,12 @@ begin_locals
     jml $c14c2c
 .endproc
 
+; farproc uint16 _ff6vwf_encounter_draw_item_name(uint16 unused, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_item_name
 begin_locals
-    decl_local outgoing_args, 7
-    decl_local item_name_tiles, 3           ; chardata far *
+    decl_local outgoing_args, 5
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
-    decl_local item_slot, 1                 ; uint8
     decl_local item_id_ptr, 2               ; uint8 near *
-    decl_local item_id, 1                   ; uint8
-    decl_local string_ptr, 2                ; char near *
     decl_local first_tile_id, 1             ; uint8
 
 ff6_display_list_ptr        = $7e004f
@@ -200,16 +198,16 @@ ff6_item_in_hand_right      = $7e5760
 ff6_tool_display_list_left  = $7e575a
 ff6_tool_display_list_right = $7e5760
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
     a16
     lda ff6_display_list_ptr
     sta item_id_ptr
+    a8
 
     ; Figure out what text slot we're going to use.
-    a8
     lda ff6vwf_encounter_item_type_to_draw
     cmp #FF6VWF_ITEM_TYPE_ITEM_IN_HAND
     beq @item_in_hand
@@ -246,12 +244,13 @@ ff6_tool_display_list_right = $7e5760
     beq @write_item_slot
     inc                     ; item slot * 2, plus one if this is the right column
 
+    ; Compute first tile index.
 @write_item_slot:
-    sta item_slot
-
-    ; Fetch item ID.
-    lda (item_id_ptr)
-    sta item_id
+    tax
+    ldy #10
+    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
+    txa                                         ; first_tile_id
+    sta first_tile_id
 
     ; Draw item icon.
     tax
@@ -265,20 +264,12 @@ ff6_tool_display_list_right = $7e5760
     stx dest_tilemap_offset
 
     ; Compute string pointer.
-    ldx item_id
+    lda (item_id_ptr)
+    tax
     jsr ff6vwf_get_long_item_name
-    stx string_ptr
-
-    ; Compute first tile index.
-    ldx item_slot
-    ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple   ; first_tile_id
-    txa                             ; first_tile_id
-    sta first_tile_id
 
     ; Render the string.
-    ldy string_ptr
-    sty outgoing_args+2                 ; string_ptr
+    stx outgoing_args+2                 ; string_ptr
     lda #^ff6vwf_long_item_names
     sta outgoing_args+4                 ; string_ptr bank byte
     lda #2
@@ -291,7 +282,6 @@ ff6_tool_display_list_right = $7e5760
     jsr ff6vwf_encounter_draw_standard_string
 
     leave __FRAME_SIZE__
-    txy ; FF6 expects the dest tilemap offset to go in Y upon exit...
     rtl
 .endproc
 
@@ -309,7 +299,7 @@ ff6_display_list_ptr    = $7e004f
 
     tax                             ; Put status ID in X.
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -358,8 +348,6 @@ ff6_display_list_ptr    = $7e004f
     a8
     rtl
 .endproc
-
-.export _ff6vwf_encounter_draw_status_name
 
 ; Constant data
 

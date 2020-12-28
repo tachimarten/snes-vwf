@@ -165,7 +165,7 @@ COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TIL
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
@@ -198,7 +198,7 @@ begin_locals
 display_list_ptr          = $7e0048
 first_command_ptr         = $7e56d9     ; address of first command in the display list
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save dest tilemap offset.
     sty dest_tilemap_offset
@@ -258,6 +258,7 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     stz outgoing_args+0                     ; save_tiles_to_draw
     ldx dest_tilemap_offset                 ; dest_tilemap_offset
     jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
+    ldx dest_tilemap_offset
 
     leave __FRAME_SIZE__
     txy                 ; Put dest_tilemap_offset in Y.
@@ -317,7 +318,7 @@ begin_locals
 
 character_battle_commands = $7e202e
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     txa
     sta command_slot
@@ -369,7 +370,7 @@ begin_locals
     decl_local command_id, 1        ; uint8
     decl_local string_ptr, 2        ; char near *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Store arguments.
     tya
@@ -408,8 +409,6 @@ begin_locals
     rts
 .endproc
 
-.export _ff6vwf_encounter_render_command_name
-
 ; farproc void _ff6vwf_encounter_draw_enemy_name(uint16 unused, uint16 tilemap_offset)
 ;
 ; Draws an enemy name during an encounter using our small variable-width font.
@@ -427,7 +426,7 @@ ff6_display_list_ptr  = $7e0048
 ff6_enemy_name_offset = $7e0026
 ff6_enemy_name_table  = $cfc050
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     sty dest_tilemap_offset
@@ -523,7 +522,7 @@ begin_locals
 
 name_pointer    = $7e0010
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Init locals.
     txa
@@ -572,8 +571,6 @@ name_pointer    = $7e0010
     rts
 .endproc
 
-.export _ff6vwf_encounter_render_pc_name
-
 ; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_pc_name(uint8 unused, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_pc_name
 .struct locals
@@ -585,7 +582,7 @@ name_pointer    = $7e0010
 
 name_pointer    = $7e0010
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     sty locals::dest_tilemap_offset
     lda #FF6_SHORT_PC_NAME_LENGTH
@@ -623,8 +620,6 @@ name_pointer    = $7e0010
     rtl
 .endproc
 
-.export _ff6vwf_encounter_draw_pc_name
-
 ; uint16 _ff6vwf_encounter_draw_enemy_name_tile(char tile, uint16 dest_tilemap_offset)
 .proc _ff6vwf_encounter_draw_enemy_name_tile
 begin_locals
@@ -635,7 +630,7 @@ ff6_dest_tilemap_extra   = $7e004a
 ff6_dest_tilemap_main    = $7e004c
 ff6_dest_tile_attributes = $7e004e
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
     a16
     lda ff6_dest_tilemap_main
     sta dest_tilemap_main
@@ -671,7 +666,7 @@ begin_locals
 begin_args_nearcall
     decl_arg save_tiles_to_draw, 1      ; bool
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     tya
     sta tiles_to_draw
@@ -715,7 +710,7 @@ begin_args_nearcall
     decl_arg string_ptr, 3              ; const char far *
     decl_arg save_tiles_to_draw, 1      ; bool
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save arguments.
     stx dest_tilemap_offset
@@ -772,7 +767,7 @@ begin_args_nearcall
     decl_arg blank_tiles_at_end, 1      ; uint8
     decl_arg string_ptr, 3              ; const char far *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save arguments.
     stx dest_tilemap_offset
@@ -815,7 +810,7 @@ begin_locals
 begin_args_nearcall
     decl_arg tiles_to_draw_ptr, 2       ; uint8 near *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -849,7 +844,7 @@ ff6_dest_tilemap_extra   = $7e0051
 ff6_extra_tile           = $7e0055
 ff6_dest_tile_attributes = $7e0056
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
     a16
     lda ff6_dest_tilemap_main
     sta dest_tilemap_main
@@ -873,9 +868,6 @@ ff6_dest_tile_attributes = $7e0056
 .endproc
 
 .export ff6vwf_encounter_draw_tile
-
-; For debugging
-.export _ff6vwf_encounter_draw_enemy_name
 
 ; farproc void _ff6vwf_encounter_restore_small_font()
 ;
@@ -901,7 +893,7 @@ ff6_dma_size_to_transfer = $10
     lda #$c4        ; bank
     jsl _ff6vwf_encounter_schedule_dma_trampoline
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Look at the monster names and schedule each one to be reuploaded if necessary.
     lda #0
@@ -969,7 +961,7 @@ begin_locals
     decl_local enemy_slot, 1
     decl_local string_ptr, 2        ; char near *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     lda #0
     sta enemy_slot
@@ -1022,7 +1014,7 @@ begin_locals
 begin_locals
     decl_local command_index, 1     ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     lda #0
     sta command_index
@@ -1045,7 +1037,7 @@ begin_locals
     pc_index    .byte   ; uint8
 .endstruct
 
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     lda #0
     sta locals::pc_index
@@ -1073,7 +1065,7 @@ begin_args_nearcall
     decl_arg text_tiles_to_draw, 1          ; uint8
     decl_arg blank_tiles_at_end, 1          ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     stx dest_tilemap_offset
@@ -1107,7 +1099,7 @@ begin_args_nearcall
 begin_locals
     decl_local count, 1     ; uint8
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     tya
     sta count
@@ -1145,5 +1137,3 @@ begin_locals
     ; Tear down.
     jml $c10be1
 .endproc
-
-.export _ff6vwf_encounter_run_dma

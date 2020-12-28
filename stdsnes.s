@@ -20,7 +20,7 @@ begin_args_nearcall
     decl_arg dest, 3
     decl_arg src, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldy #0
     cpx #0
@@ -45,7 +45,7 @@ begin_locals
 begin_args_nearcall
     decl_arg ptr, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     sty count
     txa
@@ -72,7 +72,7 @@ begin_args_nearcall
     decl_arg dest_ptr, 3    ; char far *
     decl_arg src_ptr, 3     ; const char far *
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldy #0
 :   lda [src_ptr],y
@@ -127,7 +127,7 @@ begin_args_nearcall
 begin_locals
     decl_local tmp_d, 2
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     tya
     sta f:WRMPYA    ; b

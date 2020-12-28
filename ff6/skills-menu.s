@@ -339,7 +339,7 @@ begin_locals
 begin_args_nearcall
     decl_arg attributes, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     tya
@@ -395,7 +395,7 @@ begin_args_nearcall
 begin_locals
     decl_local outgoing_args, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Compute first tile ID.
     lda f:ff6_menu_list_slot
@@ -447,7 +447,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Fetch spell ID.
     lda f:ff6_menu_list_slot
@@ -526,7 +526,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_long_esper_names)
     stx outgoing_args+0
@@ -547,7 +547,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 5
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_esper_info_menu_static_text_descriptor)
     stx outgoing_args+0
@@ -575,7 +575,7 @@ begin_locals
 TEXT_LINE_SLOT = 9
 FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Compute string pointer.
     a16
@@ -612,8 +612,6 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_esper_name_in_info_menu
-
 ; farproc void _ff6vwf_menu_draw_esper_bonus(uint8 bonus_id)
 .proc _ff6vwf_menu_draw_esper_bonus
 begin_locals
@@ -622,7 +620,7 @@ begin_locals
 
 FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Look up pointer.
     a16
@@ -676,7 +674,7 @@ ff6_current_row         = $7e00f5
 
 FIRST_SPELL_ROW = $11
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Is this called to display an armor-taught spell? (We can tell because of where we're drawing
     ; to.)
@@ -728,7 +726,7 @@ begin_locals
 FIRST_TILE_ID = 20
 MESSAGE_LENGTH = 24
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Copy string name.
     a16
@@ -810,7 +808,7 @@ begin_locals
 begin_args_nearcall
     decl_arg bg3, 1
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Store arguments.
     txa
@@ -874,7 +872,7 @@ begin_args_nearcall
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_long_enemy_names)
     stx outgoing_args+0
@@ -898,7 +896,7 @@ begin_locals
 
 FF6TWUE_BLITZ_NAME_ATTRS = $24
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     txa
@@ -948,14 +946,12 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_blitz     ; For debugging.
-
 ; farproc void _ff6vwf_menu_draw_lore()
 .proc _ff6vwf_menu_draw_lore
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_long_lore_names)
     stx outgoing_args+0
@@ -976,7 +972,7 @@ begin_locals
 
 ff6_menu_list           = $7e9d89
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save tile X offset.
     txy
@@ -1016,7 +1012,7 @@ begin_locals
 begin_args_nearcall
     decl_arg string_table, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Save tile X offset, and put Blitz ID in A.
     tya
@@ -1090,7 +1086,7 @@ begin_locals
 
 espers_palette = $7e0079
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_skills_menu_static_text_descriptor)
     stx outgoing_args+0

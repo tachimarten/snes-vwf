@@ -94,7 +94,7 @@ ff6_event_data      = $7e0201
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_colosseum_static_text_descriptor)
     stx outgoing_args+0
@@ -120,7 +120,7 @@ begin_locals
     decl_local first_tile_id, 1
 
     tay                     ; Save item in Y.
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Initialize locals.
     tya
@@ -194,7 +194,7 @@ ff6_menu_colosseum_opponent = $7e0206
 
 FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Compute string pointer.
     lda f:ff6_menu_colosseum_opponent
@@ -241,7 +241,7 @@ FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_pc_name_static_text_descriptor)
     stx outgoing_args+0
@@ -263,7 +263,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta outgoing_args+0             ; flags
@@ -288,7 +288,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 4
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Get message.
     lda f:ff6_event_data
@@ -319,7 +319,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 5
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Get message.
     lda f:ff6_event_data
@@ -356,7 +356,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 5
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ; Get message.
     lda f:ff6_event_data
@@ -392,7 +392,7 @@ begin_locals
 begin_locals
     decl_local outgoing_args, 3
 
-    enter __FRAME_SIZE__
+    enter __FRAME_SIZE__, STACK_LIMIT
 
     ldx #.loword(ff6vwf_kefka_lineup_static_text_descriptor)
     stx outgoing_args+0
@@ -415,8 +415,6 @@ begin_locals
     rtl
 .endproc
 
-.export _ff6vwf_menu_draw_kefka_lineup
-
 ; farproc void ff6vwf_menu_draw_pc_name_for_kefka_lineup(uint8 unused, tiledata near *tilemap_addr)
 .proc _ff6vwf_menu_draw_pc_name_for_kefka_lineup
 .struct locals
@@ -430,7 +428,7 @@ begin_locals
 ff6_menu_party_member_infos = $c36969
 
     tax                     ; Actor ID
-    enter .sizeof(locals)
+    enter .sizeof(locals), STACK_LIMIT
 
     ; Save party member ID.
     txa
