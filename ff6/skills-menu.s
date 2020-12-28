@@ -387,8 +387,7 @@ begin_args_nearcall
 :   cpx byte_count
     bge :+
     sta f:ff6_menu_string_buffer,x
-    inx
-    inx
+    addix 2
     bra :-
 :   a8
 
@@ -1209,8 +1208,7 @@ ff6twue_menu_move_blitz_tilemap:
     beq move_blitz_tilemap_out
     sta [<ff6_menu_dest_ptr],Y
     a8
-    iny 
-    iny 
+    addiy 2
     bra @move_blitz_tilemap_loop
 move_blitz_tilemap_out:
     a8

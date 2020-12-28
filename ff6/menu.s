@@ -389,9 +389,7 @@ TILEMAP_DEST_NAMING = $4229
 :   lda f:_ff6vwf_menu_pc_name_address_table,x
     cmp f:ff6_menu_positioned_text_ptr
     beq @found_tile_id
-    inx
-    inx
-    inx
+    addix 3
     cpx #_ff6vwf_menu_pc_name_address_table_end-_ff6vwf_menu_pc_name_address_table
     bne :-
     lda #0      ; fallback
@@ -1085,9 +1083,7 @@ command_name = $7e00e2
     cmp dest_tilemap_position
     a8
     beq @found_position
-    inx
-    inx
-    inx
+    addix 3
     cpx #_ff6vwf_status_command_positions_end - _ff6vwf_status_command_positions
     bne :-
     stp                 ; Assert we found the command position!
@@ -1354,8 +1350,7 @@ args = .sizeof(locals) + .sizeof(nearcall_frame) + 1
     jsl _ff6_menu_draw_string_trampoline
     a16
     ldy locals::current_offset
-    iny
-    iny
+    addiy 2
     sty locals::current_offset
     cpy locals::last_string_offset
     bne :-

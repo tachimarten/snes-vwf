@@ -57,8 +57,7 @@ begin_args_farcall
     lda #0
     ldx #0
 :   sta z:renderer+renderer::glyph_canvas,x
-    inx
-    inx
+    addix 2
     cpx #16
     bne :-
     a8
