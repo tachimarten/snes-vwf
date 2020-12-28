@@ -68,6 +68,11 @@ RDMPYH   = $4217
     ra .addr
 .endstruct
 
+.struct farcall_frame
+    dp .addr
+    ra .faraddr
+.endstruct
+
 .macro a16
     rep #$20
     .a16

@@ -635,6 +635,17 @@ ff6vwf_long_dance_name_5: .asciiz "Water Harmony"
 ff6vwf_long_dance_name_6: .asciiz "Twilight Requiem"
 ff6vwf_long_dance_name_7: .asciiz "Snowman Rondo"
 
+ff6vwf_long_bushido_names: ff6vwf_def_pointer_array ff6vwf_long_bushido_name, 8
+
+ff6vwf_long_bushido_name_0: .asciiz "Fang"
+ff6vwf_long_bushido_name_1: .asciiz "Sky"
+ff6vwf_long_bushido_name_2: .asciiz "Tiger"
+ff6vwf_long_bushido_name_3: .asciiz "Quadra Slam"
+ff6vwf_long_bushido_name_4: .asciiz "Dragon"
+ff6vwf_long_bushido_name_5: .asciiz "Eclipse"
+ff6vwf_long_bushido_name_6: .asciiz "Tempest"
+ff6vwf_long_bushido_name_7: .asciiz "Oblivion"
+
 ff6vwf_long_lore_names: ff6vwf_def_pointer_array ff6vwf_long_lore_name, 24
 
 ff6vwf_long_lore_name_0:  .asciiz "Doom"
@@ -794,9 +805,9 @@ ff6vwf_char_to_ascii:
 .export ff6vwf_long_blitz_names: far
 .export ff6vwf_long_lore_names: far
 .export ff6vwf_long_dance_names: far
+.export ff6vwf_long_bushido_names: far
 .export ff6vwf_long_magitek_names: far
 .export ff6vwf_long_status_names: far
 .export ff6vwf_long_key_item_names: far
 .export ff6vwf_long_class_names: far
-.export ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
 .export ff6vwf_char_to_ascii: far

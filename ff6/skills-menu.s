@@ -14,14 +14,15 @@
 .import std_mul8:    near
 .import std_stpcpy:  near
 
-.import ff6vwf_long_blitz_names: far
-.import ff6vwf_long_dance_names: far
-.import ff6vwf_long_enemy_names: far
-.import ff6vwf_long_esper_names: far
-.import ff6vwf_long_lore_names:  far
-.import ff6vwf_long_spell_names: far
+.import ff6vwf_long_blitz_names:    far
+.import ff6vwf_long_bushido_names:  far
+.import ff6vwf_long_dance_names:    far
+.import ff6vwf_long_enemy_names:    far
+.import ff6vwf_long_esper_names:    far
+.import ff6vwf_long_lore_names:     far
+.import ff6vwf_long_spell_names:    far
 
-.import ff6vwf_menu_redraw_needed: far
+.import ff6vwf_menu_redraw_needed:  far
 
 .import ff6vwf_calculate_first_tile_id_simple:     near
 .import ff6vwf_menu_compute_map_ptr_trampoline:    far
@@ -65,6 +66,12 @@ ff6_menu_list                       = $7e9d89
 
 ff6_menu_create_scrollbar   = $c3091f
 ff6_menu_set_string_pos     = $c33519
+
+; Function prototypes
+
+.struct args_ff6vwf_menu_draw_dance_or_bushido_name
+    string_table .faraddr   ; const char far *
+.endstruct
 
 ; Patches
 
@@ -322,8 +329,12 @@ ff6vwf_menu_draw_blitz:
     jsl _ff6vwf_menu_draw_lore
     nop
 
-.segment "PTEXTMENUDRAWDANCE"
+.segment "PTEXTMENUDRAWDANCE"       ; $c357d0
     jsl _ff6vwf_menu_draw_dance
+    rts
+
+.segment "PTEXTMENUDRAWBUSHIDO"     ; $c35337
+    jsl _ff6vwf_menu_draw_bushido
     rts
 
 ; Our own functions, in a separate bank
@@ -967,17 +978,59 @@ begin_locals
 
 ; farproc void _ff6vwf_menu_draw_dance(uint8 tile_x_offset)
 .proc _ff6vwf_menu_draw_dance
-begin_locals
-    decl_local outgoing_args, 3
+.struct locals
+    .org 1
+    outgoing_args .byte .sizeof(args_ff6vwf_menu_draw_dance_or_bushido_name)
+.endstruct
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ldy #.loword(ff6vwf_long_dance_names)
+    sty locals::outgoing_args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+0
+    lda #^ff6vwf_long_dance_names
+    sta locals::outgoing_args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+2
+    jsr _ff6vwf_menu_draw_dance_or_bushido_name
+
+    leave .sizeof(locals)
+    rtl
+.endproc
+
+; farproc void _ff6vwf_menu_draw_bushido(uint8 tile_x_offset)
+.proc _ff6vwf_menu_draw_bushido
+.struct locals
+    .org 1
+    outgoing_args .byte .sizeof(args_ff6vwf_menu_draw_dance_or_bushido_name)
+.endstruct
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ldy #.loword(ff6vwf_long_bushido_names)
+    sty locals::outgoing_args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+0
+    lda #^ff6vwf_long_bushido_names
+    sta locals::outgoing_args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+2
+    jsr _ff6vwf_menu_draw_dance_or_bushido_name
+
+    leave .sizeof(locals)
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_menu_draw_dance_or_bushido_name(uint8 tile_x_offset,
+;                                                       const char far *string_table)
+.proc _ff6vwf_menu_draw_dance_or_bushido_name
+.struct locals
+    .org 1
+    outgoing_args .byte 3
+.endstruct
+args = .sizeof(locals) + .sizeof(nearcall_frame) + 1
 
 ff6_menu_list           = $7e9d89
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+    enter .sizeof(locals), STACK_LIMIT
 
     ; Save tile X offset.
     txy
 
-    ; Check for dance in slot.
+    ; Check for Bushido in slot.
     lda f:ff6_menu_list_slot
     a16
     and #$00ff
@@ -985,26 +1038,26 @@ ff6_menu_list           = $7e9d89
     a8
     lda f:ff6_menu_list,x
     cmp #$ff
-    beq @no_dance
+    beq @no_bushido
 
-    ; Draw dance name.
-    ldx #.loword(ff6vwf_long_dance_names)
-    stx outgoing_args+0
-    tax                             ; X = blitz_id
-    lda #^ff6vwf_long_blitz_names
-    sta outgoing_args+2
-    jsr _ff6vwf_menu_draw_blitz_or_dance_name
+    ; Draw Bushido name.
+    ldx args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+0
+    stx locals::outgoing_args+0
+    tax                             ; X = bushido_id
+    lda args+args_ff6vwf_menu_draw_dance_or_bushido_name::string_table+2
+    sta locals::outgoing_args+2
+    jsr _ff6vwf_menu_draw_blitz_or_dance_or_bushido_name
 
-@no_dance:
-    ; FIXME(tachiweasel): Fill with blanks if no dance here.
-    leave __FRAME_SIZE__
-    rtl
+@no_bushido:
+    ; FIXME(tachiweasel): Fill with blanks if no Bushido here.
+    leave .sizeof(locals)
+    rts
 .endproc
 
-; nearproc void _ff6vwf_menu_draw_blitz_or_dance_name(uint8 blitz_id,
-;                                                     uint8 tile_x_offset,
-;                                                     const char far *string_table)
-.proc _ff6vwf_menu_draw_blitz_or_dance_name
+; nearproc void _ff6vwf_menu_draw_blitz_or_dance_or_bushido_name(uint8 blitz_id,
+;                                                                uint8 tile_x_offset,
+;                                                                const char far *string_table)
+.proc _ff6vwf_menu_draw_blitz_or_dance_or_bushido_name
 begin_locals
     decl_local outgoing_args, 6
     decl_local string_ptr, 2        ; char near *

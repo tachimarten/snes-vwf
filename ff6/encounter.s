@@ -19,7 +19,6 @@
 .import ff6vwf_transcode_string: near
 .import ff6vwf_long_command_names: far
 .import ff6vwf_long_enemy_names: far
-.import ff6vwf_long_spell_name_0: far   ; FIXME(tachiweasel): Remove
 
 ; Constants
 
