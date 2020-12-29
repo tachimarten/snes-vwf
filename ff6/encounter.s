@@ -872,18 +872,10 @@ ff6_dest_tile_attributes = $7e0056
 ; A patched version of the "restore small font" function that reuploads the BG3 text from the ROM
 ; after a text box closes during an encounter. We simply to tell our custom NMI to reupload all the
 ; strings.
-;
-; FIXME(tachiweasel): This may need to upload more...
 .proc _ff6vwf_encounter_restore_small_font
-begin_locals
-    decl_local outgoing_args, 1
-    decl_local enemy_index, 1   ; uint8
-
 ff6_dma_size_to_transfer = $10
 
     ; Do the stuff the original function did.
-    ;
-    ; Do this before the function prolog because we need the DP to be 0 when calling FF6 functions.
     ldx #$1000
     stx ff6_dma_size_to_transfer
     ldx #$7fc0      ; address of graphics in ROM
@@ -891,31 +883,9 @@ ff6_dma_size_to_transfer = $10
     lda #$c4        ; bank
     jsl _ff6vwf_encounter_schedule_dma_trampoline
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+    jsr _ff6vwf_encounter_reupload_all_enemy_names
+    jsr ff6vwf_encounter_reupload_all_pc_names
 
-    ; Look at the monster names and schedule each one to be reuploaded if necessary.
-    lda #0
-    sta enemy_index
-@reupload_enemy_name:
-    lda enemy_index
-    a16
-    and #$00ff
-    asl
-    tax
-    lda ff6_encounter_enemy_ids,x
-    cmp #$ffff
-    a8
-    beq :+
-    ldx enemy_index
-    ldy #10                 ; max_line_byte_size; FIXME(tachiweasel): Seems dubious!
-    stz outgoing_args+0     ; flags = 0
-    jsr ff6vwf_schedule_text_dma
-:   inc enemy_index
-    lda enemy_index
-    cmp #4      ; FIXME(tachiweasel): Probably should be *all* the strings...
-    blt @reupload_enemy_name
-
-    leave __FRAME_SIZE__
     ; NB: This is necessary to avoid a crash!
     a16
     lda #0

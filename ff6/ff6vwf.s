@@ -677,7 +677,7 @@ ff6vwf_long_magitek_names: ff6vwf_def_pointer_array ff6vwf_long_magitek_name, 8
 
 ff6vwf_long_magitek_name_0: .asciiz "Fire Beam"
 ff6vwf_long_magitek_name_1: .asciiz "Thunder Beam"
-ff6vwf_long_magitek_name_2: .asciiz "Ice Beam"
+ff6vwf_long_magitek_name_2: .asciiz "Blizzard Beam"
 ff6vwf_long_magitek_name_3: .asciiz "Bio Blast"
 ff6vwf_long_magitek_name_4: .asciiz "Healing Force"
 ff6vwf_long_magitek_name_5: .asciiz "Confuser"
