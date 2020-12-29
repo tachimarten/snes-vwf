@@ -742,7 +742,7 @@ ff6vwf_long_key_item_name_17: .asciiz "Odd Picture"         ; unused
 ff6vwf_long_key_item_name_18: .asciiz "Dull Picture"        ; unused
 ff6vwf_long_key_item_name_19: .asciiz "Pendant"
 
-ff6vwf_long_class_names: ff6vwf_def_pointer_array ff6vwf_long_class_name, 36
+ff6vwf_long_class_names: ff6vwf_def_pointer_array ff6vwf_long_class_name, 34
 
 ff6vwf_long_class_name_0:  .asciiz "Sorceress"
 ff6vwf_long_class_name_1:  .asciiz "Adventurer"
@@ -756,13 +756,13 @@ ff6vwf_long_class_name_8:  .asciiz "Pictomancer"
 ff6vwf_long_class_name_9:  .asciiz "Gambler"
 ff6vwf_long_class_name_10: .asciiz "Moogle"
 ff6vwf_long_class_name_11: .asciiz "Feral Youth"
-ff6vwf_long_class_name_12: .asciiz "Moogle"
-ff6vwf_long_class_name_13: .asciiz "Mimic"
-ff6vwf_long_class_name_14: .asciiz "Yeti"
-ff6vwf_long_class_name_15: .asciiz "Priest"
-ff6vwf_long_class_name_16: .asciiz "General"
+ff6vwf_long_class_name_12: .asciiz "Mimic"
+ff6vwf_long_class_name_13: .asciiz "Yeti"
+ff6vwf_long_class_name_14: .asciiz "Priest"
+ff6vwf_long_class_name_15: .asciiz "General"
+ff6vwf_long_class_name_16: .asciiz "Ghost"
 ff6vwf_long_class_name_17: .asciiz "Ghost"
-ff6vwf_long_class_name_18: .asciiz "Ghost"
+ff6vwf_long_class_name_18: .asciiz "Moogle"
 ff6vwf_long_class_name_19: .asciiz "Moogle"
 ff6vwf_long_class_name_20: .asciiz "Moogle"
 ff6vwf_long_class_name_21: .asciiz "Moogle"
@@ -772,14 +772,12 @@ ff6vwf_long_class_name_24: .asciiz "Moogle"
 ff6vwf_long_class_name_25: .asciiz "Moogle"
 ff6vwf_long_class_name_26: .asciiz "Moogle"
 ff6vwf_long_class_name_27: .asciiz "Moogle"
-ff6vwf_long_class_name_28: .asciiz "Moogle"
+ff6vwf_long_class_name_28: .asciiz "Esper"
 ff6vwf_long_class_name_29: .asciiz "Moogle"
-ff6vwf_long_class_name_30: .asciiz "Esper"
+ff6vwf_long_class_name_30: .asciiz "Moogle"
 ff6vwf_long_class_name_31: .asciiz "Moogle"
 ff6vwf_long_class_name_32: .asciiz "Imperial Soldier"
 ff6vwf_long_class_name_33: .asciiz "Imperial Soldier"
-ff6vwf_long_class_name_34: .asciiz "Shogun"
-ff6vwf_long_class_name_35: .asciiz "Moogle"
 
 ff6vwf_char_to_ascii:
 .repeat 128
