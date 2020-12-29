@@ -684,7 +684,7 @@ ff6vwf_long_magitek_name_5: .asciiz "Confuser"
 ff6vwf_long_magitek_name_6: .asciiz "Banisher"
 ff6vwf_long_magitek_name_7: .asciiz "Magitek Missile"
 
-ff6vwf_long_status_names: ff6vwf_def_pointer_array ff6vwf_long_status_name, 30
+ff6vwf_long_status_names: ff6vwf_def_pointer_array ff6vwf_long_status_name, 32
 
 ff6vwf_long_status_name_0:  .asciiz "Knocked Out"
 ff6vwf_long_status_name_1:  .asciiz "Petrify"
@@ -716,6 +716,8 @@ ff6vwf_long_status_name_26: .asciiz ""
 ff6vwf_long_status_name_27: .asciiz ""
 ff6vwf_long_status_name_28: .asciiz "Reraise"
 ff6vwf_long_status_name_29: .asciiz ""
+ff6vwf_long_status_name_30: .asciiz ""
+ff6vwf_long_status_name_31: .asciiz ""
 
 ff6vwf_long_key_item_names: ff6vwf_def_pointer_array ff6vwf_long_key_item_name, 20
 

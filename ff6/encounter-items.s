@@ -289,7 +289,7 @@ ff6_tool_display_list_right = $7e5760
 ; Draws the name of a status effect when using an item.
 .proc _ff6vwf_encounter_draw_status_name
 begin_locals
-    decl_local outgoing_args, 7
+    decl_local outgoing_args, 5
     decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
     decl_local status_id, 1                 ; uint8
     decl_local string_ptr, 2                ; char near *
@@ -345,6 +345,7 @@ ff6_display_list_ptr    = $7e004f
     leave __FRAME_SIZE__
     a16
     lda #0
+    ldx #0
     txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
     a8
     rtl
