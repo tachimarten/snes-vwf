@@ -14,6 +14,7 @@ FF6VWF_OBJS=\
 	ff6/misc-menus.o \
 	ff6/enemy-names.o \
 	ff6/item-names.o \
+	font.o \
 	vwf.o \
 	stdsnes.o
 
@@ -27,31 +28,17 @@ demo.smc:	demo.o vwf.o demo.cfg
 
 stdsnes.o:	snes.inc
 
-vwf.o:	font.inc snes.inc ff6/snesconfig.inc
+vwf.o:	snes.inc ff6/snesconfig.inc
 
 ff6/ff6.o:	ff6/ff6.s ff6/ff6.smc
 
 ff6/ff6twue.o:	ff6/ff6twue.s ff6/ff6twue.smc
 
-ff6/ff6vwf.o:	font.inc snes.inc ff6/ff6.inc ff6/snesconfig.inc
+ff6/ff6vwf.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/encounter.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
+$(FF6VWF_OBJS):	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
-ff6/encounter-items.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/encounter-skills.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/shop.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/skills-menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/items-menu.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-ff6/misc-menus.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
-
-font.inc:	gen-font.rb font.tga
+font.s:	gen-font.rb font.tga
 	./gen-font.rb font.tga > $@
 
 ff6/enemy-names.s:	ff6/encode-enemy-names.rb ff6/ff6.tbl ff6/enemies.csv
@@ -66,9 +53,11 @@ ff6/ff6vwf.smc:	ff6/ff6.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
 ff6/ff6twuevwf.smc:	ff6/ff6twue.o $(FF6VWF_OBJS) ff6/ff6vwf.cfg
 	$(LD65) -C ff6/ff6vwf.cfg -o $@ --dbgfile ff6/ff6twuevwf.dbg -m ff6/ff6twuevwf.map -vm $(FF6VWF_OBJS) $<
 
-.PHONY:	clean ff6
+.PHONY:	clean ff6 ff6twue
 
 clean:
-	rm -f ff6/enemy-names.s ff6/item-names.s font.inc *.o ff6/*.o demo.smc ff6/ff6vwf.smc ff6/ff6twuevwf.smc
+	rm -f ff6/enemy-names.s ff6/item-names.s *.o ff6/*.o demo.smc ff6/ff6vwf.smc ff6/ff6twuevwf.smc
 
 ff6:	ff6/ff6vwf.smc
+
+ff6twue:	ff6/ff6twuevwf.smc
