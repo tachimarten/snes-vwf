@@ -111,6 +111,7 @@ ff6vwf_menu_redraw_needed: .res 1
 ; Note that the Kefka lineup code will jump into the middle of this instruction without the
 ; special-case `_ff6vwf_menu_draw_pc_name_for_kefka_lineup`.
 .segment "PTEXTMENUDRAWPCNAME"              ; $c334cf
+ff6_menu_draw_pc_name:
     jsl _ff6vwf_menu_draw_pc_name_general
     rts
 
@@ -124,12 +125,23 @@ ff6vwf_menu_redraw_needed: .res 1
 
 .segment "PTEXTMENUDRAWSTATUSSTATS"     ; $c35fc2
 ff6_menu_draw_attack_string     = $0486
+ff6_menu_draw_8_digits          = $04a3
 ff6_menu_draw_string_number     = $04c0
 ff6_menu_itoa                   = $04e0
-ff6_menu_make_attack_string     = $052e 
+ff6_menu_make_attack_string     = $052e
+ff6_menu_draw_long_number       = $0582
+ff6_menu_draw_basic_stats       = $0c6c
+ff6_menu_hide_ailment_icons     = $11b0
+ff6_menu_draw_actor_class       = $34e5
+ff6_menu_draw_esper             = $34e6
+ff6_menu_get_needed_xp          = $60a0
+ff6_menu_status_draw_commands   = $6102
+ff6_menu_status_display         = $625b
 ff6_menu_define_attack          = $9371 
 ff6_menu_set_attack_stats_mode  = $99e8
 ff6_load_actor_properties       = $c20006
+ff6_current_experience          = $7e0011
+ff6_display_status_ailments     = $7e0047
 ff6_current_character_data      = $7e0067
 ff6_stats_magic                 = $7e11a0
 ff6_stats_stamina               = $7e11a2
@@ -191,34 +203,38 @@ ff6_stats_magic_defense         = $7e11bb
     ldx #bg1_position 12, 25                ; Text position
     jsr ff6_menu_draw_string_number         ; Draw 3 digits
 
-    LDY #$398F      ; Text position
-    JSR $34CF      ; Draw actor name
-    LDY #$399D      ; Text position
-    JSR $34E5      ; Actor class...
-    LDY #$39B1      ; Text position
-    JSR $34E6      ; Draw held esper
-    JSR $6102      ; Draw commands
-    LDA #$20        ; Palette 0
-    STA $29         ; Color: User's
-    LDX #$6096     ; Coords tbl ptr
-    JSR $0C6C      ; Draw LV, HP, MP
-    LDX $67         ; Actor's address
-    LDA $0011,X     ; Experience LB
-    STA $F1         ; Memorize it
-    LDA $0012,X     ; Experience MB
-    STA $F2         ; Memorize it
-    LDA $0013,X     ; Experience HB
-    STA $F3         ; Memorize it
-    JSR $0582      ; Turn into text
-    LDX #bg1_position 8, 16 ; Text position
-    JSR $04A3      ; Draw 8 digits
-    JSR $60A0      ; Get needed exp
-    JSR $0582      ; Turn into text
-    LDX #bg1_position 8, 19 ; Text position
-    JSR $04A3      ; Draw 8 digits
-    STZ $47         ; Ailments: Off
-    JSR $11B0      ; Hide ail. icons
-    jsr $625B      ; Display status
+    ldy #$398f                          ; Text position
+    jsr .loword(ff6_menu_draw_pc_name)  ; Draw actor name
+    ldy #$399d                          ; Text position
+    jsr ff6_menu_draw_actor_class       ; Actor class...
+    ldy #$39b1                          ; Text position
+    jsr ff6_menu_draw_esper             ; Draw held esper
+    jsr ff6_menu_status_draw_commands   ; Draw commands
+
+    lda #$20                            ; Palette 0
+    sta <ff6_menu_bg_attrs              ; Color: User's
+    ldx #$6096                          ; Coords tbl ptr
+    jsr ff6_menu_draw_basic_stats       ; Draw LV, HP, MP
+    ldx <ff6_current_character_data     ; Actor's address
+
+    lda .loword(ff6_current_experience)+0,x ; Experience LB
+    sta $f1                                 ; Memorize it
+    lda .loword(ff6_current_experience)+1,x ; Experience MB
+    sta $f2                                 ; Memorize it
+    lda .loword(ff6_current_experience)+2,x ; Experience HB
+    sta $f3                                 ; Memorize it
+
+    jsr ff6_menu_draw_long_number   ; Turn into text
+    ldx #bg1_position 8, 16         ; Text position
+    jsr ff6_menu_draw_8_digits      ; Draw 8 digits
+    jsr ff6_menu_get_needed_xp      ; Get needed exp
+    jsr ff6_menu_draw_long_number   ; Turn into text
+    ldx #bg1_position 8, 19         ; Text position
+    jsr ff6_menu_draw_8_digits      ; Draw 8 digits
+
+    stz <ff6_display_status_ailments    ; Ailments: Off
+    jsr ff6_menu_hide_ailment_icons     ; Hide ail. icons
+    jsr ff6_menu_status_display         ; Display status
     jsl _ff6vwf_menu_draw_status_menu
     rts
 
