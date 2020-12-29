@@ -455,5 +455,5 @@ glyph_images:
     .byte 224, 160, 160, 160, 160, 224, 0, 0
     .byte 224, 160, 160, 160, 160, 224, 0, 0
 
-.export glyph_widths
-.export glyph_images
+.export glyph_widths: far
+.export glyph_images: far

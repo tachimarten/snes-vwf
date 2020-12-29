@@ -204,3 +204,9 @@ ff6_menu_draw_string            = $c37fd9
 .endmacro
 
 .endif
+
+; Function prototypes
+
+.struct args_ff6vwf_menu_draw_multiple_strings
+    tilemaps .faraddr           ; void near *far *
+.endstruct

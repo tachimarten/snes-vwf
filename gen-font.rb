@@ -87,5 +87,5 @@ glyph_images.each_index do |i|
 end
 
 puts ""
-puts ".export glyph_widths"
-puts ".export glyph_images"
+puts ".export glyph_widths: far"
+puts ".export glyph_images: far"

@@ -11,7 +11,9 @@
 
 .include "snes.inc"
 
-.export vwf_render_string: far
+.import glyph_images:       far
+.import glyph_widths:       far
+.export vwf_render_string:  far
 
 .segment "TEXT"
 
@@ -268,5 +270,3 @@ begin_args_nearcall
     rts
 
 .endproc
-
-.include "font.inc"

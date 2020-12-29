@@ -11,6 +11,7 @@ FF6VWF_OBJS=\
 	ff6/shop.o \
 	ff6/items-menu.o \
 	ff6/skills-menu.o \
+	ff6/status-menu.o \
 	ff6/misc-menus.o \
 	ff6/enemy-names.o \
 	ff6/item-names.o \
