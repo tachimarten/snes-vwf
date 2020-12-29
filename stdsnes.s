@@ -186,10 +186,10 @@ begin_locals
 ;
 ; Computes a % b.
 .proc std_mod16_8
+    a16
     txa
     sta f:WRDIVL
-    xba
-    sta f:WRDIVH
+    a8
     tya
     sta f:WRDIVB
 

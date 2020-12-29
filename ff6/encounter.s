@@ -35,7 +35,6 @@ ITEM_L_HAND_START_TILE = 76
 
 ff6_tiles_to_draw                = $7e0010
 ff6_encounter_enemy_ids          = $7e200d
-ff6_encounter_current_menu_state = $7e7bf0
 
 .segment "BSS"
 
@@ -784,13 +783,13 @@ begin_args_nearcall
     jsr ff6vwf_render_string
 
     ; Draw tiles.
-    ldx dest_tilemap_offset     ; dest_tilemap_offset
-    ldy first_tile_id           ; first_tile_id
+    ldx dest_tilemap_offset                 ; dest_tilemap_offset
+    ldy first_tile_id                       ; first_tile_id
     lda max_tile_count
-    sta outgoing_args+0         ; text_tiles_to_draw
+    sta outgoing_args+0                     ; text_tiles_to_draw
     lda blank_tiles_at_end
-    sta outgoing_args+1         ; blank_tiles_at_end
-    jsr _ff6vwf_encounter_draw_tile_data    ; returns dest_tilemap_offset in X
+    sta outgoing_args+1                     ; blank_tiles_at_end
+    jsr ff6vwf_encounter_draw_tile_data     ; returns dest_tilemap_offset in X
 
     leave __FRAME_SIZE__
     rts
@@ -942,7 +941,7 @@ ff6_dma_size_to_transfer = $10
     phy
     a8
     jsr _ff6vwf_encounter_reupload_all_command_names
-    jsr _ff6vwf_encounter_reupload_all_pc_names
+    jsr ff6vwf_encounter_reupload_all_pc_names
     a16
     ply
     plx
@@ -1029,8 +1028,8 @@ begin_locals
     rts
 .endproc
 
-; nearproc void _ff6vwf_encounter_reupload_all_pc_names()
-.proc _ff6vwf_encounter_reupload_all_pc_names
+; nearproc void ff6vwf_encounter_reupload_all_pc_names()
+.proc ff6vwf_encounter_reupload_all_pc_names
 .struct locals
     .org 1
     pc_index    .byte   ; uint8
@@ -1052,11 +1051,13 @@ begin_locals
     rts
 .endproc
 
-; nearproc uint16 _ff6vwf_encounter_draw_tile_data(uint16 dest_tilemap_offset,
-;                                                  uint8 text_line_slot,
-;                                                  uint8 text_tiles_to_draw,
-;                                                  uint8 blank_tiles_at_end)
-.proc _ff6vwf_encounter_draw_tile_data
+.export ff6vwf_encounter_reupload_all_pc_names
+
+; nearproc uint16 ff6vwf_encounter_draw_tile_data(uint16 dest_tilemap_offset,
+;                                                 uint8 text_line_slot,
+;                                                 uint8 text_tiles_to_draw,
+;                                                 uint8 blank_tiles_at_end)
+.proc ff6vwf_encounter_draw_tile_data
 begin_locals
     decl_local dest_tilemap_offset, 2       ; uint16
     decl_local current_tile_index, 1        ; char
@@ -1092,6 +1093,8 @@ begin_args_nearcall
     leave __FRAME_SIZE__
     rts
 .endproc
+
+.export ff6vwf_encounter_draw_tile_data
 
 ; nearproc uint16 ff6vwf_encounter_draw_blank_tile_data(uint16 dest_tilemap_offset, uint8 count)
 .proc ff6vwf_encounter_draw_blank_tile_data

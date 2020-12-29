@@ -61,7 +61,8 @@ FF6VWF_STATS_TOTAL_TILE_COUNT = FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE + FF6VWF_S
 
 ; Globals
 
-ff6_encounter_active_character  = $7e62ca
+ff6_encounter_active_character      = $7e62ca
+ff6_encounter_current_menu_state    = $7e7bf0
 
 ff6_menu_bg_attrs               = $7e0029
 ff6_menu_queued_hdma            = $7e0043

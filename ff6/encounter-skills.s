@@ -21,6 +21,8 @@
 .import ff6vwf_encounter_draw_enemy_name_string:    near
 .import ff6vwf_encounter_draw_standard_string:      near
 .import ff6vwf_encounter_draw_tile:                 near
+.import ff6vwf_encounter_draw_tile_data:            near
+.import ff6vwf_encounter_reupload_all_pc_names:     near
 .import ff6vwf_long_spell_names:                    far
 .import ff6vwf_long_dance_names:                    far
 .import ff6vwf_long_enemy_names:                    far
@@ -60,9 +62,17 @@ ff6_encounter_build_menu_item_for_lore:
     jml _ff6vwf_encounter_build_menu_item_for_lore      ; 4 bytes
     nopx 2
 
+.segment "PTEXTENCOUNTERBUILDTARGETINGMENU"     ; $c1911c
+    jsl _ff6vwf_encounter_build_targeting_menu
+    nop
+
+.segment "PTEXTENCOUNTERCLOSETARGETINGMENU"     ; $c155ba
+    jsl _ff6vwf_encounter_close_targeting_menu
+    nop
+
 ; FF6 routine to draw the name of a spell during encounters.
 .segment "PTEXTENCOUNTERDRAWSPELLNAME"          ; $c16598
-    jsl _ff6vwf_encounter_draw_spell_name
+    jsl _ff6vwf_encounter_draw_spell_name_from_display_list
     rts
 
 .segment "PTEXTENCOUNTERDRAWESPERMENU"          ; $c14e20
@@ -163,6 +173,67 @@ esper_label_tilemap:
     jml ff6_encounter_build_menu_item_for_lore+6
 .endproc
 
+.proc _ff6vwf_encounter_build_targeting_menu
+    jsr ff6vwf_encounter_reupload_all_pc_names
+
+    ; Stuff the original function did:
+    lda #$40
+    sta f:$7e7bc2
+    rtl
+.endproc
+
+.proc _ff6vwf_encounter_close_targeting_menu
+    jsr _ff6vwf_encounter_reupload_all_spells_in_list
+
+    ; Stuff the original function did:
+    lda #$2c
+    sta f:ff6_encounter_current_menu_state
+    a16
+    lda #0
+    tax
+    tay
+    a8
+    rtl
+.endproc
+
+; nearproc void _ff6vwf_encounter_reupload_all_spells_in_list()
+.proc _ff6vwf_encounter_reupload_all_spells_in_list
+.struct locals
+    .org 1
+    spell_index         .byte
+    last_spell_index    .byte
+.endstruct
+
+ff6_encounter_character_vertical_scroll_positions = $7e8913
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    lda f:ff6_encounter_active_character
+    a16
+    and #$00ff
+    tax
+    a8
+    lda f:ff6_encounter_character_vertical_scroll_positions,x
+    asl
+    sta locals::spell_index
+    add #8
+    sta locals::last_spell_index
+
+    lda locals::spell_index
+:   cmp locals::last_spell_index
+    beq @out
+    tax
+    ldy #$ffff
+    jsr _ff6vwf_encounter_draw_spell_name
+    inc locals::spell_index
+    lda locals::spell_index
+    bra :-
+
+@out:
+    leave .sizeof(locals)
+    rts
+.endproc
+
 ; nearproc uint8 _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage(near *skill_id_ptr)
 ;
 ; Determines the text line slot to use for Magic or Rage.
@@ -208,53 +279,102 @@ begin_locals
     rts
 .endproc
 
-.proc _ff6vwf_encounter_draw_spell_name
-begin_locals
-    decl_local outgoing_args, 7
-    decl_local dest_tilemap_offset, 2       ; uint16 (Y on entry to function)
-    decl_local text_line_slot, 1            ; uint8
-    decl_local spell_id_ptr, 2              ; uint8 near *
-    decl_local spell_id, 1                  ; uint8
-    decl_local string_ptr, 2                ; char near *
-    decl_local first_tile_id, 1             ; uint8
+; farproc inreg(Y) uint16 _ff6vwf_encounter_draw_spell_name_from_display_list(
+;       uint16 unused,
+;       uint16 dest_tilemap_offset)
+.proc _ff6vwf_encounter_draw_spell_name_from_display_list
+.struct locals
+    right_column    .byte   ; Which column are we on (left = 0, right = 1)?
+.endstruct
 
 ff6_display_list_ptr         = $7e004f
 ff6_spell_display_list_left  = $7e575a
 ff6_spell_display_list_right = $7e5760
+
+    ; Bump display list pointer.
+    a16
+    lda f:ff6_display_list_ptr
+    inc
+    sta f:ff6_display_list_ptr
+
+    ; Compute the spell index.
+    tax
+    a8
+    lda f:ff6vwf_encounter_current_skill_slot
+    asl                                         ; row * 2
+    cpx #.loword(ff6_spell_display_list_right)
+    bne :+
+    inc
+:
+
+    tax     ; X = spell_index (Y is still dest_tilemap_offset)
+    jsr _ff6vwf_encounter_draw_spell_name
+    txy
+    rtl
+.endproc
+
+; nearproc uint16 _ff6vwf_encounter_draw_spell_name(uint8 spell_index, uint16 dest_tilemap_offset)
+;
+; If `dest_tilemap_offset` is `0xffff`, then doesn't draw tiles, but still renders the string.
+.proc _ff6vwf_encounter_draw_spell_name
+.struct locals
+    .org 1
+    outgoing_args       .byte 4
+    dest_tilemap_offset .word   ; uint16 (Y on entry to function)
+    text_line_slot      .byte   ; uint8
+    spell_index         .word   ; uint16
+    spell_id            .byte   ; uint8
+    string_ptr          .addr   ; const char near *
+    first_tile_id       .byte   ; uint8
+.endstruct
 
 ; This is an immediate byte for a LDA instruction in the middle of a function. Yuck! But that's the
 ; only way I can think of to safely determine the length of a spell name, whether we're running in
 ; vanilla or TWUE.
 ff6_spell_name_length = $c1601b
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+ff6_encounter_spell_list = $7e208e
+
+    enter .sizeof(locals), STACK_LIMIT
 
     ; Initialize locals.
-    sty dest_tilemap_offset
+    sty locals::dest_tilemap_offset
     a16
-    lda f:ff6_display_list_ptr
-    inc
-    sta f:ff6_display_list_ptr
-    sta spell_id_ptr
+    txa
+    and #$00ff
+    sta locals::spell_index
     a8
 
-    ; Figure out what text line slot we're going to use.
-    ldx spell_id_ptr
-    jsr _ff6vwf_encounter_get_text_line_slot_for_magic_or_rage
-    txa
-    sta text_line_slot
-
     ; Fetch spell ID.
-    lda (spell_id_ptr)
-    sta spell_id
+    lda f:ff6_encounter_active_character
+    tax
+    ldy #79
+    jsr std_mul8
+    a16
+    txa
+    add locals::spell_index
+    asli 2                          ; (spell_index + active_character_id * 79) * 4
+    tax
+    a8
+    lda f:ff6_encounter_spell_list + 4,x
+    sta locals::spell_id
+
+    ; Figure out what text line slot we're going to use.
+    ldx locals::spell_index
+    ldy #10
+    jsr std_mod16_8
+    txa
+    sta locals::text_line_slot
 
     ; If empty, don't display it.
-    lda spell_id
+    lda locals::spell_id
     cmp #$ff
     bne @got_a_spell
 
     ; Draw blanks if empty.
-    ldx dest_tilemap_offset
+    ldx locals::dest_tilemap_offset
+    cpx #$ffff
+    beq @out
     lda f:ff6_spell_name_length
     tay
     jsr ff6vwf_encounter_draw_blank_tile_data
@@ -267,42 +387,52 @@ ff6_spell_name_length = $c1601b
     asl
     tax
     lda f:ff6vwf_long_spell_names,x
-    sta string_ptr
+    sta locals::string_ptr
     a8
 
     ; Calculate first tile ID.
-    ldx text_line_slot
+    ldx locals::text_line_slot
     ldy #10
     jsr ff6vwf_calculate_first_tile_id_simple
     txa                             ; first_tile_id
-    sta first_tile_id
+    sta locals::first_tile_id
 
     ; Draw spell icon.
-    ldx spell_id
+    ldx locals::spell_id
     ldy #FF6_SHORT_SPELL_NAME_LENGTH
     jsr std_mul8
     lda ff6_short_spell_names,x
     tax                             ; tile_to_draw
-    ldy dest_tilemap_offset
+    ldy locals::dest_tilemap_offset
     jsr ff6vwf_encounter_draw_tile
-    stx dest_tilemap_offset
+    stx locals::dest_tilemap_offset
 
-    ; Render the string.
-    ldy string_ptr
-    sty outgoing_args+2                 ; string_ptr
+    ; Render string.
+    ldx locals::string_ptr+0
+    stx locals::outgoing_args+1         ; string_ptr
     lda #^ff6vwf_long_spell_names
-    sta outgoing_args+4                 ; string_ptr bank byte
-    stz outgoing_args+1                 ; blank_tiles_at_end
+    sta locals::outgoing_args+3         ; string_ptr, bank byte
+    stz locals::outgoing_args+0         ; flags = 2bpp
+    ldx locals::first_tile_id           ; first_tile_id
     lda f:ff6_spell_name_length
-    sta outgoing_args+0                 ; max_tile_count
-    ldx dest_tilemap_offset             ; dest_tilemap_offset
-    ldy first_tile_id                   ; first_tile_id
-    jsr ff6vwf_encounter_draw_standard_string
+    tay                                 ; max_tile_count
+    jsr ff6vwf_render_string
+
+    ; Don't draw tiles if `dest_tilemap_offset` is 0xffff.
+    ldx locals::dest_tilemap_offset     ; dest_tilemap_offset
+    cpx #$ffff
+    beq @out
+
+    ; Draw tiles.
+    ldy locals::first_tile_id               ; first_tile_id
+    lda f:ff6_spell_name_length
+    sta locals::outgoing_args+0             ; text_tiles_to_draw
+    stz locals::outgoing_args+1             ; blank_tiles_at_end
+    jsr ff6vwf_encounter_draw_tile_data     ; returns dest_tilemap_offset in X
 
 @out:
-    leave __FRAME_SIZE__
-    txy         ; FF6 expects the dest tilemap offset to go in Y upon exit...
-    rtl
+    leave .sizeof(locals)
+    rts
 .endproc
 
 ; farproc void _ff6vwf_encounter_draw_esper_menu()
