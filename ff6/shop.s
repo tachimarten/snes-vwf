@@ -515,9 +515,9 @@ ff6_menu_shop_positioned_text:
 .word $7bb3
     def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("Equipped:"), 5
 .word $7b8f
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Bat Pwr"), -1
+    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Bat Pwr"), 5
 .word $7b8f
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Defense"), -1
+    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+9, .strlen("Defense"), 5
 .word $7ba5
     .byte $ff, 0
 ff6_menu_shop_greeting_text:
