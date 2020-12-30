@@ -1100,7 +1100,7 @@ begin_locals
     ; Run our generic DMA routine.
     pha
     plb
-    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_size, 7, 250
+    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_size, 7, 245
     tdc
     lda #$7e
     pha

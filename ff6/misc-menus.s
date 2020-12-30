@@ -16,10 +16,11 @@
 .import ff6vwf_get_long_item_name:                  near
 .import ff6vwf_long_enemy_names:                    far
 .import ff6vwf_long_item_names:                     far
+.import ff6vwf_menu_begin_transaction:              near
+.import ff6vwf_menu_commit_transaction:             near
 .import ff6vwf_menu_draw_item_icon:                 near
 .import ff6vwf_menu_draw_pc_name:                   near
 .import ff6vwf_menu_draw_vwf_tiles:                 near
-.import ff6vwf_menu_force_nmi_trampoline:           far
 .import ff6vwf_menu_kefka_lineup_drawn_pc_names:    far
 .import ff6vwf_menu_render_static_strings:          near
 .import ff6vwf_render_string:                       near
@@ -145,6 +146,9 @@ begin_locals
 :   lda #1
 :   sta text_line_slot
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
@@ -163,8 +167,8 @@ begin_locals
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Schedule an upload for later, or just upload now if we're in force blank.
-    jsl ff6vwf_menu_force_nmi_trampoline
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx first_tile_id
@@ -206,6 +210,9 @@ FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0     ; flags, 4bpp
@@ -217,8 +224,8 @@ FIRST_TILE_ID = 2 * 10 + FF6VWF_FIRST_TILE + 50
     ldx #FIRST_TILE_ID      ; first_tile_id
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl ff6vwf_menu_force_nmi_trampoline
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx #FIRST_TILE_ID

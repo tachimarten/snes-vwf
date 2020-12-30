@@ -14,7 +14,6 @@
 .import std_mod16_8: near
 
 .import ff6vwf_calculate_first_tile_id_simple:  near
-.import ff6vwf_menu_force_nmi_trampoline:       far
 .import ff6vwf_render_string:                   near
 .import ff6vwf_transcode_string:                near
 .import ff6vwf_long_command_names:              far
@@ -67,6 +66,8 @@ ff6vwf_current_equipment_text_slot: .res 1
 ff6vwf_current_equipment_bg3: .res 1
 ; True if we need to redraw the current menu, false otherwise.
 ff6vwf_menu_redraw_needed: .res 1
+; The number of transactions currently open.
+ff6vwf_menu_transactions_open: .res 1
 
 .export ff6vwf_menu_kefka_lineup_drawn_pc_names:    far
 .export ff6vwf_menu_text_dma_stack_base:            far
@@ -76,7 +77,7 @@ ff6vwf_menu_redraw_needed: .res 1
 .export ff6vwf_current_equipment_bg3:               far
 .export ff6vwf_menu_redraw_needed:                  far
 
-.reloc 
+.reloc
 
 ; Patches to Final Fantasy 6 functions
 
@@ -152,6 +153,7 @@ ff6_reset_vars = $d4cdf3
     sta f:ff6vwf_last_lineup_class
     lda #0
     sta f:ff6vwf_menu_redraw_needed
+    sta f:ff6vwf_menu_transactions_open
 
     ; Return.
     jml $c368fe
@@ -306,6 +308,9 @@ begin_locals
 @store_dma_flags_and_base_addr:
     sta dma_flags
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda dma_flags
     sta outgoing_args+0             ; flags
@@ -320,15 +325,15 @@ begin_locals
     ldy #FF6_SHORT_PC_NAME_LENGTH   ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now.
-    jsr ff6vwf_menu_force_nmi
-
     ; Draw tiles.
     ldx first_tile_id
     ldy #FF6_SHORT_PC_NAME_LENGTH
     stz outgoing_args+0                 ; blanks_count
     stz outgoing_args+1                 ; initial_offset
     jsr ff6vwf_menu_draw_vwf_tiles
+
+    ; Commits transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     leave __FRAME_SIZE__
     rts
@@ -496,12 +501,12 @@ begin_args_nearcall
 
 .export ff6vwf_menu_draw_vwf_tiles
 
-; nearproc void ff6vwf_menu_force_nmi()
+; nearproc void _ff6vwf_menu_force_nmi()
 ;
 ; Just like FF6's "force NMI" routine at $c31368, but without messing with the force blank
 ; (INIDISP) settings. This allows us to wait for NMIs without turning the screen on, which might
 ; confuse FF6 and cause it to try to perform DMA with the screen on.
-.proc ff6vwf_menu_force_nmi
+.proc _ff6vwf_menu_force_nmi
 ff6_menu_nmi_requested    = $7e0024
 ff6_menu_mosaic           = $7e00b5
 ff6_menu_allow_sfx_repeat = $7e00ae
@@ -522,21 +527,42 @@ ff6_menu_allow_sfx_repeat = $7e00ae
     rts
 .endproc
 
-.export ff6vwf_menu_force_nmi
+; nearproc void ff6vwf_menu_begin_transaction()
+.proc ff6vwf_menu_begin_transaction
+    lda f:ff6vwf_menu_transactions_open
+    inc
+    sta f:ff6vwf_menu_transactions_open
+    rts
+.endproc
 
-; nearproc void _ff6vwf_menu_commit_transaction()
+.export ff6vwf_menu_begin_transaction
+
+; nearproc void ff6vwf_menu_commit_transaction()
 ;
 ; Flushes all DMA.
-.proc _ff6vwf_menu_commit_transaction
+.proc ff6vwf_menu_commit_transaction
+    lda f:ff6vwf_menu_transactions_open
+    beq @uhoh
+    dec
+    sta f:ff6vwf_menu_transactions_open
+    bne @out
+
+    ; Flush.
     lda f:ff6vwf_menu_text_dma_stack_size
 @loop:
     beq @out
-    jsr ff6vwf_menu_force_nmi
+    jsr _ff6vwf_menu_force_nmi
     lda f:ff6vwf_menu_text_dma_stack_size
     bra @loop
+
 @out:
     rts
+
+@uhoh:
+    stp
 .endproc
+
+.export ff6vwf_menu_commit_transaction
 
 ; nearproc void ff6vwf_menu_draw_list_item(uint8 short_name_length,
 ;                                          uint8 flags,
@@ -609,6 +635,9 @@ ff6_esper_list = $7e9d89
 @store_text_line_slot:
     sta text_line_slot
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy max_tile_count
@@ -626,9 +655,6 @@ ff6_esper_list = $7e9d89
     ldy max_tile_count      ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl ff6vwf_menu_force_nmi_trampoline
-
     ; Draw tiles.
     ldx first_tile_id
     ldy max_tile_count
@@ -636,6 +662,9 @@ ff6_esper_list = $7e9d89
     sta outgoing_args+0                 ; blanks_count
     stz outgoing_args+1                 ; initial_offset
     jsr ff6vwf_menu_draw_vwf_tiles
+
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     leave __FRAME_SIZE__
     rts
@@ -724,6 +753,9 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta outgoing_args+0     ; 4bpp
@@ -735,8 +767,8 @@ LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
 @draw_tiles:
     ; Draw tiles.
@@ -794,14 +826,26 @@ begin_args_nearcall
     ldx #.sizeof(static_text)
     jsr std_memcpy
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Initialize locals.
     lda #0
     sta string_index
 
 @loop:
     cmp text+static_text::count
-    beq @out
+    beq @done
 
+    ; Commit transaction if we ran out of DMA space in the queue.
+    lda f:ff6vwf_menu_text_dma_stack_size
+    cmp #FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
+    bne :+
+    jsr ff6vwf_menu_commit_transaction
+    jsr ff6vwf_menu_begin_transaction
+:
+
+    lda string_index
     a16
     and #$00ff
     tax
@@ -822,14 +866,14 @@ begin_args_nearcall
     tay                             ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it.
-    jsr _ff6vwf_menu_commit_transaction
-
     inc string_index
     lda string_index
     bra @loop
 
-@out:
+@done:
+    ; Upload it.
+    jsr ff6vwf_menu_commit_transaction
+
     leave __FRAME_SIZE__
     rts
 .endproc
@@ -843,6 +887,9 @@ begin_args_nearcall
 .endstruct
 
     enter .sizeof(locals), STACK_LIMIT
+
+    ; Start transaction.
+    jsr ff6vwf_menu_begin_transaction
 
     ldx #.loword(ff6vwf_main_menu_static_text_descriptor)
     stx locals::outgoing_args+0
@@ -860,6 +907,9 @@ begin_args_nearcall
     ldx #FF6VWF_FIRST_TILE+76       ; first_tile_id
     ldy #8                          ; max_tile_count
     jsr ff6vwf_render_string
+
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Stuff the original function did:
     lda #$20    ; palette 0

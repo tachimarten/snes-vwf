@@ -13,8 +13,9 @@
 .import ff6_menu_draw_pc_name:              far
 .import ff6_menu_draw_string_trampoline:    near
 .import ff6vwf_long_command_names:          far
+.import ff6vwf_menu_begin_transaction:      near
+.import ff6vwf_menu_commit_transaction:     near
 .import ff6vwf_menu_draw_vwf_tiles:         near
-.import ff6vwf_menu_force_nmi:              near
 .import ff6vwf_menu_render_static_strings:  near
 .import ff6vwf_render_string:               near
 .import ff6vwf_stats_labels:                far
@@ -271,6 +272,9 @@ command_name = $7e00e2
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0                 ; flags
@@ -282,8 +286,8 @@ command_name = $7e00e2
     ldy #FF6_SHORT_COMMAND_NAME_LENGTH  ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx first_tile                      ; first_tile_id

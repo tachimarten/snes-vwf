@@ -24,16 +24,16 @@
 
 .import ff6vwf_menu_redraw_needed:  far
 
-.import ff6vwf_calculate_first_tile_id_simple:     near
-.import ff6vwf_menu_compute_map_ptr_trampoline:    far
-.import ff6vwf_menu_draw_list_item:                near
-.import ff6vwf_menu_draw_vwf_tiles:                near
-.import ff6vwf_menu_force_nmi:                     near
-.import ff6vwf_menu_force_nmi_trampoline:          far
-.import ff6vwf_menu_move_blitz_tilemap_trampoline: far
-.import ff6vwf_menu_render_static_strings:         near
-.import ff6vwf_render_string:                      near
-.import ff6vwf_transcode_string:                   near
+.import ff6vwf_calculate_first_tile_id_simple:      near
+.import ff6vwf_menu_begin_transaction:              near
+.import ff6vwf_menu_commit_transaction:             near
+.import ff6vwf_menu_compute_map_ptr_trampoline:     far
+.import ff6vwf_menu_draw_list_item:                 near
+.import ff6vwf_menu_draw_vwf_tiles:                 near
+.import ff6vwf_menu_move_blitz_tilemap_trampoline:  far
+.import ff6vwf_menu_render_static_strings:          near
+.import ff6vwf_render_string:                       near
+.import ff6vwf_transcode_string:                    near
 
 ; Constants
 
@@ -597,6 +597,9 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0     ; flags = 4bpp
@@ -608,8 +611,8 @@ FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
     ldx #FIRST_TILE_ID
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx #FIRST_TILE_ID
@@ -642,6 +645,9 @@ FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta outgoing_args+0                 ; flags
@@ -653,8 +659,8 @@ FIRST_TILE_ID = FF6VWF_FIRST_TILE + 60
     ldx #FIRST_TILE_ID
     jsr ff6vwf_render_string
 
-    ; Upload it now.
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx #FIRST_TILE_ID
@@ -779,6 +785,9 @@ MESSAGE_LENGTH = 24
     sta outgoing_args+5     ; src_ptr, bank byte
     jsr std_stpcpy
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta outgoing_args+0             ; 4bpp
@@ -793,8 +802,8 @@ MESSAGE_LENGTH = 24
     ldy #MESSAGE_LENGTH             ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now.
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx #FIRST_TILE_ID                  ; first tile ID
@@ -836,6 +845,9 @@ begin_args_nearcall
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Determine the appropriate DMA flags and base address.
     lda bg3
     bne :+
@@ -854,8 +866,8 @@ begin_args_nearcall
     ldy #5                  ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw spell icon.
     ldx spell_id
@@ -926,6 +938,9 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
     sta string_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
@@ -941,8 +956,8 @@ FF6TWUE_BLITZ_NAME_ATTRS = $24
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl ff6vwf_menu_force_nmi_trampoline
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx text_line_slot
@@ -1093,11 +1108,14 @@ begin_args_nearcall
     sta f:ff6_menu_positioned_text_ptr
     a8
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     lda f:ff6_menu_list_slot
     tax
     ldy #10
-    jsr ff6vwf_calculate_first_tile_id_simple
+    jsr ff6vwf_calculate_first_tile_id_simple   ; X = first tile ID
 
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
@@ -1109,8 +1127,8 @@ begin_args_nearcall
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsl ff6vwf_menu_force_nmi_trampoline
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     lda f:ff6_menu_list_slot

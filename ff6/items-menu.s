@@ -22,9 +22,10 @@
 .import ff6vwf_long_item_names:                 far
 .import ff6vwf_long_item_type_names:            far
 .import ff6vwf_long_key_item_names:             far
+.import ff6vwf_menu_begin_transaction:          near
+.import ff6vwf_menu_commit_transaction:         near
 .import ff6vwf_menu_draw_list_item:             near
 .import ff6vwf_menu_draw_vwf_tiles:             near
-.import ff6vwf_menu_force_nmi:                  near
 .import ff6vwf_menu_render_static_strings:      near
 .import ff6vwf_menu_wounded_label:              far
 .import ff6vwf_render_string:                   near
@@ -60,17 +61,13 @@ ff6_menu_current_selection  = $7e0028
 ; Patches
 
 .segment "PTEXTMENULOADEQUIPMENTNAME"       ; $c38fe1
-ff6_menu_trigger_nmi = $1368
-
     jsl _ff6vwf_menu_draw_equipment_name
     rts
 
 ; Let's put some trampolines here.
-ff6vwf_menu_force_nmi_trampoline:          def_trampoline ff6_menu_trigger_nmi
 ff6vwf_menu_move_blitz_tilemap_trampoline: def_trampoline $56bc
 ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 
-.export ff6vwf_menu_force_nmi_trampoline:           far
 .export ff6vwf_menu_move_blitz_tilemap_trampoline:  far
 .export ff6vwf_menu_compute_map_ptr_trampoline:     far
 
@@ -194,6 +191,9 @@ begin_locals
     jsr ff6vwf_get_long_item_name
     stx string_ptr
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     lda f:ff6vwf_current_equipment_text_slot
     tax
@@ -219,8 +219,8 @@ begin_locals
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now.
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx first_tile_id
@@ -347,6 +347,9 @@ begin_locals
     sta outgoing_args+5             ; src_ptr bank
     jsr std_stpcpy
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0     ; flags
@@ -360,9 +363,6 @@ begin_locals
     ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE
     ldy #ITEM_MENU_CAN_BE_USED_BY_TILE_COUNT
     jsr ff6vwf_render_string
-
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
 
     ; Draw tiles.
     ldx #FF6VWF_FIRST_TILE+ITEM_MENU_FIRST_CAN_BE_USED_BY_TILE
@@ -405,6 +405,9 @@ begin_locals
     sta outgoing_args+2
     ldx #FF6VWF_FIRST_TILE
     jsr ff6vwf_menu_render_static_strings
+
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     leave __FRAME_SIZE__
     rtl
@@ -598,6 +601,9 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     jsr ff6vwf_get_long_item_name
     stx string_ptr
 
+    ; Begin transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Calculate first tile ID.
     ldx text_line_slot
     ldy #10
@@ -615,8 +621,8 @@ FF6_MENU_INVENTORY_ITEM_LENGTH  = 14
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx first_tile_id
@@ -812,6 +818,9 @@ begin_locals
     txa                     ; first_tile_id
     sta first_tile_id
 
+    ; Commit transaction.
+    jsr ff6vwf_menu_begin_transaction
+
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0     ; flags
@@ -822,8 +831,8 @@ begin_locals
     ldy #10                 ; max_tile_count
     jsr ff6vwf_render_string
 
-    ; Upload it now. (We won't get a chance later...)
-    jsr ff6vwf_menu_force_nmi
+    ; Commit transaction.
+    jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
     ldx first_tile_id
