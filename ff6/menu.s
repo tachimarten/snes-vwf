@@ -870,23 +870,40 @@ ff6_update_config_menu_arrow = $c33980
 .export ff6vwf_menu_render_static_strings
 
 .proc _ff6vwf_menu_draw_main_menu
-begin_locals
-    decl_local outgoing_args, 3
+.struct locals
+    .org 1
+    outgoing_args .byte 4
+.endstruct
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+    enter .sizeof(locals), STACK_LIMIT
 
     ldx #.loword(ff6vwf_main_menu_static_text_descriptor)
-    stx outgoing_args+0
+    stx locals::outgoing_args+0
     lda #^ff6vwf_main_menu_static_text_descriptor
-    sta outgoing_args+2
-    ldx #FF6VWF_FIRST_TILE+10*4 ; tile_offset
+    sta locals::outgoing_args+2
+    ldx #FF6VWF_FIRST_TILE+10*4     ; tile_offset
     jsr ff6vwf_menu_render_static_strings
+
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta locals::outgoing_args+0     ; flags
+    ldx #.loword(ff6vwf_main_menu_wounded_label)
+    stx locals::outgoing_args+1     ; string_ptr
+    lda #^ff6vwf_main_menu_wounded_label
+    sta locals::outgoing_args+3     ; string_ptr bank
+    ldx #FF6VWF_FIRST_TILE+76       ; first_tile_id
+    ldy #8                          ; max_tile_count
+    jsr ff6vwf_render_string
 
     ; Stuff the original function did:
     lda #$20    ; palette 0
     sta f:ff6_menu_bg_attrs
 
-    leave __FRAME_SIZE__
+    leave .sizeof(locals)
+    a16
+    lda #0
+    ldx #0
+    ldy #0
+    a8
     rtl
 .endproc
 
@@ -1164,7 +1181,11 @@ _ff6_menu_load_skin_gfx_trampoline:
 
 .export ff6_menu_draw_string_trampoline
 
-.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"           ; $c34903
+.segment "PTEXTMENUWOUNDEDPOSITIONEDTEXT"       ; $c3371b
+
+    def_static_text_tiles 76, 8, -1
+
+.segment "PTEXTMENUCONFIGPOSITIONEDTEXTA"       ; $c34903
 
 ; Text pointers for Config page 1
 .addr .loword(menu_config_controller_tiles)
@@ -1383,6 +1404,8 @@ ff6vwf_main_menu_label_15: .asciiz "you sure?"
 ff6vwf_main_menu_label_16: .asciiz "Do you want"
 ff6vwf_main_menu_label_17: .asciiz "to load this"
 ff6vwf_main_menu_label_18: .asciiz "game?"
+
+ff6vwf_main_menu_wounded_label: .asciiz "Knocked Out"
 
 ; Stats labels
 
