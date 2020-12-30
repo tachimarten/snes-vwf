@@ -522,7 +522,7 @@ ff6_menu_shop_positioned_text:
     .byte $ff, 0
 ff6_menu_shop_greeting_text:
 .word $791f
-    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Hi! Can I help you?"), 15
+    def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Hi! Can I help you?"), 16
 .word $791f
     def_static_text_tiles_z SHOP_FIRST_MESSAGE_TILE, .strlen("Help yourself!"), -1
 .word $791f

@@ -853,9 +853,9 @@ begin_args_nearcall
 
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     sta locals::outgoing_args+0     ; flags
-    ldx #.loword(ff6vwf_main_menu_wounded_label)
+    ldx #.loword(ff6vwf_menu_wounded_label)
     stx locals::outgoing_args+1     ; string_ptr
-    lda #^ff6vwf_main_menu_wounded_label
+    lda #^ff6vwf_menu_wounded_label
     sta locals::outgoing_args+3     ; string_ptr bank
     ldx #FF6VWF_FIRST_TILE+76       ; first_tile_id
     ldy #8                          ; max_tile_count
@@ -965,7 +965,7 @@ _ff6_menu_load_skin_gfx_trampoline:
 
 .segment "PTEXTMENUWOUNDEDPOSITIONEDTEXT"       ; $c3371b
 
-    def_static_text_tiles 76, 8, -1
+    def_static_text_tiles FF6VWF_MENU_WOUNDED_START_TILE, 8, -1     ; "Wounded "
 
 ; Constant data
 
@@ -1007,7 +1007,9 @@ ff6vwf_main_menu_label_16: .asciiz "Do you want"
 ff6vwf_main_menu_label_17: .asciiz "to load this"
 ff6vwf_main_menu_label_18: .asciiz "game?"
 
-ff6vwf_main_menu_wounded_label: .asciiz "Knocked Out"
+ff6vwf_menu_wounded_label: .asciiz "Knocked Out"
+
+.export ff6vwf_menu_wounded_label: far
 
 ; Stats labels
 

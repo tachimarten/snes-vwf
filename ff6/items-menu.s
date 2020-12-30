@@ -26,6 +26,7 @@
 .import ff6vwf_menu_draw_vwf_tiles:             near
 .import ff6vwf_menu_force_nmi:                  near
 .import ff6vwf_menu_render_static_strings:      near
+.import ff6vwf_menu_wounded_label:              far
 .import ff6vwf_render_string:                   near
 .import ff6vwf_stats_labels:                    far
 .import ff6vwf_stats_tile_counts:               far
@@ -655,12 +656,23 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
     ; Upload "Owned:"
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
     sta outgoing_args+0     ; flags
-    ldy #.loword(ff6vwf_menu_owned_string)
+    ldy #.loword(ff6vwf_item_usage_menu_owned_string)
     sty outgoing_args+1
-    lda #^ff6vwf_menu_owned_string
+    lda #^ff6vwf_item_usage_menu_owned_string
     sta outgoing_args+3
     ldx #FF6VWF_FIRST_TILE+10
     ldy #6                  ; max_tile_count
+    jsr ff6vwf_render_string
+
+    ; Upload "Knocked Out" in place of "Wounded"/"Dead"
+    lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU | FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
+    sta outgoing_args+0     ; flags
+    ldy #.loword(ff6vwf_menu_wounded_label)
+    sty outgoing_args+1
+    lda #^ff6vwf_menu_wounded_label
+    sta outgoing_args+3
+    ldx #FF6VWF_FIRST_TILE+FF6VWF_MENU_WOUNDED_START_TILE
+    ldy #8                  ; max_tile_count
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -1030,7 +1042,9 @@ _equip_menu_positioned_text_b:
 
 .segment "DATA"
 
-ff6vwf_menu_owned_string: .asciiz "Owned:"
+; Item usage menu labels
+
+ff6vwf_item_usage_menu_owned_string: .asciiz "Owned:"
 
 ; Items menu labels
 
