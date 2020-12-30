@@ -30,9 +30,9 @@ SELL_QUANTITY_STATIC_STRING_COUNT = 3
 SHOP_FIRST_GIL_TILE         = 80
 SHOP_FIRST_TITLE_TILE       = 82
 SHOP_FIRST_MESSAGE_TILE     = 89
-SHOP_FIRST_SPECIFIC_TILE    = 104
+SHOP_FIRST_SPECIFIC_TILE    = 105
 
-SHOP_MESSAGE_TILE_COUNT = 15
+SHOP_MESSAGE_TILE_COUNT = 16
 
 ; Patches
 
@@ -503,7 +503,7 @@ ff6_menu_shop_positioned_text:
 .word $7a0f
     def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+0, .strlen("BUY  "), 2
     def_static_text_tiles   SHOP_FIRST_SPECIFIC_TILE+2, .strlen("SELL  "), 2
-    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("EXIT"), 2
+    def_static_text_tiles_z SHOP_FIRST_SPECIFIC_TILE+4, .strlen("EXIT"), 3
     ;;     B  U    Y             S   E    L    L             E   X   I    T
     ;.byte 8, 9, $ff, $ff, $ff, 10, 11, $ff, $ff, $ff, $ff, 12, 13, 14, $ff, 0
 .word $7a41
