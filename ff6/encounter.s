@@ -39,7 +39,7 @@ ff6_encounter_enemy_ids          = $7e200d
 .segment "BSS"
 
 ; Encounter BSS
-.org $7eed00
+.org $7f8000
 
 ; Current of the stack *in bytes*.
 ff6vwf_encounter_text_dma_stack_size: .res 1
