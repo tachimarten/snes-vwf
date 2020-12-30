@@ -157,13 +157,13 @@ menu_config_msg_speed_tiles:
     def_static_text_tiles_z $0c, 6, -1      ; Msg.Speed
 menu_config_cmd_set_tiles:
 .word $3b0f
-    def_static_text_tiles_z $12, 9, -1      ; Cmd.Set
+    def_static_text_tiles_z $12, 10, -1      ; Cmd.Set
 menu_config_gauge_tiles:
 .word $3b8f
     def_static_text_tiles_z $1c, 6, -1      ; Gauge
 menu_config_sound_tiles:
 .word $3c0f
-    def_static_text_tiles_z $22, 3, -1      ; Sound
+    def_static_text_tiles_z $22, 4, -1      ; Sound
 menu_config_reequip_tiles:
 .word $3d0f
     def_static_text_tiles_z $26, 7, -1      ; Reequip
