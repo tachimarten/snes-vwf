@@ -924,14 +924,22 @@ begin_locals
 
 ; ROM data patches
 
+.segment "PTEXTMENUITEMMENUCURSORPOSITIONS"     ; $c37d9d
+
+; Cursor positions for Item menu options
+.word $1640     ; USE
+.word $1670     ; ARRANGE
+.word $16B0     ; RARE
+
 .segment "PTEXTMENUITEMMENUPOSITIONEDTEXT"      ; $c38d16
 
 .word $790d
     def_static_text_tiles_z 0, .strlen("Item"), 3
 .word $791d
     def_static_text_tiles_z 3, .strlen("USE"), 2
-.word $7927
-    def_static_text_tiles_z 5, .strlen("ARRANGE"), 3
+.word $7929
+    def_static_text_tiles_z 5, .strlen("ARR"), -1   ; "ARRANGE"
+    .res 4
 .word $7939
     def_static_text_tiles_z 8, .strlen("RARE"), 2
 
