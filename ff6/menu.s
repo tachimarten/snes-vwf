@@ -121,8 +121,6 @@ ff6_menu_do_vram_dma_b  = $c314ac
     jsr .loword(ff6_menu_refresh_cgram)
 
     ; We have priority over the VRAM DMA that FF6 wants to do.
-    ;
-    ; For this to work, we must eagerly trigger NMI every time we render some text.
     jsl _ff6vwf_menu_run_dma
     cpy #0
     bne @we_did_dma
@@ -501,12 +499,12 @@ begin_args_nearcall
 
 .export ff6vwf_menu_draw_vwf_tiles
 
-; nearproc void _ff6vwf_menu_force_nmi()
+; nearproc void ff6vwf_menu_force_nmi()
 ;
 ; Just like FF6's "force NMI" routine at $c31368, but without messing with the force blank
 ; (INIDISP) settings. This allows us to wait for NMIs without turning the screen on, which might
 ; confuse FF6 and cause it to try to perform DMA with the screen on.
-.proc _ff6vwf_menu_force_nmi
+.proc ff6vwf_menu_force_nmi
 ff6_menu_nmi_requested    = $7e0024
 ff6_menu_mosaic           = $7e00b5
 ff6_menu_allow_sfx_repeat = $7e00ae
@@ -526,6 +524,8 @@ ff6_menu_allow_sfx_repeat = $7e00ae
     sta f:ff6_menu_allow_sfx_repeat ; Allow SFX repeat
     rts
 .endproc
+
+.export ff6vwf_menu_force_nmi
 
 ; nearproc void ff6vwf_menu_begin_transaction()
 .proc ff6vwf_menu_begin_transaction
@@ -551,7 +551,7 @@ ff6_menu_allow_sfx_repeat = $7e00ae
     lda f:ff6vwf_menu_text_dma_stack_size
 @loop:
     beq @out
-    jsr _ff6vwf_menu_force_nmi
+    jsr ff6vwf_menu_force_nmi
     lda f:ff6vwf_menu_text_dma_stack_size
     bra @loop
 
@@ -964,7 +964,12 @@ ff6_menu_bg3_ypos = $3f
 .endproc
 
 .proc _ff6vwf_menu_run_dma
+    lda f:ff6vwf_menu_transactions_open
+    bne @dont_run_dma
     ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_size, 0, 250
+    rtl
+@dont_run_dma:
+    ldy #0
     rtl
 .endproc
 

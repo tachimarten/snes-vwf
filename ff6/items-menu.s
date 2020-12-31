@@ -26,6 +26,7 @@
 .import ff6vwf_menu_commit_transaction:         near
 .import ff6vwf_menu_draw_list_item:             near
 .import ff6vwf_menu_draw_vwf_tiles:             near
+.import ff6vwf_menu_force_nmi:                  near
 .import ff6vwf_menu_render_static_strings:      near
 .import ff6vwf_menu_wounded_label:              far
 .import ff6vwf_render_string:                   near
@@ -155,12 +156,10 @@ ff6_menu_draw_equipped_item:
     nopx 7
 
 .segment "PTEXTMENUREDRAWITEMAFTERUSAGE"    ; $c38af8
-ff6_menu_item_usage_redraw_party = $2c01
 
     jsl _ff6vwf_menu_item_usage_begin_transaction
-    jsr ff6_menu_item_usage_redraw_party
     jsl _ff6vwf_menu_item_usage_commit_transaction
-    nopx 2
+    nopx 5
 
 .segment "PTEXTMENUDRAWKEYITEM"         ; $c38460
     jml _ff6vwf_menu_draw_key_item
@@ -744,19 +743,27 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
 .export ff6vwf_menu_draw_item_icon
 
 .proc _ff6vwf_menu_item_usage_begin_transaction
-ff6_item_usage_redraw_quantity = $c38a6d
+ff6_item_usage_redraw_quantity      = $c38a6d
+ff6_menu_item_usage_redraw_party    = $2c01
+ff6_menu_flush_oam                  = $11b0
 
     jsr ff6vwf_menu_begin_transaction
 
+    ; Make a ROP chain :)
     ply
     pla
     phy     ; Remove bank byte.
+    pea ff6_menu_flush_oam-1
+    pea ff6_menu_item_usage_redraw_party-1
     jml ff6_item_usage_redraw_quantity
 .endproc
 
 .proc _ff6vwf_menu_item_usage_commit_transaction
 ff6_menu_item_slot          = $7e0028
 ff6_menu_item_quantities    = $7e1969
+
+    ; Force NMI so that portraits get uploaded before text.
+    ;jsr ff6vwf_menu_force_nmi
 
     jsr ff6vwf_menu_commit_transaction
 
