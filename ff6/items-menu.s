@@ -71,6 +71,12 @@ ff6vwf_menu_compute_map_ptr_trampoline:    def_trampoline $809f
 .export ff6vwf_menu_move_blitz_tilemap_trampoline:  far
 .export ff6vwf_menu_compute_map_ptr_trampoline:     far
 
+; FF6 routine to draw the inventory.
+.segment "PTEXTMENUDRAWINVENTORY"       ; $c37f8b
+    jsl _ff6vwf_menu_draw_inventory
+    rts
+_ff6_draw_inventory_draw_item_info_trampoline: def_trampoline $7fa1
+
 ; FF6 routine to draw an item in the Item menu.
 .segment "PTEXTMENUDRAWITEMNAME"                    ; $c37fcd
     jml _ff6vwf_menu_draw_inventory_item_name_for_item_menu   ; 4 bytes
@@ -165,6 +171,31 @@ ff6_menu_draw_equipped_item:
 
 ; Our own functions, in a separate bank
 .segment "TEXT"
+
+; farproc void _ff6vwf_menu_draw_inventory()
+.proc _ff6vwf_menu_draw_inventory
+ff6_menu_item_slot  = $e5
+ff6_menu_bg1_row    = $e6
+
+    jsr ff6vwf_menu_begin_transaction
+
+    ; Stuff the original function did:
+    ldy #10                                             ; Rows left: 10
+:   phy                                                 ; Save counter
+    jsl _ff6_draw_inventory_draw_item_info_trampoline   ; Draw item info
+    inc ff6_menu_item_slot                              ; Next item slot
+    lda ff6_menu_bg1_row                                ; BG1 row
+    inc
+    inc                                                 ; Two rows down
+    and #$1f                                            ; Stay in limits
+    sta ff6_menu_bg1_row                                ; BG1 row
+    ply                                                 ; Restore rows left
+    dey                                                 ; ... and decrement
+    bne :-                                              ; Loop
+
+    jsr ff6vwf_menu_commit_transaction
+    rtl
+.endproc
 
 ; farproc void _ff6vwf_menu_draw_equipment_name(inreg(A) uint8 item_id)
 .proc _ff6vwf_menu_draw_equipment_name
