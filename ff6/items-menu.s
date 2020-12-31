@@ -154,6 +154,14 @@ ff6_menu_draw_equipped_item:
     jsl _ff6vwf_menu_draw_item_to_be_used
     nopx 7
 
+.segment "PTEXTMENUREDRAWITEMAFTERUSAGE"    ; $c38af8
+ff6_menu_item_usage_redraw_party = $2c01
+
+    jsl _ff6vwf_menu_item_usage_begin_transaction
+    jsr ff6_menu_item_usage_redraw_party
+    jsl _ff6vwf_menu_item_usage_commit_transaction
+    nopx 2
+
 .segment "PTEXTMENUDRAWKEYITEM"         ; $c38460
     jml _ff6vwf_menu_draw_key_item
     stp     ; should never be reached
@@ -734,6 +742,33 @@ ff6_menu_cursor_selected_inventory_slot = $7e004b
 .endproc
 
 .export ff6vwf_menu_draw_item_icon
+
+.proc _ff6vwf_menu_item_usage_begin_transaction
+ff6_item_usage_redraw_quantity = $c38a6d
+
+    jsr ff6vwf_menu_begin_transaction
+
+    ply
+    pla
+    phy     ; Remove bank byte.
+    jml ff6_item_usage_redraw_quantity
+.endproc
+
+.proc _ff6vwf_menu_item_usage_commit_transaction
+ff6_menu_item_slot          = $7e0028
+ff6_menu_item_quantities    = $7e1969
+
+    jsr ff6vwf_menu_commit_transaction
+
+    ; Stuff the original function did.
+    lda #0
+    xba
+    lda f:ff6_menu_item_slot            ; Load item slot.
+    tax
+    lda f:ff6_menu_item_quantities,x    ; Load item quantity.
+
+    rtl
+.endproc
 
 .proc _ff6vwf_menu_draw_item_menu
 begin_locals
