@@ -9,6 +9,7 @@
 
 .include "ff6.inc"
 .include "../snes.inc"
+.include "../vwf.inc"
 
 .import std_memset: near
 .import std_mod16_8: near
@@ -17,13 +18,11 @@
 
 .import vwf_render_string: far
 
-.import ff6vwf_encounter_text_dma_stack_base: far
-.import ff6vwf_encounter_text_tiles: far
-.import ff6vwf_encounter_text_dma_stack_size: far
-.import ff6vwf_menu_text_dma_stack_base: far
-.import ff6vwf_menu_text_tiles: far
-.import ff6vwf_menu_text_dma_stack_size: far
-.import ff6vwf_long_item_names: far
+.import ff6vwf_encounter_dma_queue:     far
+.import ff6vwf_encounter_text_tiles:    far
+.import ff6vwf_menu_dma_queue:          far
+.import ff6vwf_menu_text_tiles:         far
+.import ff6vwf_long_item_names:         far
 
 ; Our own functions, in a separate bank
 .segment "TEXT"
@@ -95,13 +94,14 @@ begin_args_nearcall
 ; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
 .proc ff6vwf_render_string
 begin_locals
-    decl_local outgoing_args, 6
-    decl_local first_tile_id, 1
-    decl_local text_line_chardata_ptr, 3    ; chardata far *
-    decl_local max_line_byte_size, 2
+    decl_local outgoing_args,       6     ; FIXME(tachiweasel): Should be 3 I think
+    decl_local first_tile_id,       1
+    decl_local tile_buffer,         .sizeof(vwf_tile_buffer)    ; struct vwf_tile_buffer
+    decl_local max_line_byte_size,  2
+    decl_local max_offset,          2
 begin_args_nearcall
-    decl_arg flags, 1
-    decl_arg string_ptr, 3
+    decl_arg flags,         1
+    decl_arg string_ptr,    3
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
@@ -112,63 +112,70 @@ begin_args_nearcall
     ; Compute max line byte size.
     tyx
     ldy flags
-    jsr _ff6vwf_tile_count_to_byte_count
+    jsr ff6vwf_tile_count_to_byte_count
     stx max_line_byte_size
 
-    ; Compute pointer into the character map.
-    tdc
-    add #text_line_chardata_ptr
-    tax
-    a8
-    ldy first_tile_id
+    ; Allocate text blocks.
+    ldx first_tile_id
+    ldy max_line_byte_size
     lda flags
     sta outgoing_args+0
-    jsr _ff6vwf_tile_id_to_wram_addr
+    a16
+    tdc
+    add #tile_buffer
+    sta outgoing_args+1
+    a8
+    jsr _ff6vwf_allocate_text_blocks
+
+    ; Save end offset.
+    a16
+    lda tile_buffer+vwf_tile_buffer::offset
+    add max_line_byte_size
+    and tile_buffer+vwf_tile_buffer::mask
+    sta max_offset
+    a8
 
     ; Compute bytes to skip.
     lda flags
     and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
     bne @have_4bpp
-    lda #0
+    ldy #0
     bra @store_bytes_to_skip
 @have_4bpp:
-    lda #16
+    ldy #16
 @store_bytes_to_skip:
-    tax                             ; X = bytes_to_skip
 
     ; Render string.
     lda string_ptr+2
-    sta outgoing_args+5             ; string_ptr, bank byte
-    ldy string_ptr+0
-    sty outgoing_args+3             ; string_ptr, low word
-    lda z:text_line_chardata_ptr+2
-    sta outgoing_args+2
-    ldy z:text_line_chardata_ptr+0
-    sty outgoing_args+0             ; dest_ptr
+    sta outgoing_args+2             ; string_ptr, bank byte
+    ldx string_ptr+0
+    stx outgoing_args+0             ; string_ptr, low word
+    a16
+    tdc
+    add #tile_buffer
+    tax
+    a8
     jsl vwf_render_string
 
-    ; X now contains the pointer to the end of the tiles we rendered. Fill in remaining tiles
-    ; with blanks.
-    stx outgoing_args+0             ; ptr
-    lda z:text_line_chardata_ptr+2
-    sta outgoing_args+2             ; ptr, bank byte
+    ; Fill in remaining tiles with blanks.
     a16
-    txa
-    sub z:text_line_chardata_ptr+0
-    sub max_line_byte_size          ; bytes_rendered - max_line_byte_size
-    bgt overflow                    ; Overflow?
-    neg16                           ; Negate, so we have `max_line_byte_size - bytes_rendered`
-    tay                             ; count
+    ldy tile_buffer+vwf_tile_buffer::offset
+@blank_loop:
+    cpy max_offset
+    beq @done_blanking
+    lda #0
+    sta [tile_buffer+vwf_tile_buffer::base],y
+    tya
+    add #2
+    and tile_buffer+vwf_tile_buffer::mask
+    tay
+    bra @blank_loop
+@done_blanking:
     a8
-    ldx #0                          ; value
-    jsr std_memset
-overflow:
 
     ; Schedule the upload.
-    lda flags
-    sta outgoing_args+0
-    ldy max_line_byte_size
-    ldx first_tile_id
+    ldx max_line_byte_size
+    ldy flags
     jsr ff6vwf_schedule_text_dma
 
     leave __FRAME_SIZE__
@@ -177,139 +184,302 @@ overflow:
 
 .export ff6vwf_render_string
 
-; nearproc void ff6vwf_schedule_text_dma(uint8 first_tile_id,
-;                                        uint16 max_line_byte_size,
-;                                        uint8 flags)
-;
-; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
-.proc ff6vwf_schedule_text_dma
-begin_locals
-    decl_local outgoing_args, 7
-    decl_local dma_stack_size, 1        ; uint8
-    decl_local dma_stack_ptr, 3         ; uint16 far *
-    decl_local tile_base_addr, 2        ; vram near *
-    decl_local first_tile_id, 1         ; uint8
-    decl_local src_addr, 3              ; chardata far *
-    decl_local max_line_byte_size, 2    ; uint16
-begin_args_nearcall
-    decl_arg flags, 1                   ; uint8
+.struct args_ff6vwf_dma_queue_init
+    queue_ptr .faraddr  ; struct dma_queue far *
+.endstruct
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+; nearproc void ff6vwf_dma_queue_init(struct dma_queue far *queue_ptr)
+.proc ff6vwf_dma_queue_init
+LOCALS_SIZE = 0
+args = LOCALS_SIZE + .sizeof(nearcall_frame) + 1
 
-    ; Initialize locals.
+    enter LOCALS_SIZE, STACK_LIMIT
+
+    ; Lock.
+    lda #1
+    ldy #ff6vwf_dma_queue::locked
+    sta [args+args_ff6vwf_dma_queue_init::queue_ptr],y
+
+    lda #0
+    ldy #ff6vwf_dma_queue::scheduled
+    sta [args+args_ff6vwf_dma_queue_init::queue_ptr],y
+    ldy #ff6vwf_dma_queue::allocated
+    sta [args+args_ff6vwf_dma_queue_init::queue_ptr],y
+    ldy #ff6vwf_dma_queue::free
+    sta [args+args_ff6vwf_dma_queue_init::queue_ptr],y
+
+    ; Unlock.
+    lda #0
+    ldy #ff6vwf_dma_queue::locked
+    sta [args+args_ff6vwf_dma_queue_init::queue_ptr],y
+
+    leave LOCALS_SIZE
+    rts
+.endproc
+
+.export ff6vwf_dma_queue_init
+
+; nearproc void ff6vwf_get_dma_queue(uint8 flags, struct ff6vwf_dma_queue far *near *out_dma_queue)
+.proc ff6vwf_get_dma_queue
     txa
-    sta first_tile_id
-    sty max_line_byte_size
+    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
+    bne :+
+    ldx #.loword(ff6vwf_encounter_dma_queue)
+    lda #^ff6vwf_encounter_dma_queue
+    bra :++
+:   ldx #.loword(ff6vwf_menu_dma_queue)
+    lda #^ff6vwf_menu_dma_queue
+:   sta a:2,y
+    a16
+    txa
+    sta a:0,y
+    a8
+    rts
+.endproc
+
+; nearproc uint8 ff6vwf_dma_queue_get_free_blocks()
+.proc ff6vwf_dma_queue_get_free_blocks
+.struct locals
+    .org 1
+    dma_queue           .faraddr    ; struct ff6vwf_dma_queue far *
+    free_block_index    .byte       ; uint8
+.endstruct
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ; Get DMA queue.
+    a16
+    tdc
+    add #locals::dma_queue
+    tay
+    a8
+    jsr ff6vwf_get_dma_queue
+
+    ; Get free block index.
+    ldy #ff6vwf_dma_queue::free
+    lda [locals::dma_queue],y
+    sta locals::free_block_index
+
+    ; Calculate free blocks in the queue.
+    ldy #ff6vwf_dma_queue::scheduled
+    lda [locals::dma_queue],y           ; Get scheduled block index.
+    add #FF6VWF_SLOT_COUNT
+    sub locals::free_block_index
+    dec                                 ; Max capacity of the queue is 1 less than its elements.
+    and #FF6VWF_SLOT_COUNT - 1          ; scheduled block index - free block index
+    tax
+
+    leave .sizeof(locals)
+    rts
+.endproc
+
+.export ff6vwf_dma_queue_get_free_blocks
+
+; nearproc void _ff6vwf_allocate_text_blocks(uint8 first_tile_id,
+;                                            uint16 byte_size,
+;                                            uint8 flags,
+;                                            struct vwf_tile_buffer *out_tile_buffer)
+
+; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
+.struct args__ff6vwf_allocate_text_blocks
+    flags           .byte   ; uint8
+    out_tile_buffer .addr   ; struct vwf_tile_buffer *
+.endstruct
+.proc _ff6vwf_allocate_text_blocks
+.struct locals
+    .org 1
+    outgoing_args           .byte 1
+    dma_queue               .faraddr    ; struct ff6vwf_dma_queue far *
+    tile_base_addr          .addr       ; vram_word *
+    vram_addr               .addr       ; vram_word *
+    block_index             .byte       ; uint8
+    next_block_index        .byte       ; uint8
+    next_next_block_index   .byte       ; uint8
+    first_tile_id           .byte       ; uint8
+    byte_size               .word       ; uint16
+.endstruct
+decl_args_nearcall .sizeof(locals)
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ; Save arguments.
+    txa
+    sta locals::first_tile_id
+    stx locals::tile_base_addr
+    sty locals::byte_size
+
+    ; Get DMA queue.
+    tdc
+    add #locals::dma_queue
+    tay
+    a8
+    ldx args+args__ff6vwf_allocate_text_blocks::flags
+    jsr ff6vwf_get_dma_queue
 
     ; Look up tile base address.
-    lda flags
+    lda args+args__ff6vwf_allocate_text_blocks::flags
     a16
     and #$0003
     asl
     tax
     lda f:_ff6vwf_schedule_text_dma_base_addresses,x
-    sta tile_base_addr
+    sta locals::tile_base_addr
     a8
 
-    ; Lock the DMA stack pointer.
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    bne @lock_menu_dma_stack_pointer
-
-    ; Encounter path for the above:
-    a16
-    lda #.loword(ff6vwf_encounter_text_dma_stack_base)
-    sta outgoing_args+0
-    lda #.loword(ff6vwf_encounter_text_dma_stack_size)
-    sta outgoing_args+3
-    a8
-    lda #^ff6vwf_encounter_text_dma_stack_base
-    sta outgoing_args+2             ; dma_stack_base
-    lda #^ff6vwf_encounter_text_dma_stack_size
-    sta outgoing_args+5             ; dma_stack_size
-    lda #FF6VWF_ENCOUNTER_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
-    sta outgoing_args+6             ; dma_stack_capacity
-    bra @call_lock_dma_stack
-
-    ; Menu path for the above
-@lock_menu_dma_stack_pointer:
-    a16
-    lda #.loword(ff6vwf_menu_text_dma_stack_base)
-    sta outgoing_args+0
-    lda #.loword(ff6vwf_menu_text_dma_stack_size)
-    sta outgoing_args+3
-    a8
-    lda #^ff6vwf_menu_text_dma_stack_base
-    sta outgoing_args+2             ; dma_stack_base
-    lda #^ff6vwf_menu_text_dma_stack_size
-    sta outgoing_args+5             ; dma_stack_size
-    lda #FF6VWF_MENU_SLOT_COUNT * FF6VWF_DMA_STRUCT_SIZE
-    sta outgoing_args+6             ; dma_stack_capacity
-    bra @call_lock_dma_stack
-
-@call_lock_dma_stack:
-    a16
-    tdc
-    add #dma_stack_ptr
-    tax                             ; out_dma_stack_ptr = &dma_stack_ptr
-    tdc
-    add #dma_stack_size
-    tay                             ; out_dma_stack_size = &dma_stack_size
-    a8
-    jsr _ff6vwf_lock_dma_stack
-    cpx #0
-    beq @out
-
-    ; Calculate and store VRAM address.
-    ldx tile_base_addr
-    ldy first_tile_id
-    lda flags
-    sta outgoing_args+0
+    ; Calculate VRAM address.
+    ldx locals::tile_base_addr
+    ldy locals::first_tile_id
+    lda args+args__ff6vwf_allocate_text_blocks::flags
+    sta locals::outgoing_args+0
     jsr _ff6vwf_tile_id_to_vram_addr
+    stx locals::vram_addr
+
+    ; Lock queue.
+    lda #1
+    sta [locals::dma_queue]
+
+    ; Store dest base pointer.
     a16
-    txa
-    lsr                                 ; Make a word address.
-    sta [dma_stack_ptr]                 ; Write VRAM address.
-    inc dma_stack_ptr
-    inc dma_stack_ptr
+    lda locals::dma_queue+0
+    add #ff6vwf_dma_queue::buffer
+    ldy #vwf_tile_buffer::base+0
+    sta (args+args__ff6vwf_allocate_text_blocks::out_tile_buffer),y  ; Store near address.
+    a8
+    lda locals::dma_queue+2
+    ldy #vwf_tile_buffer::base+2
+    sta (args+args__ff6vwf_allocate_text_blocks::out_tile_buffer),y  ; Store bank byte.
+
+    ; Store mask.
+    a16
+    lda #FF6VWF_SLOT_COUNT * FF6VWF_BLOCK_SIZE - 1
+    ldy #vwf_tile_buffer::mask
+    sta (args+args__ff6vwf_allocate_text_blocks::out_tile_buffer),y
+
+    ; Calculate offset.
+    ldy #ff6vwf_dma_queue::free
+    lda [locals::dma_queue],y
+    and #$00ff
+    asli FF6VWF_BLOCK_SIZE_LOG2
+    sta (args+args__ff6vwf_allocate_text_blocks::out_tile_buffer),y
     a8
 
-    ; Calculate and store source address.
+    ldx locals::byte_size
+@loop:
+    beq @unlock
+
+    ; Allocate space.
+    ldy #ff6vwf_dma_queue::free
+    lda [locals::dma_queue],y
+    sta locals::block_index
+    inc
+    and #FF6VWF_SLOT_COUNT-1
+    sta locals::next_block_index
+    sta [locals::dma_queue],y
+
+    ; Did we overflow? If so, dequeue the first scheduled or allocated block.
+    ldy #ff6vwf_dma_queue::scheduled
+    cmp [locals::dma_queue],y
+    bne @no_overflow
+    inc
+    and #FF6VWF_SLOT_COUNT-1
+    sta locals::next_next_block_index
+    sta [locals::dma_queue],y           ; Dequeue scheduled block.
+    ldy #ff6vwf_dma_queue::allocated    ; Check to see if we hit the first allocated block too...
+    lda locals::next_block_index
+    cmp [locals::dma_queue],y
+    bne @no_overflow
+    lda locals::next_next_block_index
+    sta [locals::dma_queue],y           ; Dequeue allocated block.
+@no_overflow:
+
+    ; Compute and store block size.
+    a8
+    lda locals::block_index
+    add #ff6vwf_dma_queue::sizes
+    a16
+    and #$00ff
+    tay
+    lda locals::byte_size
+    cmp #FF6VWF_BLOCK_SIZE
+    blt :+
+    lda #FF6VWF_BLOCK_SIZE
+:   a8
+    sta [locals::dma_queue],y       ; min(byte_size, bytes_per_block)
+    a16
+    sub locals::byte_size
+    neg16                           ; -(min(byte_size, bytes_per_block) - byte_size)
+    sta locals::byte_size
+
+    ; Store destination VRAM address.
+    lda locals::block_index
+    and #$00ff
+    asl
+    add #ff6vwf_dma_queue::dest_addrs
+    tay
+    lda locals::vram_addr
+    lsr                         ; Convert to word address.
+    sta [locals::dma_queue],y
+
+    ; Next block.
+    lda locals::vram_addr
+    add #FF6VWF_BLOCK_SIZE
+    sta locals::vram_addr
+    lda locals::byte_size       ; To set flags...
+    a8
+    bra @loop
+
+@unlock:
+    ; Unlock.
+    lda #0
+    sta [locals::dma_queue]
+
+    leave .sizeof(locals)
+    rts
+.endproc
+
+
+; nearproc void ff6vwf_schedule_text_dma(uint16 max_line_byte_size, uint8 flags)
+;
+; Flags are the `FF6VWF_DMA_SCHEDULE_FLAGS_`.
+.proc ff6vwf_schedule_text_dma
+.struct locals
+    .org 1
+    dma_queue   .faraddr    ; struct ff6vwf_dma_queue far *
+    block_count .byte       ; uint8
+.endstruct
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ; Calculate block count.
+    jsr ff6vwf_byte_count_to_block_count
+    txa
+    sta locals::block_count
+
+    ; Get DMA queue.
+    tyx         ; flags
     a16
     tdc
-    add #src_addr
-    tax
+    add #locals::dma_queue
+    tay
     a8
-    ldy first_tile_id
-    lda flags
-    sta outgoing_args+0
-    jsr _ff6vwf_tile_id_to_wram_addr
-    a16
-    lda src_addr
-    sta [dma_stack_ptr]
-    inc dma_stack_ptr
-    inc dma_stack_ptr
+    jsr ff6vwf_get_dma_queue
 
-    ; Push size on the stack.
-    lda max_line_byte_size
-    sta [dma_stack_ptr]
-    a8
+    ; Lock queue.
+    lda #1
+    sta [locals::dma_queue]
+
+    ; Bump scheduled pointer.
+    ldy #ff6vwf_dma_queue::allocated
+    lda [locals::dma_queue],y
+    add locals::block_count
+    and #FF6VWF_SLOT_COUNT - 1
+    sta [locals::dma_queue],y
 
     ; Unlock.
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    bne @unlock_menu
-    ; Encounter path:
-    lda dma_stack_size
-    sta f:ff6vwf_encounter_text_dma_stack_size
-    bra @out
-    ; Menu path:
-@unlock_menu:
-    lda dma_stack_size
-    sta f:ff6vwf_menu_text_dma_stack_size
+    lda #0
+    sta [locals::dma_queue]
 
-@out:
-    leave __FRAME_SIZE__
+    leave .sizeof(locals)
     rts
 .endproc
 
@@ -321,50 +491,6 @@ _ff6vwf_schedule_text_dma_base_addresses:
 .word $8000     ; encounter, 4BPP
 .word $c000     ; menu, 2BPP
 .word $a000     ; menu, 4BPP
-
-; nearproc void _ff6vwf_tile_id_to_wram_addr(chardata far *near *out_tile_addr,
-;                                            uint8 tile_id,
-;                                            uint8 flags)
-.proc _ff6vwf_tile_id_to_wram_addr
-begin_locals
-    decl_local outgoing_args, 1
-    decl_local tile_id, 1
-    decl_local out_tile_addr, 2     ; chardata far *near *
-begin_args_nearcall
-    decl_arg flags, 1               ; uint8
-
-    enter __FRAME_SIZE__, STACK_LIMIT
-
-    stx out_tile_addr
-    tya
-    sta tile_id
-
-    ldy #2
-    lda flags
-    and #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    bne @menu
-    lda #^ff6vwf_encounter_text_tiles
-    sta (out_tile_addr),y
-    ldx #.loword(ff6vwf_encounter_text_tiles)
-    bra @calculate_addr
-@menu:
-    lda #^ff6vwf_menu_text_tiles
-    sta (out_tile_addr),y
-    ldx #.loword(ff6vwf_menu_text_tiles)
-
-@calculate_addr:
-    ldy tile_id         ; tile_id
-    lda flags
-    sta outgoing_args+0 ; X is base addr
-    jsr _ff6vwf_tile_id_to_vram_addr
-    a16
-    txa
-    sta (out_tile_addr)
-    a8
-
-    leave __FRAME_SIZE__
-    rts
-.endproc
 
 ; nearproc vram *_ff6vwf_tile_id_to_vram_addr(vram *base_addr, uint8 tile_id, uint8 flags)
 .proc _ff6vwf_tile_id_to_vram_addr
@@ -379,7 +505,7 @@ begin_args_nearcall
 
     tyx
     ldy flags
-    jsr _ff6vwf_tile_count_to_byte_count
+    jsr ff6vwf_tile_count_to_byte_count
 
     a16
     txa
@@ -391,8 +517,8 @@ begin_args_nearcall
     rts
 .endproc
 
-; nearproc uint16 _ff6vwf_tile_count_to_byte_count(uint8 tile_count, uint8 flags)
-.proc _ff6vwf_tile_count_to_byte_count
+; nearproc uint16 ff6vwf_tile_count_to_byte_count(uint8 tile_count, uint8 flags)
+.proc ff6vwf_tile_count_to_byte_count
     a16
     tya
     and #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP
@@ -411,65 +537,29 @@ begin_args_nearcall
     rts
 .endproc
 
-; nearproc bool _ff6vwf_lock_dma_stack(struct dma far *near *out_dma_stack_ptr,
-;                                      uint8 near *out_dma_stack_size,
-;                                      struct dma far *dma_stack_base,
-;                                      uint8 far *dma_stack_size_ptr,
-;                                      uint8 dma_stack_capacity)
-;
-; Returns true if there was space or false on overflow. NOT reentrant.
-.proc _ff6vwf_lock_dma_stack
-begin_locals
-    decl_local out_dma_stack_ptr, 2     ; struct dma far *near *
-    decl_local out_dma_stack_size, 2    ; uint8 near *
-    decl_local pre_dma_stack_size, 1    ; uint8
-begin_args_nearcall
-    decl_arg dma_stack_base, 3          ; struct dma far *
-    decl_arg dma_stack_size_ptr, 3      ; uint8 far *
-    decl_arg dma_stack_capacity, 1      ; uint8
+.export ff6vwf_tile_count_to_byte_count
 
-    enter __FRAME_SIZE__, STACK_LIMIT
-
-    ; Store arguments.
-    stx out_dma_stack_ptr
-    sty out_dma_stack_size
-
-    ; Bump size.
-    lda [dma_stack_size_ptr]
-    sta pre_dma_stack_size
-    add #FF6VWF_DMA_STRUCT_SIZE
-    cmp dma_stack_capacity
-    ble @it_fits
-
-    ; Overflow. Bail out.
-    ldx #0
-    bra @out
-
-@it_fits:
-    sta (out_dma_stack_size)
-
-    ; Lock the DMA stack by setting its size to zero, ensuring NMI won't touch it.
-    lda #0
-    sta [dma_stack_size_ptr]
-
-    ; Store stack pointer.
-    lda pre_dma_stack_size
+; nearproc uint8 ff6vwf_byte_count_to_block_count(uint16 byte_count)
+.proc ff6vwf_byte_count_to_block_count
     a16
-    and #$00ff
-    add dma_stack_base+0
-    sta (out_dma_stack_ptr)     ; Store low word.
+    txa
+    add #FF6VWF_BLOCK_SIZE - 1
+    lsri FF6VWF_BLOCK_SIZE_LOG2     ; Divide, rounding up.
+    tax
     a8
-    ldy #2
-    lda dma_stack_base+2
-    sta (out_dma_stack_ptr),y   ; Store bank byte.
-
-    ; Finish up.
-    ldx #1
-
-@out:
-    leave __FRAME_SIZE__
     rts
 .endproc
+
+.export ff6vwf_byte_count_to_block_count
+
+; nearproc uint8 ff6vwf_tile_count_to_block_count(uint8 tile_count, uint8 flags)
+.proc ff6vwf_tile_count_to_block_count
+    ; TODO(tachiweasel): This could be more efficient.
+    jsr ff6vwf_tile_count_to_byte_count
+    jmp ff6vwf_byte_count_to_block_count
+.endproc
+
+.export ff6vwf_tile_count_to_block_count
 
 ; nearproc uint8 ff6vwf_calculate_first_tile_id_simple(uint8 text_line_slot, uint8 max_line_size)
 .proc ff6vwf_calculate_first_tile_id_simple
@@ -485,13 +575,6 @@ begin_args_nearcall
 ; Constant data
 
 .segment "DATA"
-
-ff6vwf_string_10_char_offsets:
-.repeat .max(FF6VWF_ENCOUNTER_SLOT_COUNT, FF6VWF_MENU_SLOT_COUNT), i
-    .byte $08+10*i
-.endrepeat
-
-.export ff6vwf_string_10_char_offsets: far
 
 ff6vwf_long_command_names: ff6vwf_def_pointer_array ff6vwf_long_command_name, 30
 

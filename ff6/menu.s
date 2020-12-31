@@ -14,7 +14,10 @@
 .import std_mod16_8: near
 
 .import ff6vwf_calculate_first_tile_id_simple:  near
+.import ff6vwf_dma_queue_get_free_blocks:       near
+.import ff6vwf_dma_queue_init:                  near
 .import ff6vwf_render_string:                   near
+.import ff6vwf_tile_count_to_block_count:       near
 .import ff6vwf_transcode_string:                near
 .import ff6vwf_long_command_names:              far
 .import ff6vwf_long_class_names:                far
@@ -44,8 +47,6 @@ MAIN_MENU_STRING_COUNT      = 19
 
 .org $7f0000
 
-; Current of the stack *in bytes*.
-ff6vwf_menu_text_dma_stack_size: .res 1
 ; The party member ID corresponding to the last character class drawn in the Lineup menu. This
 ; avoids uploading every frame, which causes flicker.
 ff6vwf_last_lineup_class: .res 1
@@ -55,11 +56,6 @@ ff6vwf_last_lineup_pc_addr: .res 2
 ; A bitset of PC names that have been drawn in the Kefka lineup menu. Like the Lineup menu, it
 ; redraws PC names every frame, so we need to work around this to avoid lag.
 ff6vwf_menu_kefka_lineup_drawn_pc_names: .res 2
-; Stack of DMA structures, just like the encounter ones.
-ff6vwf_menu_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
-; Buffer space for the lines of text, `FF6VWF_MAX_LINE_LENGTH` each to be stored, ready to be
-; uploaded to VRAM.
-ff6vwf_menu_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
 ; The slot to use when drawing current equipment.
 ff6vwf_current_equipment_text_slot: .res 1
 ; True if we're drawing current equipment to BG3, false if BG1.
@@ -68,14 +64,14 @@ ff6vwf_current_equipment_bg3: .res 1
 ff6vwf_menu_redraw_needed: .res 1
 ; The number of transactions currently open.
 ff6vwf_menu_transactions_open: .res 1
+; The DMA ring buffer.
+ff6vwf_menu_dma_queue: .tag ff6vwf_dma_queue
 
 .export ff6vwf_menu_kefka_lineup_drawn_pc_names:    far
-.export ff6vwf_menu_text_dma_stack_base:            far
-.export ff6vwf_menu_text_tiles:                     far
-.export ff6vwf_menu_text_dma_stack_size:            far
 .export ff6vwf_current_equipment_text_slot:         far
 .export ff6vwf_current_equipment_bg3:               far
 .export ff6vwf_menu_redraw_needed:                  far
+.export ff6vwf_menu_dma_queue:                      far
 
 .reloc
 
@@ -136,14 +132,23 @@ ff6_menu_do_vram_dma_b  = $c314ac
 ; Menu functions
 
 .proc _ff6vwf_menu_init
+.struct locals
+    .org 1
+    outgoing_args .byte 3
+.endstruct
+
 ff6_reset_vars = $d4cdf3
 
-    ; Stuff the original function did
-    jsl ff6_reset_vars      ; Reset many vars
+    enter .sizeof(locals), STACK_LIMIT
+
+    ; Initialize DMA queue.
+    ldx #.loword(ff6vwf_menu_dma_queue)
+    stx locals::outgoing_args+0
+    lda #^ff6vwf_menu_dma_queue
+    sta locals::outgoing_args+2
+    jsr ff6vwf_dma_queue_init
 
     ; Initialize globals.
-    lda #0
-    sta f:ff6vwf_menu_text_dma_stack_size
     a16
     lda #$ffff
     sta f:ff6vwf_last_lineup_pc_addr
@@ -152,6 +157,11 @@ ff6_reset_vars = $d4cdf3
     lda #0
     sta f:ff6vwf_menu_redraw_needed
     sta f:ff6vwf_menu_transactions_open
+
+    leave .sizeof(locals)
+
+    ; Stuff the original function did
+    jsl ff6_reset_vars      ; Reset many vars
 
     ; Return.
     jml $c368fe
@@ -548,11 +558,11 @@ ff6_menu_allow_sfx_repeat = $7e00ae
     bne @out
 
     ; Flush.
-    lda f:ff6vwf_menu_text_dma_stack_size
 @loop:
+    lda f:ff6vwf_menu_dma_queue+ff6vwf_dma_queue::scheduled
+    cmp f:ff6vwf_menu_dma_queue+ff6vwf_dma_queue::allocated
     beq @out
     jsr ff6vwf_menu_force_nmi
-    lda f:ff6vwf_menu_text_dma_stack_size
     bra @loop
 
 @out:
@@ -697,8 +707,6 @@ begin_locals
 ff6_party_characters = $7e0000
 ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0-3 respectively
 
-LAST_TEXT_LINE_SLOT = FF6VWF_MENU_SLOT_COUNT - 1
-
     ; Determine party member ID.
     lda 0,y
     sta party_member_id
@@ -803,6 +811,9 @@ begin_locals
     decl_local string_index, 1          ; uint8
     decl_local tile_offset, 1           ; uint8
     decl_local text, .sizeof(static_text)
+    decl_local tile_count, 1            ; uint8
+    decl_local block_count, 1           ; uint8
+    decl_local blocks_left, 1           ; uint8
 begin_args_nearcall
     decl_arg text_ptr, 3            ; const struct static_text far *
 
@@ -833,17 +844,38 @@ begin_args_nearcall
     lda #0
     sta string_index
 
+    ; Determine number of free blocks.
+    jsr ff6vwf_dma_queue_get_free_blocks
+    txa
+    sta blocks_left
+
 @loop:
     cmp text+static_text::count
     beq @done
 
+    ; Look up tile count.
+    lda #0
+    xba
+    lda string_index
+    tay
+    lda [text+static_text::tile_counts],y
+    sta tile_count
+
+    ; Calculate block count.
+    tax
+    ldy text+static_text::dma_flags
+    jsr ff6vwf_tile_count_to_block_count
+    txa
+    sta block_count
+
     ; Commit transaction if we ran out of DMA space in the queue.
-    lda f:ff6vwf_menu_text_dma_stack_size
-    cmp #FF6VWF_DMA_STRUCT_SIZE * FF6VWF_MENU_SLOT_COUNT
-    bne :+
+    lda blocks_left
+    sub block_count
+    bge :+
     jsr ff6vwf_menu_commit_transaction
     jsr ff6vwf_menu_begin_transaction
-:
+    lda #FF6VWF_SLOT_COUNT
+:   sta blocks_left
 
     lda string_index
     a16
@@ -862,8 +894,7 @@ begin_args_nearcall
     lda [text+static_text::start_tiles],y
     add tile_offset
     tax                             ; first tile ID
-    lda [text+static_text::tile_counts],y
-    tay                             ; max_tile_count
+    ldy tile_count                  ; max_tile_count
     jsr ff6vwf_render_string
 
     inc string_index
@@ -966,7 +997,7 @@ ff6_menu_bg3_ypos = $3f
 .proc _ff6vwf_menu_run_dma
     lda f:ff6vwf_menu_transactions_open
     bne @dont_run_dma
-    ff6vwf_run_dma ff6vwf_menu_text_tiles, ff6vwf_menu_text_dma_stack_base, ff6vwf_menu_text_dma_stack_size, 0, 250
+    ff6vwf_run_dma ff6vwf_menu_dma_queue, 0, 250
     rtl
 @dont_run_dma:
     ldy #0

@@ -7,21 +7,16 @@
 
 ; Constants
 
-; Number of text lines we can queue up in VRAM at one time, for encounters.
-FF6VWF_ENCOUNTER_SLOT_COUNT = 14
-; Number of text lines we can queue up in VRAM at one time, for the menu.
-FF6VWF_MENU_SLOT_COUNT = 20
-; The byte size of a tile (2bpp).
-VWF_TILE_BYTE_SIZE_2BPP = 2 * 8
-; The byte size of a tile (4bpp).
-VWF_TILE_BYTE_SIZE_4BPP = 2 * 8 * 2
+; Number of blocks we can queue up in VRAM at one time.
+.define FF6VWF_SLOT_COUNT 32
+; Number of a bytes in a DMA block.
+.define FF6VWF_BLOCK_SIZE_LOG2 7
+.define FF6VWF_BLOCK_SIZE 1 << FF6VWF_BLOCK_SIZE_LOG2
 ; First tile we use for VWF.
 FF6VWF_FIRST_TILE = 8
 
 ; List item is a Key Item.
 FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
-
-FF6VWF_DMA_STRUCT_SIZE = 6
 
 FF6VWF_DMA_SCHEDULE_FLAGS_4BPP  = $01   ; Set if 4bpp. Otherwise, 2bpp.
 FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it's an encounter.
@@ -60,6 +55,19 @@ FF6VWF_STATS_TILE_INDEX_ATTACK = FF6VWF_STATS_TILE_INDEX_SPEED + FF6VWF_STATS_TI
 FF6VWF_STATS_TILE_INDEX_DEFENSE = FF6VWF_STATS_TILE_INDEX_ATTACK + FF6VWF_STATS_TILE_COUNT_ATTACK
 FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE = FF6VWF_STATS_TILE_INDEX_DEFENSE + FF6VWF_STATS_TILE_COUNT_DEFENSE
 FF6VWF_STATS_TOTAL_TILE_COUNT = FF6VWF_STATS_TILE_INDEX_MAGIC_DEFENSE + FF6VWF_STATS_TILE_COUNT_MAGIC_DEFENSE
+
+; Structs
+
+; Ring buffer with 128-byte blocks.
+.struct ff6vwf_dma_queue
+locked      .byte   ; bool
+scheduled   .byte   ; Index of first block scheduled for upload.
+allocated   .byte   ; Index of last block scheduled for upload/first block allocated.
+free        .byte   ; Index of last block allocated/first block free.
+sizes       .byte FF6VWF_SLOT_COUNT     ; Block used sizes.
+dest_addrs  .word FF6VWF_SLOT_COUNT     ; VRAM destination word addresses.
+buffer      .byte FF6VWF_SLOT_COUNT * FF6VWF_BLOCK_SIZE
+.endstruct
 
 ; Globals
 
@@ -157,8 +165,12 @@ ff6_menu_draw_string            = $c37fd9
 ;
 ; This is a macro because every cycle really counts. We continually run *VERY* close to running out
 ; of VBLANK time.
-.macro ff6vwf_run_dma text_tiles, text_dma_stack_base, text_dma_stack_size, dma_channel, dma_timeout
+.macro ff6vwf_run_dma queue, dma_channel, dma_timeout
     ldy #0
+
+    ; Bail if locked.
+    lda f:queue+ff6vwf_dma_queue::locked
+    bne @__out
 
 @__loop:
     lda STAT78
@@ -169,26 +181,41 @@ ff6_menu_draw_string            = $c37fd9
     cmp #dma_timeout    ; Don't DMA after the timeout...
     bge @__out
 
-@__do_it:
-    ; Any DMA lines to upload?
-    tdc                         ; Fast clear top byte of A to 0.
-    lda f:text_dma_stack_size
+    ; Any DMA blocks to upload?
+    tdc         ; Fast clear top byte of A to 0.
+    lda f:queue+ff6vwf_dma_queue::scheduled
+    tax
+    cmp f:queue+ff6vwf_dma_queue::allocated
     beq @__out
 
-    ; Pop it off the stack.
-    sub #FF6VWF_DMA_STRUCT_SIZE
-    sta f:text_dma_stack_size
-    tax
+    ; Dequeue the DMA request.
+    inc
+    and #FF6VWF_SLOT_COUNT - 1
+    sta f:queue+ff6vwf_dma_queue::scheduled
+
+    ; Store size.
+    tdc
+    lda f:queue+ff6vwf_dma_queue::sizes,x           ; size
     a16
-    lda f:text_dma_stack_base+0,x   ; dest VRAM address
-    sta VMADDL
-    lda f:text_dma_stack_base+2,x   ; source address
-    sta A1T0L + $10*dma_channel
-    lda f:text_dma_stack_base+4,x   ; size
     sta DAS0L + $10*dma_channel
+
+    ; Store dest VRAM address.
+    txa
+    asl
+    tax
+    lda f:queue+ff6vwf_dma_queue::dest_addrs,x      ; dest VRAM address
+    sta VMADDL
+
+    ; Store source WRAM address.
+    txa     ; * 2
+    lsr     ; * 1
+    xba     ; * 256
+    lsr     ; * 128
+    add #.loword(queue)+ff6vwf_dma_queue::buffer
+    sta A1T0L + $10*dma_channel
     a8
 
-    lda #^text_tiles
+    lda #^queue
     sta A1B0 + $10*dma_channel
     lda #1
     sta DMAP0 + $10*dma_channel

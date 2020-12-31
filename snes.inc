@@ -221,6 +221,14 @@ L:
     pld
 .endmacro
 
+; New-style function macros
+
+.macro decl_args_nearcall locals_size
+    args = locals_size + .sizeof(nearcall_frame) + 1
+.endmacro
+
+; Old-style function macros
+
 ; A convenience macro to declare direct page locations local to a function.
 .macro begin_locals
     __FRAME_BEGIN__ .set 1

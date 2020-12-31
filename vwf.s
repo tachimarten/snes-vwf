@@ -10,6 +10,7 @@
 .feature c_comments
 
 .include "snes.inc"
+.include "vwf.inc"
 
 .import glyph_images:       far
 .import glyph_widths:       far
@@ -21,14 +22,15 @@
     glyph_canvas        .byte 16    ; chardata[16]
     shadow_buffer       .byte       ; uint8
     bytes_between_tiles .byte       ; uint8
+    tile_buffer         .addr       ; struct vwf_tile_buffer near *
 .endstruct
 
-; farproc chardata near *vwf_render_string(uint8 bytes_between_tiles,
-;                                          chardata far *dest_ptr,
+; farproc chardata near *vwf_render_string(struct vwf_tile_buffer near *buffer,
+;                                          uint8 bytes_between_tiles,
 ;                                          const char far *string_ptr)
 ;
-; Renders a null-terminated ASCII string to the tiles at `dest_ptr`. Returns the address of the end
-; tile (the tile one past the end of the last one we rendered to).
+; Renders a null-terminated ASCII string to the given buffer. Returns the address of the end tile
+; (the tile one past the end of the last one we rendered to).
 .proc vwf_render_string
 begin_locals
     decl_local outgoing_args, 3
@@ -37,8 +39,7 @@ begin_locals
     decl_local glyph_image_ptr, 3           ; const chardata far *
     decl_local renderer, .sizeof(renderer)  ; struct renderer
 begin_args_farcall
-    decl_arg dest_ptr, 3                ; chardata far *
-    decl_arg string_ptr, 3              ; const char far *
+    decl_arg string_ptr, 3                  ; const char far *
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
@@ -50,7 +51,8 @@ begin_args_farcall
 
     ; Create renderer.
     stz z:renderer+renderer::shadow_buffer
-    txa
+    stx z:renderer+renderer::tile_buffer
+    tya
     sta z:renderer+renderer::bytes_between_tiles
 
     ; Clear out our tiles.
@@ -135,13 +137,8 @@ begin_args_farcall
     tdc
     add #renderer
     tax                         ; struct renderer near *renderer_ptr
-    lda dest_ptr
-    sta outgoing_args+0         ; chardata far *dest_ptr
     a8
-    lda dest_ptr+2
-    sta outgoing_args+2         ; dest bank
     jsr _vwf_flush_tile_image
-    stx dest_ptr
 :
 
     ; Next glyph.
@@ -155,39 +152,49 @@ begin_args_farcall
     tdc
     add #renderer
     tax                         ; struct renderer near *renderer_ptr
-    lda dest_ptr
-    sta outgoing_args+0         ; chardata far *dest_ptr
     a8
-    lda dest_ptr+2
-    sta outgoing_args+2
     jsr _vwf_flush_tile_image
-    stx dest_ptr
 :
-
-    ; Return new pointer in X.
-    ldx dest_ptr
 
     leave __FRAME_SIZE__
     rtl
 .endproc
 
-; chardata near *_vwf_flush_tile_image(struct renderer near *renderer_ptr, chardata far *dest_ptr)
+; void _vwf_flush_tile_image(struct renderer near *renderer_ptr)
 ;
 ; Returns the new destination pointer.
 .proc _vwf_flush_tile_image
 begin_locals
     decl_local renderer_ptr, 2          ; struct renderer near *
+    decl_local tile_buffer_ptr, 2       ; struct vwf_tile_buffer near *
     decl_local src_ptr, 2               ; chardata near *
+    decl_local dest_ptr, 3              ; chardata far *
     decl_local last_row_image, 1        ; chardata
     decl_local last_col_image, 1        ; chardata
-begin_args_nearcall
-    decl_arg dest_ptr, 3                ; chardata far *
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
-    ; Save renderer and source pointers.
+    ; Save arguments.
     stx renderer_ptr
     stx src_ptr
+
+    ; Initialize tile buffer pointer.
+    ldy #renderer::tile_buffer
+    a16
+    lda (renderer_ptr),y
+    sta tile_buffer_ptr
+
+    ; Initialize destination pointer.
+    ldy #vwf_tile_buffer::base+0
+    lda (tile_buffer_ptr),y
+    ldy #vwf_tile_buffer::offset
+    clc
+    adc (tile_buffer_ptr),y
+    sta dest_ptr+0              ; Near address.
+    a8
+    ldy #vwf_tile_buffer::base+2
+    lda (tile_buffer_ptr),y
+    sta dest_ptr+2              ; Bank byte.
 
     ; Initialize last row and column image.
     ldy #renderer::shadow_buffer
@@ -257,16 +264,22 @@ begin_args_nearcall
     bra :-
 :
 
-    ; Return the new dest pointer in X.
+    ; Bump destination offset.
+@bump_dest_offset:
     ldy #renderer::bytes_between_tiles
     lda (renderer_ptr),y
     a16
     and #$00ff
     add dest_ptr
-    tax
+    ldy #vwf_tile_buffer::base
+    sec
+    sbc (tile_buffer_ptr),y
+    ldy #vwf_tile_buffer::mask
+    and (tile_buffer_ptr),y
+    ldy #vwf_tile_buffer::offset
+    sta (tile_buffer_ptr),y
     a8
 
     leave __FRAME_SIZE__
     rts
-
 .endproc

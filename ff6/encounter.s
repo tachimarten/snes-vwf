@@ -13,9 +13,9 @@
 .import std_mul8: near
 
 .import ff6vwf_calculate_first_tile_id_simple: near
+.import ff6vwf_dma_queue_init: near
 .import ff6vwf_mp_needed_string: far
 .import ff6vwf_render_string: near
-.import ff6vwf_schedule_text_dma: near
 .import ff6vwf_transcode_string: near
 .import ff6vwf_long_command_names: far
 .import ff6vwf_long_enemy_names: far
@@ -41,34 +41,21 @@ ff6_encounter_enemy_ids          = $7e200d
 ; Encounter BSS
 .org $7f8000
 
-; Current of the stack *in bytes*.
-ff6vwf_encounter_text_dma_stack_size: .res 1
-; Stack of DMA structures. They look like:
-;
-; struct dma {
-;     void vram *dest_vram_addr;    // word address
-;     void near *src_addr;          // our address
-;     uint16 size;                  // number of bytes to be transferred
-; };
-;
-ff6vwf_encounter_text_dma_stack_base: .res FF6VWF_DMA_STRUCT_SIZE * FF6VWF_ENCOUNTER_SLOT_COUNT
 ; ID of the current item slot we're drawing.
 ff6vwf_encounter_current_item_slot: .res 1
 ; What type of item we're drawing.
 ff6vwf_encounter_item_type_to_draw: .res 1
 ; ID of the current skill (Rage, dance, Magitek) slot we're drawing.
 ff6vwf_encounter_current_skill_slot: .res 1
-; Buffer space for the lines of text, ready to be uploaded to VRAM.
-ff6vwf_encounter_text_tiles: .res VWF_TILE_BYTE_SIZE_4BPP * 128
+; The DMA ring buffer.
+ff6vwf_encounter_dma_queue: .tag ff6vwf_dma_queue
 
 ff6vwf_encounter_bss_end:
  
-.export ff6vwf_encounter_text_dma_stack_base
-.export ff6vwf_encounter_text_tiles
-.export ff6vwf_encounter_text_dma_stack_size
 .export ff6vwf_encounter_item_type_to_draw
 .export ff6vwf_encounter_current_item_slot
 .export ff6vwf_encounter_current_skill_slot
+.export ff6vwf_encounter_dma_queue
 .export ff6vwf_encounter_bss_end
 
 .reloc 
@@ -152,8 +139,21 @@ COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TIL
 
 ; farproc void _ff6vwf_encounter_init()
 .proc _ff6vwf_encounter_init
-    lda #0
-    sta f:ff6vwf_encounter_text_dma_stack_size
+.struct locals
+    .org 1
+    outgoing_args .byte 3
+.endstruct
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ldx #.loword(ff6vwf_encounter_dma_queue)
+    stx locals::outgoing_args+0
+    lda #^ff6vwf_encounter_dma_queue
+    sta locals::outgoing_args+2
+    jsr ff6vwf_dma_queue_init
+
+    leave .sizeof(locals)
+
     jsl $c00016         ; original code
     jml $c1102e
 .endproc
@@ -1100,7 +1100,7 @@ begin_locals
     ; Run our generic DMA routine.
     pha
     plb
-    ff6vwf_run_dma ff6vwf_encounter_text_tiles, ff6vwf_encounter_text_dma_stack_base, ff6vwf_encounter_text_dma_stack_size, 7, 245
+    ff6vwf_run_dma ff6vwf_encounter_dma_queue, 7, 245
     tdc
     lda #$7e
     pha

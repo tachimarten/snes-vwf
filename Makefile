@@ -31,13 +31,13 @@ demo.smc:	demo.o vwf.o demo.cfg
 
 stdsnes.o:	snes.inc
 
-vwf.o:	snes.inc ff6/snesconfig.inc
+vwf.o:	snes.inc vwf.inc ff6/snesconfig.inc
 
 ff6/ff6.o:	ff6/ff6.s ff6/ff6.smc
 
 ff6/ff6twue.o:	ff6/ff6twue.s ff6/ff6twue.smc
 
-ff6/ff6vwf.o:	snes.inc ff6/ff6.inc ff6/snesconfig.inc
+ff6/ff6vwf.o:	snes.inc vwf.inc ff6/ff6.inc ff6/snesconfig.inc
 
 $(FF6VWF_OBJS):	snes.inc ff6/ff6.inc ff6/snesconfig.inc
 
