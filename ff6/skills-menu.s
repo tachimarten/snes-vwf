@@ -42,9 +42,11 @@ ESPER_INFO_MENU_STRING_COUNT = 3
 
 SHORT_ESPER_BONUS_NAME_LENGTH = 10
 
-FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_TILE_LOCATION = $4713
-FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_MESSAGE_SIZE = 14
-FF6_MENU_ESPER_BONUS_TILE_LOCATION = $4713
+FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_TILE_LOCATION  = $4713
+FF6_MENU_ESPER_BONUS_AT_LEVEL_UP_MESSAGE_SIZE   = 14
+FF6_MENU_ESPER_BONUS_TILE_LOCATION              = $4713
+
+FF6VWF_SPELL_NAME_TILE_COUNT = 6
 
 ; FF6 globals
 
@@ -415,7 +417,7 @@ begin_locals
     a8
     ldy #18                 ; 8 visible rows plus one off-screen row, 2 columns
     jsr std_mod16_8
-    ldy #5
+    ldy #FF6VWF_SPELL_NAME_TILE_COUNT
     jsr ff6vwf_calculate_first_tile_id_simple
     txy                     ; first tile ID
 
@@ -475,13 +477,13 @@ begin_locals
 
     ; Upload "Needed" too.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+0             ; flags = 2bpp
+    sta outgoing_args+0                 ; flags = 2bpp
     ldy #.loword(ff6vwf_menu_needed_string)
-    sty outgoing_args+1             ; string ptr
+    sty outgoing_args+1                 ; string ptr
     lda #^ff6vwf_menu_needed_string
-    sta outgoing_args+3             ; string ptr bank
-    ldy #6                          ; max_tile_count
-    ldx #FF6VWF_FIRST_TILE + 10     ; first_tile_id
+    sta outgoing_args+3                 ; string ptr bank
+    ldy #FF6VWF_SPELL_NAME_TILE_COUNT   ; max_tile_count
+    ldx #FF6VWF_FIRST_TILE + 10         ; first_tile_id
     jsr ff6vwf_render_string
 
     leave __FRAME_SIZE__
@@ -582,8 +584,7 @@ begin_locals
     decl_local outgoing_args, 4
     decl_local string_ptr, 2
 
-TEXT_LINE_SLOT = 9
-FIRST_TILE_ID = TEXT_LINE_SLOT * 10 + FF6VWF_FIRST_TILE
+FIRST_TILE_ID = 108 + FF6VWF_FIRST_TILE
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
@@ -707,7 +708,7 @@ FIRST_SPELL_ROW = $11
     lsr
     a8
     tax
-    ldy #5
+    ldy #FF6VWF_SPELL_NAME_TILE_COUNT
     jsr ff6vwf_calculate_first_tile_id_simple
     txy
     lda #0
@@ -857,13 +858,13 @@ begin_args_nearcall
 :
 
     ; Render string.
-    sta outgoing_args+0     ; DMA flags
+    sta outgoing_args+0                 ; DMA flags
     ldy string_ptr
-    sty outgoing_args+1     ; string ptr
+    sty outgoing_args+1                 ; string ptr
     lda #^ff6vwf_long_spell_names
-    sta outgoing_args+3     ; string ptr bank
+    sta outgoing_args+3                 ; string ptr bank
     ldx first_tile_id
-    ldy #5                  ; max_tile_count
+    ldy #FF6VWF_SPELL_NAME_TILE_COUNT   ; max_tile_count
     jsr ff6vwf_render_string
 
     ; Commit transaction.
@@ -878,7 +879,7 @@ begin_args_nearcall
 
     ; Draw tiles.
     ldx first_tile_id
-    ldy #5                              ; tile count
+    ldy #FF6VWF_SPELL_NAME_TILE_COUNT   ; tile count
     lda #3
     sta outgoing_args+0                 ; blanks
     lda #1
@@ -1312,10 +1313,10 @@ out:
     ff6_def_charset_string_z "/"
     def_static_text_tiles_z 10, .strlen(" has it!"), -1
 .word $4439
-    def_static_text_tiles_z 20, .strlen("Skill"), -1
+    def_static_text_tiles_z 30, .strlen("Skill"), 2
 .word $4427
-    def_static_text_tiles_z 30, .strlen("Learn.Rate"), -1
-    def_static_text_tiles 40, .strlen("At level up..."), 9
+    def_static_text_tiles_z 32, .strlen("Learn.Rate"), 9
+    def_static_text_tiles 41, .strlen("At level up..."), 9
 
 .segment "PTEXTMENUSKILLSMENUPOSITIONEDTEXTTWUE"    ; $c3f0f0
 
@@ -1378,8 +1379,8 @@ ff6vwf_esper_info_menu_static_text_descriptor:
 ff6vwf_esper_info_menu_labels:
     ff6vwf_def_pointer_array ff6vwf_esper_info_menu_label, ESPER_INFO_MENU_STRING_COUNT
 
-ff6vwf_esper_info_menu_tile_counts: .byte 10, 10, 10
-ff6vwf_esper_info_menu_start_tiles: .byte 20, 30, 40
+ff6vwf_esper_info_menu_tile_counts: .byte 2,  9,  9
+ff6vwf_esper_info_menu_start_tiles: .byte 30, 32, 41
 
 ff6vwf_esper_info_menu_label_0: .asciiz "Skill"
 ff6vwf_esper_info_menu_label_1: .asciiz "Acquisition Rate"

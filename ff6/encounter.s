@@ -1100,7 +1100,7 @@ begin_locals
     ; Run our generic DMA routine.
     pha
     plb
-    ff6vwf_run_dma ff6vwf_encounter_dma_queue, 7, 245
+    ff6vwf_run_dma ff6vwf_encounter_dma_queue, 7, 250
     tdc
     lda #$7e
     pha
