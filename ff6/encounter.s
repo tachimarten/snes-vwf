@@ -256,7 +256,7 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     stz outgoing_args+0                     ; save_tiles_to_draw
     ldx dest_tilemap_offset                 ; dest_tilemap_offset
     jsr _ff6vwf_encounter_draw_blank_enemy_name_tiles
-    ldx dest_tilemap_offset
+    stx dest_tilemap_offset
 
     leave __FRAME_SIZE__
     txy                 ; Put dest_tilemap_offset in Y.
