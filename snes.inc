@@ -109,6 +109,11 @@ RDMPYH   = $4217
     eor #$ff
 .endmacro
 
+.macro neg8
+    not8
+    inc
+.endmacro
+
 .macro not16
     eor #$ffff
 .endmacro
