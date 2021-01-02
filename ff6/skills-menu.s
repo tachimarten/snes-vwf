@@ -1324,7 +1324,7 @@ out:
     def_static_text_tiles_z 10, .strlen(" has it!"), -1
 .word $4439
     def_static_text_tiles_z 30, .strlen("Skill"), 2
-.word $4427
+.word $4425
     def_static_text_tiles_z 32, .strlen("Learn.Rate"), 9
     def_static_text_tiles 41, .strlen("At level up..."), 9
 
