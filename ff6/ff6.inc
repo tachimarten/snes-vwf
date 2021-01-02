@@ -15,8 +15,9 @@
 ; First tile we use for VWF.
 FF6VWF_FIRST_TILE = 8
 
-; List item is a Key Item.
-FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM = $01
+FF6VWF_MENU_LIST_ITEM_TYPE_GENERIC  = 0
+FF6VWF_MENU_LIST_ITEM_TYPE_KEY_ITEM = 1
+FF6VWF_MENU_LIST_ITEM_TYPE_ESPER    = 2
 
 FF6VWF_DMA_SCHEDULE_FLAGS_4BPP  = $01   ; Set if 4bpp. Otherwise, 2bpp.
 FF6VWF_DMA_SCHEDULE_FLAGS_MENU  = $02   ; Set if this is the menu. Otherwise, it's an encounter.

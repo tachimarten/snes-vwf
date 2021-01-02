@@ -132,6 +132,7 @@ FF6_MENU_STATE_ESPERS = $1e
 ; This displays the held Esper in the Skills menu and the Lineup menu.
 .segment "PTEXTMENUDRAWESPERNAMEINSTATUSPANEL"
     tax
+    ldy #108
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
     jmp .loword(ff6_menu_draw_string)
 
@@ -157,8 +158,9 @@ ff6_menu_espers_draw            = $c35509
 ff6_menu_selected_esper = $7e0099
 
     ldx <ff6_menu_selected_esper
+    ldy #50
     jsl _ff6vwf_menu_draw_esper_name_in_info_menu
-    nopx $59d2-$59ba-6
+    nopx 15
 
 .segment "PTEXTMENUDRAWESPERBONUS"          ; $c35a33
 ff6_menu_at_level_up_message = $c35cf7
@@ -545,7 +547,7 @@ begin_locals
     lda #^ff6vwf_long_esper_names
     sta outgoing_args+2
     ldx #FF6_SHORT_ESPER_NAME_LENGTH
-    ldy #0
+    ldy #FF6VWF_MENU_LIST_ITEM_TYPE_ESPER
     jsr ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
@@ -578,15 +580,23 @@ begin_locals
     rtl
 .endproc
 
-; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id)
+; farproc void _ff6vwf_menu_draw_esper_name_in_info_menu(uint8 esper_id, uint8 first_tile_id)
+;
+; First tile ID is relative to `FF6VWF_FIRST_TILE`.
 .proc _ff6vwf_menu_draw_esper_name_in_info_menu
-begin_locals
-    decl_local outgoing_args, 4
-    decl_local string_ptr, 2
+.struct locals
+    .org 1
+    outgoing_args   .byte 4
+    string_ptr      .addr       ; const char *
+    first_tile_id   .byte       ; uint8
+.endstruct
 
-FIRST_TILE_ID = 108 + FF6VWF_FIRST_TILE
+    enter .sizeof(locals), STACK_LIMIT
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+    ; Compute first tile ID.
+    tya
+    add #FF6VWF_FIRST_TILE
+    sta locals::first_tile_id
 
     ; Compute string pointer.
     a16
@@ -595,7 +605,7 @@ FIRST_TILE_ID = 108 + FF6VWF_FIRST_TILE
     asl
     tax
     lda f:ff6vwf_long_esper_names,x
-    sta string_ptr
+    sta locals::string_ptr
     a8
 
     ; Begin transaction.
@@ -603,26 +613,26 @@ FIRST_TILE_ID = 108 + FF6VWF_FIRST_TILE
 
     ; Render string.
     lda #FF6VWF_DMA_SCHEDULE_FLAGS_4BPP | FF6VWF_DMA_SCHEDULE_FLAGS_MENU
-    sta outgoing_args+0     ; flags = 4bpp
-    ldy string_ptr
-    sty outgoing_args+1     ; string ptr
+    sta locals::outgoing_args+0         ; flags = 4bpp
+    ldy locals::string_ptr
+    sty locals::outgoing_args+1         ; string ptr
     lda #^ff6vwf_long_esper_names
-    sta outgoing_args+3     ; string ptr bank
-    ldy #10                 ; max_tile_count
-    ldx #FIRST_TILE_ID
+    sta locals::outgoing_args+3         ; string ptr bank
+    ldy #FF6_SHORT_ESPER_NAME_LENGTH    ; max_tile_count
+    ldx locals::first_tile_id
     jsr ff6vwf_render_string
 
     ; Commit transaction.
     jsr ff6vwf_menu_commit_transaction
 
     ; Draw tiles.
-    ldx #FIRST_TILE_ID
+    ldx locals::first_tile_id
     ldy #FF6_SHORT_ESPER_NAME_LENGTH
-    stz outgoing_args+0                 ; blanks_count
-    stz outgoing_args+1                 ; initial_offset
+    stz locals::outgoing_args+0         ; blanks_count
+    stz locals::outgoing_args+1         ; initial_offset
     jsr ff6vwf_menu_draw_vwf_tiles
 
-    leave __FRAME_SIZE__
+    leave .sizeof(locals)
     rtl
 .endproc
 
@@ -902,7 +912,7 @@ begin_locals
     lda #^ff6vwf_long_enemy_names
     sta outgoing_args+2
     ldx #FF6_SHORT_ENEMY_NAME_LENGTH
-    ldy #0
+    ldy #FF6VWF_MENU_LIST_ITEM_TYPE_GENERIC
     jsr ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__
@@ -984,7 +994,7 @@ begin_locals
     lda #^ff6vwf_long_lore_names
     sta outgoing_args+2
     ldx #FF6_SHORT_LORE_NAME_LENGTH
-    ldy #0
+    ldy #FF6VWF_MENU_LIST_ITEM_TYPE_GENERIC
     jsr ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__

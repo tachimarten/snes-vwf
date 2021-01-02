@@ -286,7 +286,7 @@ begin_locals
     lda #^ff6vwf_long_key_item_names
     sta outgoing_args+2
     ldx #FF6_SHORT_KEY_ITEM_NAME_LENGTH
-    ldy #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
+    ldy #FF6VWF_MENU_LIST_ITEM_TYPE_KEY_ITEM
     jsr ff6vwf_menu_draw_list_item
 
     leave __FRAME_SIZE__

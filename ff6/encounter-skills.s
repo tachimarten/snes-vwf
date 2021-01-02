@@ -376,6 +376,7 @@ ff6_encounter_spell_list = $7e208e
     cpx #$ffff
     beq @out
     lda f:ff6_spell_name_length
+    inc                             ; Account for the spell icon.
     tay
     jsr ff6vwf_encounter_draw_blank_tile_data
     bra @out

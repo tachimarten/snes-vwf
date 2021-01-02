@@ -575,13 +575,13 @@ ff6_menu_allow_sfx_repeat = $7e00ae
 .export ff6vwf_menu_commit_transaction
 
 ; nearproc void ff6vwf_menu_draw_list_item(uint8 short_name_length,
-;                                          uint8 flags,
+;                                          uint8 item_type,
 ;                                          const char near *const far *name_list)
 .proc ff6vwf_menu_draw_list_item
 begin_locals
     decl_local outgoing_args, 6
     decl_local short_name_length, 1
-    decl_local flags, 1
+    decl_local item_type, 1
     decl_local max_tile_count, 1
     decl_local esper_id, 1
     decl_local string_ptr, 2
@@ -591,6 +591,11 @@ begin_locals
 begin_args_nearcall
     decl_arg name_list, 3
 
+.struct draw_list_item_tile_counts
+    max_tile_count  .byte
+    blanks_count    .byte
+.endstruct
+
 ff6_esper_list = $7e9d89
 
     enter __FRAME_SIZE__, STACK_LIMIT
@@ -599,20 +604,17 @@ ff6_esper_list = $7e9d89
     txa
     sta short_name_length
     tya
-    sta flags
+    sta item_type
 
-    ; Compute max tile and blanks count.
-    lda flags
-    and #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
-    bne :+
-    lda #10
-    ldx #0
-    bra @store_max_tile_and_blanks_count
-:   lda #8
-    ldx #4
-@store_max_tile_and_blanks_count:
+    ; Fetch max tile and blanks count.
+    lda #0
+    xba
+    lda item_type
+    asl
+    tax
+    lda f:_ff6vwf_menu_draw_list_item_tile_counts+draw_list_item_tile_counts::max_tile_count,x
     sta max_tile_count
-    txa
+    lda f:_ff6vwf_menu_draw_list_item_tile_counts+draw_list_item_tile_counts::blanks_count,x
     sta blanks_count
 
     ; Look up Esper ID.
@@ -635,9 +637,9 @@ ff6_esper_list = $7e9d89
     a8
 
     ; Compute text line slot.
-    lda flags
-    and #FF6VWF_MENU_DRAW_LIST_ITEM_FLAGS_KEY_ITEM
-    bne :+
+    lda item_type
+    cmp #FF6VWF_MENU_LIST_ITEM_TYPE_KEY_ITEM
+    beq :+
     jsr _ff6vwf_menu_get_text_line_slot_for_scrollable_list
     txa
     bra @store_text_line_slot
@@ -678,6 +680,12 @@ ff6_esper_list = $7e9d89
 
     leave __FRAME_SIZE__
     rts
+
+; Max tile count and blanks count, respectively.
+_ff6vwf_menu_draw_list_item_tile_counts:
+    .byte 10, 0     ; FF6VWF_MENU_LIST_ITEM_TYPE_GENERIC
+    .byte 8,  4     ; FF6VWF_MENU_LIST_ITEM_TYPE_KEY_ITEM
+    .byte 8,  2     ; FF6VWF_MENU_LIST_ITEM_TYPE_ESPER
 .endproc
 
 .export ff6vwf_menu_draw_list_item
@@ -733,11 +741,11 @@ ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0
 @not_lineup:
     ldx #0
 :   a16
-    cmp f:@party_member_icon_positions,x
+    cmp f:@class_name_start_tiles,x
     a8
     beq @found_tile_id
     addix 3
-    cpx #@party_member_icon_positions_end - @party_member_icon_positions
+    cpx #@class_name_start_tiles_end - @class_name_start_tiles
     bne :-
 
     ; Default to the first valid tile ID.
@@ -746,7 +754,7 @@ ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0
     bra @finished_calculating_tile_id
 
 @found_tile_id:
-    lda f:@party_member_icon_positions+2,x
+    lda f:@class_name_start_tiles+2,x
     add #FF6VWF_FIRST_TILE
     sta first_tile_id
 
@@ -789,7 +797,7 @@ ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0
     leave __FRAME_SIZE__
     rtl
 
-@party_member_icon_positions:
+@class_name_start_tiles:
     .word $1578     ; Main menu, party member 0
         .byte 0*10
     .word $4578     ; Main menu, party member 1
@@ -799,8 +807,8 @@ ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0
     .word $a578     ; Main menu, party member 3
         .byte 3*10
     .word $4f50     ; Espers menu
-        .byte $68
-@party_member_icon_positions_end:
+        .byte 116
+@class_name_start_tiles_end:
 .endproc
 
 ; nearproc void ff6vwf_menu_render_static_strings(uint8 tile_offset,
