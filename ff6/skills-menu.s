@@ -110,7 +110,7 @@ FF6_MENU_STATE_ESPERS = $1e
     stz <ff6_menu_list_scroll                           ; List scroll: 0
     jsr .loword(ff6_menu_create_scrollbar)              ; Create scrollbar
     a16                                                 ; 16-bit A
-    lda #$0800                                          ; V-Speed: 8 px
+    lda #$0500                                          ; V-Speed: 5 px
     sta f:ff6_menu_vertical_movement_speed,x            ; Set scrollbar's
     lda #104                                            ; Y: 104
     sta f:ff6_menu_horizontal_movement_speed,x          ; Set scrollbar's
@@ -522,6 +522,12 @@ begin_locals
 .endproc
 
 .proc _ff6vwf_menu_setup_espers_menu
+    a16
+    lda #$0500                                          ; V-Speed: 5 px
+    sta f:ff6_menu_vertical_movement_speed,x            ; Set scrollbar's
+    lda #104                                            ; Y: 104
+    sta f:ff6_menu_horizontal_movement_speed,x          ; Set scrollbar's
+    a8
     lda #18                                             ; Top row: Midgardsormr (Terrato)
     sta f:ff6_menu_max_page_scroll_pos                  ; Set scroll limit
     lda #8                                              ; Onscreen rows: 8
