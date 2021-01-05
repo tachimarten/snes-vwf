@@ -466,7 +466,7 @@ ff6_enemy_name_table  = $cfc050
     a8
 
     a16
-    inc display_list_ptr        ; Go to the next byte.
+    inc display_list_ptr        ; Go to the next bite.
     a8
     lda (display_list_ptr)
     sta enemy_index
@@ -1124,6 +1124,7 @@ begin_locals
 
 .export ff6vwf_encounter_draw_blank_tile_data
 
+; nearproc uint8 _ff6vwf_encounter_get_vanish_animation_row()
 .proc _ff6vwf_encounter_get_vanish_animation_row
 .struct locals
     .org 1
@@ -1252,8 +1253,8 @@ FF6_STATUS_EFFECT_VANISH = $10
     src_ptr_bp0         .faraddr    ; const chardata *
     src_ptr_bp1         .faraddr    ; const chardata *
     tile_row            .byte       ; uint8
-    first_tile_row      .byte       ; uint8
-    vanish_row          .byte       ; uint8
+    first_tile_row      .word       ; uint16
+    vanish_row          .word       ; uint16
 .endstruct
 
 ff6_sprite_frame_offset     = $7e0036
@@ -1270,19 +1271,18 @@ ff6_pc_sprite_src_addrs     = $c2e422
 
     ; Get row above which we draw "Vanished" sprites.
     jsr _ff6vwf_encounter_get_vanish_animation_row
+    a16
     txa
+    and #$00ff
     sta locals::vanish_row
 
     ; Fetch sprite index.
-    a16
     lda f:ff6_sprite_index
     and #$00ff
     asl
     tax
-    a8
 
     ; Compute destination addresses.
-    a16
     lda f:ff6_pc_sprite_dest_addrs,x
     sta locals::base_dest_addr
 
@@ -1309,15 +1309,12 @@ ff6_pc_sprite_src_addrs     = $c2e422
     asl
     tax
     asli 2
-    a8
     sta locals::first_tile_row
-    a16
     lda f:@bitplane_offsets,x
     add locals::base_dest_addr
     sta locals::dest_ptr_bp0+0
     add #$10
     sta locals::dest_ptr_bp1+0
-    a8
 
     ; Copy the two tiles that make up this row.
     ldx #2
@@ -1339,15 +1336,12 @@ ff6_pc_sprite_src_addrs     = $c2e422
     lda [locals::src_ptr_bp1],y
     sta [locals::dest_ptr_bp1],y
     iny
-    lda [locals::src_ptr_bp0],y
-    sta [locals::dest_ptr_bp0],y
-    lda [locals::src_ptr_bp1],y
-    sta [locals::dest_ptr_bp1],y
     iny
     bra @next_row
 
     ; Draw a tile row of a Vanished character.
 @vanish:
+    a8
     lda [locals::src_ptr_bp1],y     ; bitplane 2
     iny
     ora [locals::src_ptr_bp0],y     ; bitplane 1
@@ -1356,18 +1350,19 @@ ff6_pc_sprite_src_addrs     = $c2e422
     dey
     and [locals::src_ptr_bp0],y
     sta [locals::dest_ptr_bp0],y
+    a16
     lda #0
     sta [locals::dest_ptr_bp1],y
     iny
+    a8
     sta [locals::dest_ptr_bp0],y
-    sta [locals::dest_ptr_bp1],y
     iny
+    a16
 
 @next_row:
     cpy #$10
     bne @copy_row
 
-    a16
     lda locals::src_ptr_bp0
     add #$20
     sta locals::src_ptr_bp0
@@ -1378,11 +1373,11 @@ ff6_pc_sprite_src_addrs     = $c2e422
     sta locals::dest_ptr_bp0
     add #$10
     sta locals::dest_ptr_bp1
-    a8
 
     dex
     bne @copy_tile
 
+    a8
     inc locals::tile_row
     lda locals::tile_row
     cmp #4
