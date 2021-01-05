@@ -60,7 +60,7 @@ ff6_menu_page_width                 = $7e005b
 ff6_menu_max_page_scroll_pos        = $7e005c
 ff6_menu_bg1_write_row              = $7e00e6
 ff6_menu_dest_ptr                   = $7e00eb
-ff6_menu_horizontal_movement_speed  = $7e34ca
+ff6_menu_scrollbar_y_offset         = $7e34ca
 ff6_menu_vertical_movement_speed    = $7e354a
 ff6_menu_list                       = $7e9d89
 
@@ -113,7 +113,7 @@ FF6_MENU_STATE_ESPERS = $1e
     lda #$0500                                          ; V-Speed: 5 px
     sta f:ff6_menu_vertical_movement_speed,x            ; Set scrollbar's
     lda #104                                            ; Y: 104
-    sta f:ff6_menu_horizontal_movement_speed,x          ; Set scrollbar's
+    sta f:ff6_menu_scrollbar_y_offset,x                 ; Set scrollbar's
     a8                                                  ; 8-bit A
     jsr .loword(ff6_menu_espers_load_navigation_data)   ; Load navig data
     jsr .loword(ff6_menu_espers_relocate_cursor)        ; Relocate cursor
@@ -198,10 +198,10 @@ FF6_MENU_STATE_RAGE = $1d
     stz <ff6_menu_list_scroll                       ; List scroll: 0
     jsr .loword(ff6_menu_create_scrollbar)          ; Create scrollbar
     a16
-    lda #$0066                                      ; V-Speed: 0.4 px
+    lda #$0055                                      ; V-Speed
     sta f:ff6_menu_vertical_movement_speed,x        ; Set scrollbar's
-    lda #$0068                                      ; Y: 104
-    sta f:ff6_menu_horizontal_movement_speed,x      ; Set scrollbar's
+    lda #104                                        ; Y: 104
+    sta f:ff6_menu_scrollbar_y_offset,x             ; Set scrollbar's
     a8
     jsr .loword(ff6_menu_rage_load_navigation_data) ; Load navig data
     jsr .loword(ff6_menu_rage_relocate_cursor)      ; Relocate cursor
@@ -526,7 +526,7 @@ begin_locals
     lda #$0500                                          ; V-Speed: 5 px
     sta f:ff6_menu_vertical_movement_speed,x            ; Set scrollbar's
     lda #104                                            ; Y: 104
-    sta f:ff6_menu_horizontal_movement_speed,x          ; Set scrollbar's
+    sta f:ff6_menu_scrollbar_y_offset,x          ; Set scrollbar's
     a8
     lda #18                                             ; Top row: Midgardsormr (Terrato)
     sta f:ff6_menu_max_page_scroll_pos                  ; Set scroll limit
