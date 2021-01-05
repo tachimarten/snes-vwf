@@ -12,6 +12,7 @@
 
 .import std_memcpy: near
 .import std_mod16_8: near
+.import std_mul16_8: near
 
 .import ff6vwf_calculate_first_tile_id_simple:  near
 .import ff6vwf_dma_queue_get_free_blocks:       near
@@ -99,8 +100,12 @@ ff6_menu_draw_pc_name:
 .segment "PTEXTMENUDRAWMAINMENU"        ; $c33221
     jsl _ff6vwf_menu_draw_main_menu
 
-.segment "PTEXTMENUDRAWCLASSNAME"           ; $c3f0a6
+.segment "PTEXTMENUDRAWCLASSNAME"       ; $c3f0a6
     jsl _ff6vwf_menu_draw_class_name
+
+.segment "PTEXTMENUSUSTAINSCROLLBAR"    ; $c30975
+    jsl _ff6vwf_menu_draw_scrollbar
+    jmp $c309bd
 
 ; The "refresh screen" routine for the FF6 menu NMI/VBLANK handler. We patch it to upload our text
 ; if needed.
@@ -809,6 +814,48 @@ ff6_icon_position    = $7e00e7  ; $1578, $4578, $7578, $a578 for party members 0
     .word $4f50     ; Espers menu
         .byte 116
 @class_name_start_tiles_end:
+.endproc
+
+; farproc void _ff6vwf_menu_draw_scrollbar(uint16 animation_index)
+;
+; A reimplementation of FF6's scrollbar update routine that uses the CPU unsigned multiplication
+; registers instead of the signed PPU Mode 7 registers, which handles the Item and Rage lists
+; straightforwardly.
+.proc _ff6vwf_menu_draw_scrollbar
+.struct locals
+    .org 1
+    animation_index .word
+.endstruct
+
+ff6_menu_scrollbar_y_position_result    = $7e344a
+
+    enter .sizeof(locals), STACK_LIMIT
+
+    ; Save argument.
+    stx locals::animation_index
+
+    lda f:ff6_menu_list_scroll
+    tay
+    a16
+    lda f:ff6_menu_vertical_movement_speed,x
+    tax
+    a8
+    jsr std_mul16_8
+
+    ; Divide by 256.
+    a16
+    txa
+    and #$ff00
+    xba
+
+    ldx locals::animation_index
+    clc
+    adc f:ff6_menu_scrollbar_y_offset,x
+    sta ff6_menu_scrollbar_y_position_result,x  ; Set bar's Y.
+    a8
+
+    leave .sizeof(locals)
+    rtl
 .endproc
 
 ; nearproc void ff6vwf_menu_render_static_strings(uint8 tile_offset,

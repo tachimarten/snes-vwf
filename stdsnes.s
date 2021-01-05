@@ -113,7 +113,7 @@ begin_args_nearcall
 
 .export std_mul8
 
-; nearproc uint16 _ff6vwf_mul16_8(uint16 a, uint8 b)
+; nearproc uint16 std_mul16_8(uint16 a, uint8 b)
 ;   hi(BC)
 ;   A         B
 ; x           C

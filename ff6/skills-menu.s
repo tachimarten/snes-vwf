@@ -50,19 +50,16 @@ FF6VWF_SPELL_NAME_TILE_COUNT = 6
 
 ; FF6 globals
 
-ff6_menu_null                       = $7e0000
-ff6_menu_current_state              = $7e0026
-ff6_menu_bg2_hscroll                = $7e0039
-ff6_menu_bg3_hscroll                = $7e003d
-ff6_menu_list_scroll                = $7e004a
-ff6_menu_page_height                = $7e005a
-ff6_menu_page_width                 = $7e005b
-ff6_menu_max_page_scroll_pos        = $7e005c
-ff6_menu_bg1_write_row              = $7e00e6
-ff6_menu_dest_ptr                   = $7e00eb
-ff6_menu_scrollbar_y_offset         = $7e34ca
-ff6_menu_vertical_movement_speed    = $7e354a
-ff6_menu_list                       = $7e9d89
+ff6_menu_null                   = $7e0000
+ff6_menu_current_state          = $7e0026
+ff6_menu_bg2_hscroll            = $7e0039
+ff6_menu_bg3_hscroll            = $7e003d
+ff6_menu_page_height            = $7e005a
+ff6_menu_page_width             = $7e005b
+ff6_menu_max_page_scroll_pos    = $7e005c
+ff6_menu_bg1_write_row          = $7e00e6
+ff6_menu_dest_ptr               = $7e00eb
+ff6_menu_list                   = $7e9d89
 
 ; FF6 functions
 
@@ -198,7 +195,7 @@ FF6_MENU_STATE_RAGE = $1d
     stz <ff6_menu_list_scroll                       ; List scroll: 0
     jsr .loword(ff6_menu_create_scrollbar)          ; Create scrollbar
     a16
-    lda #$0055                                      ; V-Speed
+    lda #$0064                                      ; V-Speed
     sta f:ff6_menu_vertical_movement_speed,x        ; Set scrollbar's
     lda #104                                        ; Y: 104
     sta f:ff6_menu_scrollbar_y_offset,x             ; Set scrollbar's

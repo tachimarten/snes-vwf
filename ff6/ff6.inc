@@ -75,15 +75,18 @@ buffer      .byte FF6VWF_SLOT_COUNT * FF6VWF_BLOCK_SIZE
 ff6_encounter_active_character      = $7e62ca
 ff6_encounter_current_menu_state    = $7e7bf0
 
-ff6_menu_bg_attrs               = $7e0029
-ff6_menu_queued_hdma            = $7e0043
-ff6_menu_actor_address          = $7e0067
-ff6_menu_list_slot              = $7e00e5
-ff6_menu_src_ptr                = $7e00e7
-ff6_menu_bg1_data               = $7e3849
-ff6_menu_bg3_data               = $7e7849
-ff6_menu_positioned_text_ptr    = $7e9e89
-ff6_menu_string_buffer          = $7e9e8b
+ff6_menu_bg_attrs                   = $7e0029
+ff6_menu_queued_hdma                = $7e0043
+ff6_menu_list_scroll                = $7e004a
+ff6_menu_actor_address              = $7e0067
+ff6_menu_list_slot                  = $7e00e5
+ff6_menu_src_ptr                    = $7e00e7
+ff6_menu_scrollbar_y_offset         = $7e34ca
+ff6_menu_vertical_movement_speed    = $7e354a
+ff6_menu_bg1_data                   = $7e3849
+ff6_menu_bg3_data                   = $7e7849
+ff6_menu_positioned_text_ptr        = $7e9e89
+ff6_menu_string_buffer              = $7e9e8b
 
 ff6_short_item_name_length      = $c3900e
 ff6_short_item_names            = $d2b300
