@@ -223,8 +223,12 @@ begin_locals
     decl_local tiles_to_draw, 1             ; uint8
     decl_local current_tile_index, 1        ; uint8
 
-display_list_ptr          = $7e0048
-first_command_ptr         = $7e56d9     ; address of first command in the display list
+display_list_ptr            = $7e0048
+first_command_ptr           = $7e56d9     ; address of first command in the display list
+ff6_menu_cursor_state       = $7e7bc2
+ff6_menu_cursor_state_queue = $7e7bc3
+
+LAST_COMMAND_CURSOR_STATE = 5
 
     enter __FRAME_SIZE__, STACK_LIMIT
 
@@ -246,19 +250,6 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     sta f:display_list_ptr
     a8
 
-    ; Render command.
-    ldx command_slot
-    jsr _ff6vwf_encounter_fetch_and_render_command_name
-
-    ; Was there a command (as opposed to an empty slot)?
-    cpx #0
-    bne @got_a_command
-
-    ; Fill with blanks.
-    ldy #FF6_SHORT_COMMAND_NAME_LENGTH+1    ; tiles_to_draw
-    bra @draw_blanks
-
-@got_a_command:
     ; Calculate first tile index.
     ldx command_slot
     ldy #COMMAND_TILE_COUNT
@@ -267,7 +258,38 @@ first_command_ptr         = $7e56d9     ; address of first command in the displa
     add #COMMAND_FIRST_TILE
     sta current_tile_index
 
+    ; Fetch command ID.
+    ldx command_slot
+    jsr _ff6vwf_encounter_fetch_command_id
+
+    ; Did we get a command (as opposed to an empty slot)?
+    txa
+    cmp #$ff
+    bne @maybe_render_command
+    ldy #FF6_SHORT_COMMAND_NAME_LENGTH+1    ; tiles_to_draw
+    bra @draw_blanks
+
+    ; If we're not in a valid cursor state to draw a command, then don't render the string, but do
+    ; draw the tiles.
+    ;
+    ; This is an uncommon situation, but it can arise if, for instance, the player opens Gau's Rage
+    ; menu at the very beginning of a preemptive encounter before the "Preemptive attack" message
+    ; appears. In this case, FF6 will call this function to draw the commands *behind* the Rage
+    ; window that just opened. We must not upload the text of the commands in this case, or it will
+    ; overwrite the list of Rages. We do need to draw the tiles, however, so that the text of the
+    ; commands will appear when the player closes the Rage submenu and
+    ; `_ff6vwf_encounter_reupload_all_command_names()` is invoked.
+@maybe_render_command:
+    lda f:ff6_menu_cursor_state
+    cmp #LAST_COMMAND_CURSOR_STATE + 1
+    bge @draw_tiles
+
+    ; Render command, if the menu cursor state queue is clear.
+    ldy command_slot
+    jsr _ff6vwf_encounter_render_command_name
+
     ; Draw tiles.
+@draw_tiles:
     lda #FF6_SHORT_COMMAND_NAME_LENGTH - 1
     sta tiles_to_draw
     a16
@@ -337,19 +359,25 @@ MENU_STATE_DEFEND_SUSTAIN = $19
     rtl
 .endproc
 
-; nearproc bool _ff6vwf_encounter_fetch_and_render_command_name(uint8 command_slot)
-.proc _ff6vwf_encounter_fetch_and_render_command_name
-begin_locals
-    decl_local command_slot, 1              ; uint8
-    decl_local text_line_slot, 1            ; uint8
-    decl_local command_id, 1                ; uint8
+; nearproc uint8 _ff6vwf_encounter_fetch_command_id(uint8 command_slot)
+;
+; Returns 0xff for no command.
+.proc _ff6vwf_encounter_fetch_command_id
+.struct locals
+    .org 1
+    command_slot    .byte
+    command_slot_x3 .byte
+.endstruct
 
-character_battle_commands = $7e202e
+ff6_character_battle_commands = $7e202e
 
-    enter __FRAME_SIZE__, STACK_LIMIT
+    enter .sizeof(locals), STACK_LIMIT
 
     txa
-    sta command_slot
+    sta locals::command_slot
+    asl
+    add locals::command_slot
+    sta locals::command_slot_x3
 
     ; Look up command ID.
     ;
@@ -361,16 +389,31 @@ character_battle_commands = $7e202e
     tax
     ldy #12
     jsr std_mul8
+    lda #0
+    xba
     txa
-    add command_slot
-    add command_slot
-    add command_slot
-    a16
-    and #$00ff
+    add locals::command_slot_x3
     tax
-    a8
-    lda f:character_battle_commands,x
-    sta command_id
+    lda f:ff6_character_battle_commands,x
+    tax
+
+    leave .sizeof(locals)
+    rts
+.endproc
+
+; nearproc bool _ff6vwf_encounter_fetch_and_render_command_name(uint8 command_slot)
+.proc _ff6vwf_encounter_fetch_and_render_command_name
+begin_locals
+    decl_local command_slot, 1              ; uint8
+    decl_local command_id, 1                ; uint8
+
+    enter __FRAME_SIZE__, STACK_LIMIT
+
+    txa
+    sta command_slot
+
+    jsr _ff6vwf_encounter_fetch_command_id
+    txa
 
     ; If empty, don't display it.
     cmp #$ff
