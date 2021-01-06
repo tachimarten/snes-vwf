@@ -68,8 +68,8 @@ ff6vwf_encounter_bss_end:
 ; Final Fantasy 6 encounter patches
 
 ; Encounter setup. We patch it to initialize our DMA stack.
-.segment "PTEXTENCOUNTERINIT"
-    jml _ff6vwf_encounter_init
+.segment "PTEXTENCOUNTERINIT"                   ; $c1102a
+    jsl _ff6vwf_encounter_init
 
 .segment "PTEXTENCOUNTERUPLOADBG1CHARDATA"      ; $c140fa
     jsl _ff6vwf_encounter_upload_bg1_char_data
@@ -185,9 +185,7 @@ COMMAND_DEFEND_START_TILE = COMMAND_FIRST_TILE + COMMAND_SLOT_DEFEND*COMMAND_TIL
     jsr ff6vwf_dma_queue_init
 
     leave .sizeof(locals)
-
-    jsl $c00016         ; original code
-    jml $c1102e
+    jml $c00015     ; Original setup function
 .endproc
 
 ; farproc void _ff6vwf_encounter_upload_bg1_char_data()
